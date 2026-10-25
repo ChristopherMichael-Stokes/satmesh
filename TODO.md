@@ -1,5 +1,11 @@
 # TODO
 
+## Next
+
+- [ ] Esri-to-EA offset survey over six more England boxes, then the correction design (E2);
+      see `agent-docs/status.md`, Where to resume
+- [ ] E4 research survey before any height-recovery trial
+
 ## Scaffold
 
 - [x] Root config copied from xfeat-rt (prek, ruff, rumdl, typos, bake, checkmake, Makefile,
@@ -46,7 +52,7 @@
       count; confirm the glTF roll pose, `elevation` datum and levels in a running Gazebo
 - [ ] F5c DTM fetch for parents past about 6 km (WCS request size untested beyond 6000 x 6000 px);
       area-averaged instead of point-sampled DEM for coarse parents
-- [ ] F6 Evaluation harness: DEM error against EA lidar, texture against EA 10 cm aerial,
+- [x] F6 Evaluation harness: DEM error against EA lidar, texture against EA 10 cm aerial,
       consistency check
 
 ## Experiments
@@ -58,15 +64,16 @@
 - [ ] E3 SwinIR/HAT x2 on tiles past native depth, gated by the consistency check
 - [ ] E4 (A) Continuous high-resolution height from low-resolution DEMs: PixTransform per tile,
       DADA retrained on lidar and imagery pairs; edge-leakage check; scored against lidar
+      Research first (owner, 2026-10-25): a proper survey of the best models and techniques for
+      height recovery, ML and classical, before any trial, so the best candidates are tried; the E8
+      survey covers guided super-resolution only and found no method tested at our scale
 - [ ] E5 Real-ESRGAN fine-tuned on in-domain pairs (only if E3 shows a gap)
 - [ ] E6 (B) Multi-capture super-resolution: registration accuracy first, then classical
       register-and-merge baseline, then HighRes-net / Deep Burst SR; Wayback and other-source
       captures
 - [ ] E7 Monocular height as a high-frequency detail layer for E4
-- [ ] E8 Lidar surface refinement: the 1 m DSM's crowns and roof edges are lost, stair-stepped or
-      noisy depending on how it is meshed (F6 checkpoint 4). Owner notes there is prior art and has
-      intuition on techniques, including models; survey the prior art first, then score against the
-      F6 height and camera-visibility checks. Cover with E4 and E7
+- [x] E8 Lidar surface refinement: survey, node placement, raw-point TIN and roof planes tried; the
+      current bilinear 0.5 m mesh stays (owner judged by eye), see `agent-docs/e8-results.md`
 
 ## Open
 

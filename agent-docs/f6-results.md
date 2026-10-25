@@ -263,3 +263,101 @@ techniques, including models, so the survey comes before any method.
 
 The height scores need a smoothness measure (error between pixel centres, or slope noise on open
 ground) before they can rank meshes the way the eye does; not yet built.
+
+## Checkpoint 5, part 1: facet smoothness score (2026-10-25)
+
+`smoothness.py` in `satmesh-eval`. Prior-art survey by a research subagent (demcompare docs and
+Mescheder et al. 2019 opened; Hengl et al. 2003, Váša and Rus 2012, Lavoué 2011 not opened).
+
+### Conclusions
+
+- A 3 x 3 Horn slope on the 0.5 m node grid spans 1 m and recovers the right mean slope on a
+  nearest-pixel staircase, which is why raster height scores missed the terracing. Facet normals
+  at centroids, which fall between pixel centres, do not.
+- Ranking on Upper Aire (500 m box, open ground, area-weighted) puts nearest 0.5 m last on all
+  three scores, as the eye did `[live]`:
+
+| Store | Normal error median, p90 deg | Flat facets on slope over 5 deg | Grid-aligned aspect excess |
+| --- | --- | --- | --- |
+| Bilinear 1 m (`store_dsm`) | 1.69, 16.7 | 5.9 % | 0.003 |
+| Bilinear 0.5 m (`store_bl05`) | 1.66, 17.3 | 4.9 % | 0.004 |
+| Hybrid, smooth ground, nearest raised | 1.66, 15.9 | 5.6 % | 0.018 |
+| Nearest 1 m (`store_nn1`) | 1.84, 18.2 | 5.3 % | 0.008 |
+| Nearest 0.5 m (`store_ua_nn`) | 2.91, 22.8 | 7.9 % | 0.112 |
+
+- The aspect excess separates the staircase most clearly (28 times the bilinear value). The normal
+  error median separates it by 1.8 times. Bilinear 1 m and 0.5 m are indistinguishable on open
+  ground, as the eye also found little between them there.
+- Raised-object normal error (median 35 to 62 degrees, p90 above 105) compares a mesh with a 1 m
+  Horn normal that smears every crown and wall; it ranks voxel crowns worst (hybrid and nearest
+  62 against 35 to 42) but its absolute values mean little.
+
+### Not checked
+
+- Agreement with the eye beyond the owner's one Blender comparison: the survey's validation
+  protocol (blind paired comparisons on hillshades, rank correlation) has not been run, so the
+  ranking above is one ordering, not a validated correlation.
+- Store sizes differ from the current pipeline for `store_bl05`, `store_dsm`, `store_nn1`
+  (built by scratch scripts before commit f759946).
+- Thresholds (flat 0.5 degrees, sloped 5 degrees, aspect tolerance 2 degrees, open ground under
+  0.5 m) are tunables set by reasoning, not measurement.
+
+## Checkpoint 5, part 2: `satmesh eval` (2026-10-25)
+
+- `satmesh eval heights|smoothness|visibility --store DIR --bbox W S E N` and
+  `satmesh eval offset --aerial TIF --bbox ... --zoom Z` replace the scratch scripts
+  (`live_score`, `live_vis`, `live_offset`). Logic is in `satmesh_eval/report.py`; the CLI only
+  parses options. `make eval-slice` builds a 100 m Upper Aire store and runs the three store checks.
+- Exercised `[live]`: the slice build and all three checks run end to end from the cache (heights
+  NMAD 0.032 m on open ground over 8,071 pixels; the slice holds 29 raised pixels, so the
+  raised-point visibility reads n/a). `eval offset` on the Upper Aire 1 km box reproduces the
+  recorded east -0.02 m and north +0.76 m, 143 of 900 windows.
+- A box with no reference-visible raised points or no pixel hits prints n/a instead of failing.
+- Not covered by tests: the commands need lidar and imagery (network or cache); only the group
+  help is tested.
+
+## Checkpoint 5, part 3: texture detail spectrum (component F) (2026-10-25)
+
+`spectrum.py`, `satmesh eval texture --aerial TIF --bbox ... --zoom Z`. Method is S6's: each image
+cut into non-overlapping 64 m windows at its own native pixel size, Hann taper, mean removed,
+tapered-FFT power averaged by ground frequency band (cycles/m), each spectrum divided by its mean
+power in 0.05 to 0.25 cycles/m. Windows with luma standard deviation under 8 and windows within
+half a window diagonal of a raised object (DSM 2 m or more over the DTM) are dropped. Bands past
+an image's Nyquist (half a cycle per ground pixel) are NaN.
+
+### Results `[live]` (Esri z19 over EA 10 cm)
+
+| Band cycles/m | S6 (300 m crop) | Upper Aire 1 km | Ferrybridge 1 km |
+| --- | --- | --- | --- |
+| 0.25 to 0.5 | 0.51 | 0.53 | 0.27 |
+| 0.5 to 1.0 | 0.31 | 0.33 | 0.28 |
+| 1.0 to 1.5 | 0.46 | 0.47 | 0.34 |
+| 1.5 to 2.85 | 0.46 | 0.29 | 0.22 |
+| 2.85 to 5.0 | EA only | EA only | EA only |
+
+- Upper Aire reproduces S6 in the first three bands to within 0.02. The fourth band differs
+  (0.29 against 0.46); the boxes differ (300 m against 1 km, masked here) and the cause is not
+  isolated.
+- Ferrybridge has less Esri detail relative to EA at every band, in a scene of roofs and roads.
+- Window counts differ between the two images (Upper Aire 17 and 18, Ferrybridge 16 and 31)
+  because each is tiled from its own raster origin; the windows are not matched pairs.
+- Part of every gap is date and scene change (2020 against 2022 to 2025), not resolution.
+- Tests: Gaussian blur of white noise against its transfer function exp(-4 pi^2 sigma^2 f^2)
+  within 5 %; bands past Nyquist NaN; identical windows give 1; window tiling and exclusion.
+
+## Checkpoint 5, part 4: consistency (component G) (2026-10-25)
+
+`consistency.py`: `consistency(enhanced, source)` reduces the enhanced image to the source grid by
+area averaging (`cv2.INTER_AREA`) and returns the mean absolute difference (0 to 255 scale), the
+mean spectral angle between RGB vectors (degrees) and the phase-correlation shift in source pixels.
+It is a library function; nothing produces an enhanced texture yet, so no command calls it
+(E3 will).
+
+- Tests: replicated source gives 0; detail averaging to zero inside each block gives 0; a constant
+  +6 gives 6.0; a shift of 8 by 4 enhanced pixels at scale 4 gives 2.0 east and 1.0 north source
+  pixels within 0.1; a non-multiple size raises. The shift tolerance is the observed error on a
+  non-periodic image, 10 times the 0.01 px of the offset tests.
+- Throwaway on Upper Aire Esri pixels `[live]`: bicubic x2 gives 0.24 difference and 0.08 degrees
+  (consistent); an unsharp mask with gain 8 gives 11.4 and 4.7 degrees; rolling the x2 image by 5
+  and 3 pixels gives 2.5 east and 1.5 north source pixels, exact.
+- Aybar et al. (2024) was not opened; the metrics here are plain definitions, not theirs.

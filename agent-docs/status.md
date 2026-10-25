@@ -23,12 +23,26 @@ with their reasons, open risks. Detail per feature lives in the plan and results
 | 0 Scaffold | Done |
 | 1 Spikes | S1, S5, S6 done. Open: S3, S4; S2, S2b, S7 on demand |
 | 2 Baseline pipeline | F1 to F5a done for Great Britain (DSM visual mesh, DTM ground grid). Open: F2a, F2b, F5b Gazebo collision, F5c large-area DTM |
-| 3 Evaluation harness F6 | Approved; checkpoints 1 to 4 of 5 done (`f6-results.md`): height scores, pipeline check, EA aerial slice, Esri-to-EA offset, relief dependence, drape render, store height error, camera visibility |
-| 4 Classical enhancement E1, E2 | Not started |
-| 5 ML experiments E3 to E7 | Not started; owner priorities are E4 (continuous height) and E6 (multi-capture SR) |
+| 3 Evaluation harness F6 | Done (`f6-results.md`): height, smoothness, camera-visibility and held-out-point scores; Esri-to-EA offset and texture-detail spectrum; consistency function (library only); all behind `satmesh eval` |
+| 4 Classical enhancement E1, E2 | Not started. E2 begins with the Esri-to-EA offset survey below |
+| 5 ML experiments E3 to E7 | Not started. E8 (lidar surface refinement) closed without a change. E4 needs a proper survey of models and techniques before any trial; owner priorities are E4 and E6 |
 
-Next: F6 checkpoint 5 (texture spectrum, consistency, command); F5b before any Gazebo run, since
-collision still uses the visual mesh.
+## Where to resume
+
+1. Esri-to-EA offset: two sites measured (north +0.76 and +0.99 m, east -0.02 and -0.34 m). A
+   survey of six more 1 km boxes across England was started and stopped by the owner before any
+   site finished; nothing was kept. It settles whether the offset is constant, regional or per
+   tile, which decides the correction design. Brief: measure with `satmesh eval offset`, EA 10 cm
+   aerial from the survey API, Esri at its native zoom, 500 m slice first, report to
+   `offset-survey.md`.
+2. E4 research survey (see `TODO.md`), then the first height-recovery trial: degrade the EA DSM and
+   score recovery against the 1 m original.
+3. F2a source registry, once E4 shows what the fallback chain needs.
+4. F7 real-photo localisation, needed before v1; it needs owner-supplied photographs with known poses.
+5. F5b Gazebo collision, last, per the owner; collision uses the visual mesh until then.
+
+Judge meshes by eye: scores against the DSM did not predict the owner's ranking in E8 (see the
+decision log). Show textured renders from fixed camera views before proposing a geometry change.
 
 ## Decisions
 
@@ -54,11 +68,13 @@ collision still uses the visual mesh.
 | 2026-10-25 | Real-photo localisation test (F7) out of F6 but required before v1 release | Owner decision 5; needs photographs with known poses |
 | 2026-10-25 | Ground grid stored as a per-node GeoTIFF (EPSG:3857, one pixel per grid node), not a ground mesh | F5b needs the DTM without refetching; a raster is readable by GIS and by the F6 scorer, and the decimation choices stay open |
 | 2026-10-25 | DSM used as served, not clamped to the DTM | It sits below the DTM at 5 % of pixels by up to 0.33 m; clamping would hide a survey-epoch disagreement F6 should measure |
+| 2026-10-25 | Keep the bilinear 0.5 m DSM sampling; E8 closed without a geometry change | Node-aligned bilinear, raw-point Delaunay and fitted roof planes scored better against the DSM but the owner judged the current mesh best by eye in textured and shaded renders; scores against the DSM did not predict that |
+| 2026-10-25 | Mesh smoothness scored by facet normals at centroids against Horn normals of the DSM, plus flat-facets-on-slope and grid-aligned aspect excess | Height scores at pixel centres cannot see terracing; nearest 0.5 m ranks worst on all three as the eye did; thresholds are tunables and the blind-comparison validation has not been run |
 
 ## Open risks
 
 - Crown and roof-edge fidelity against the lidar is traded for a smooth look (see the 0.5 m sampling
-  decision); E8 in `TODO.md` is where it is meant to be recovered.
+  decision); E8 tried three ways of recovering it and the owner rejected all three by eye.
 - Gazebo collision uses the visual (DSM) mesh until F5b: robots would collide with canopies.
 - DSM nodata (water, survey edges) raises and stops the build; untested on such a box.
 - Esri imagery sits 0.8 to 1.0 m north of EA 2020 imagery (F6 checkpoint 2; S6's 2.4 m was a
@@ -83,4 +99,5 @@ collision still uses the visual mesh.
 | Feature plans | `f1-f2-plan.md`, `f4-plan.md` (partly superseded), `f5-plan.md`, `f6-plan.md` |
 | Research | `s1-results.md`, `s5-results.md`, `s6-results.md`, `uk-sources.md`, `f5-tiling-research.md`, `f6-research.md` |
 | F5 build record | `f5-results.md`, `f5a-results.md` (DSM) |
+| E8 survey, results | `e8-research.md`, `e8-results.md`, `lidar-pointcloud-spike.md` |
 | Task list | `TODO.md` at the repo root |

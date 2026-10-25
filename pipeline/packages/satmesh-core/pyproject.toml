@@ -1,9 +1,13 @@
 [project]
 name = "satmesh-core"
 version = "0.1.0"
-description = "Web Mercator tile geometry and ground sample distance shared by all satmesh packages."
+description = "Area of interest, metric CRS and Web Mercator tile geometry shared by all satmesh packages."
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+  "mercantile>=1.2.1",
+  "pydantic>=2.14.1",
+  "pyproj>=3.8.0",
+]
 
 [build-system]
 requires = ["uv_build>=0.13.5,<0.14.0"]

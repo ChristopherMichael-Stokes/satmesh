@@ -80,7 +80,11 @@ package.
 - S2 settles whether Wayback adds finer imagery: for each release that changed at a point, read
   `SRC_RES`
   and keep the finest. Success: at least one site where an older release is measurably finer.
-- S3 and S4 pick test sites that have NAIP and 3DEP 1 m lidar, so enhancements have ground truth.
+- S3 and S4 pick England test sites with EA 1 m lidar and EA 10 cm aerial imagery, so enhancements
+  have ground truth. US sites (3DEP, NAIP) are added only if UK sites leave a gap.
+- S2, S2b and S7 run on demand: S2 and S2b before E6, S7 before the first Scottish site.
+- The baseline pipeline (stage 2) starts once S5 proves the chain; it does not wait for the
+  remaining spikes.
 
 Exit: a site table (location, best `SRC_RES`, max usable zoom, DEM sources available) in `agent-
 docs/`.
@@ -95,8 +99,8 @@ metrically correct mesh for each test site, viewable in a glTF viewer.
 
 Built before any enhancement so each experiment has a score.
 
-- DEM: RMSE and NMAD against 3DEP lidar, split by slope and land cover.
-- Texture: comparison against co-registered NAIP.
+- DEM: RMSE and NMAD against EA 1 m lidar, split by slope and land cover.
+- Texture: comparison against co-registered EA 10 cm aerial imagery.
 - Super-resolution: downsample the output to the input grid and diff against the input
   (consistency), plus
   the opensr-test synthesis and hallucination split.

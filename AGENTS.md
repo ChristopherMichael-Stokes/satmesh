@@ -7,7 +7,7 @@ finest ground sample distance the sources support, enhanced by classical process
 
 | Path          | uv workspace | Holds                                                              |
 | ------------- | ------------ | ------------------------------------------------------------------ |
-| `pipeline/`   | yes          | `satmesh-core` (tile geometry, GSD); fetching, meshing and CLI packages to come; no PyTorch |
+| `pipeline/`   | yes          | `satmesh-core` (AOI, metric CRS, tile geometry, GSD), `satmesh-data` (Esri tiles, EA DTM, tile mosaic), `satmesh-mesh` (TIN, drape, GLB); CLI to come; no PyTorch |
 | `agent-docs/` | no           | Docs written by and for agents: briefs, plans, research reports    |
 | `docs/`       | no           | Human-facing docs                                                  |
 | `docker/`     | no           | Images for tools no wheel ships: `gdal-ecw` converts ECW to GeoTIFF |

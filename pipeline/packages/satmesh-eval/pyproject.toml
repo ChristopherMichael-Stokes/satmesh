@@ -1,0 +1,29 @@
+[project]
+name = "satmesh-eval"
+version = "0.1.0"
+description = "Evaluation harness: height scores, imagery offset, camera visibility."
+requires-python = ">=3.13"
+dependencies = [
+  "embreex>=4.4.0.post1",
+  "numpy>=2.5.4",
+  "opencv-python-headless>=5.0.0.93",
+  "pygltflib>=1.16.5",
+  "pyproj>=3.8.0",
+  "rasterio>=1.5.2",
+  "satmesh-core",
+  "satmesh-data",
+  "satmesh-tiles",
+  "scikit-image>=0.26.0",
+  "scipy>=1.18.1",
+  "trimesh>=5.2.0",
+  "xdem>=0.2.3",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+satmesh-core = { workspace = true }
+satmesh-data = { workspace = true }
+satmesh-tiles = { workspace = true }

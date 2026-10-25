@@ -5,6 +5,10 @@ what was observed against endpoints.
 
 ## Conclusions
 
+Correction (F6, `f6-results.md`): the 2.4 m offset below is not reproduced. Reprojecting Esri
+through rasterio's GDAL, which has no OSTN15 grid, adds a 1.6 m Helmert error; with OSTN15 the Esri
+imagery is 0.8 to 1.0 m north of EA at two sites. The imagery coverage and detail findings stand.
+
 - EA daytime imagery covers about 24,900 km2 of England in some year, about a fifth of the
   country. Only about 7,000 km2 has a capture from 2020 on, and 1,100 km2 of that is at 10 to
   12.5 cm.

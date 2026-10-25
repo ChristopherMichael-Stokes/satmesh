@@ -1,3 +1,7 @@
 [default.extend-words]
 # ruff rule prefix for flake8-copyright
 CPY = "CPY"
+# normalised-difference metric name in opensr-test (`nd_binning`, `correctness_distance="nd"`)
+nd = "nd"
+# level of detail
+LOD = "LOD"

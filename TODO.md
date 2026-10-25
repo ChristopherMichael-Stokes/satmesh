@@ -40,8 +40,8 @@
 - [x] F5 `satmesh-tiles` and `satmesh-cli`: georeferenced node store on the Esri tile grid (leaf =
       4 x 4 Esri tiles, parents where all four children exist), resumable `satmesh build`, exports to
       3D Tiles, Gazebo and one area GLB
-- [ ] F5a EA 1 m first-return DSM per node: visual mesh from the DSM so buildings and trees exist for
-      cameras, DTM kept for ground and collision (`GetCoverage` never run against the DSM)
+- [x] F5a EA 1 m first-return DSM per node: visual mesh from the DSM so buildings and trees exist for
+      cameras, DTM kept per node as a ground grid for ground and collision
 - [ ] F5b Gazebo collision from a decimated DTM mesh without skirts; benchmark step time and tile
       count; confirm the glTF roll pose, `elevation` datum and levels in a running Gazebo
 - [ ] F5c DTM fetch for parents past about 6 km (WCS request size untested beyond 6000 x 6000 px);
@@ -51,6 +51,8 @@
 
 ## Experiments
 
+- [ ] F7 Real-photo localisation test (MeshLoc-style render-and-match against photographs with
+      known poses): needs owner-supplied photos; required before the v1 release
 - [ ] E1 DEM classical chain: feature-preserving smoothing, void fill, bicubic; error against lidar
 - [ ] E2 Texture harmonisation across zoom and source boundaries
 - [ ] E3 SwinIR/HAT x2 on tiles past native depth, gated by the consistency check

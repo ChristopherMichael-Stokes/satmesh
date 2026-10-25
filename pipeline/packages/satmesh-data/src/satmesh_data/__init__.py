@@ -1,5 +1,6 @@
 """Cached, throttled fetch of Esri World Imagery tiles and EA lidar surfaces; tile mosaics."""
 
+from satmesh_data.ea_aerial import AerialTile, crop_aerial, fetch_aerial_ecws, find_aerial_tiles
 from satmesh_data.ea_lidar import (
     EA_DSM,
     EA_DTM,
@@ -25,6 +26,7 @@ __all__ = [
     "EA_DTM",
     "USER_AGENT",
     "WEB_MERCATOR",
+    "AerialTile",
     "EaLidarProduct",
     "EsriClient",
     "EsriSource",
@@ -36,9 +38,12 @@ __all__ = [
     "cached_lidar_path",
     "check_lidar",
     "choose_zoom",
+    "crop_aerial",
     "crop_to_aoi",
     "decode_tile",
+    "fetch_aerial_ecws",
     "fetch_ea_lidar",
+    "find_aerial_tiles",
     "is_placeholder",
     "mosaic_tiles",
     "new_client",

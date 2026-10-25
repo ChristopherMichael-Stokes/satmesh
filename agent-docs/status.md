@@ -22,13 +22,13 @@ with their reasons, open risks. Detail per feature lives in the plan and results
 | --- | --- |
 | 0 Scaffold | Done |
 | 1 Spikes | S1, S5, S6 done. Open: S3, S4; S2, S2b, S7 on demand |
-| 2 Baseline pipeline | F1 to F5 done for DTM-only, Great Britain. Open: F2a, F2b, F5a DSM, F5b Gazebo collision, F5c large-area DTM |
-| 3 Evaluation harness F6 | Not started; due before any enhancement |
+| 2 Baseline pipeline | F1 to F5a done for Great Britain (DSM visual mesh, DTM ground grid). Open: F2a, F2b, F5b Gazebo collision, F5c large-area DTM |
+| 3 Evaluation harness F6 | Approved; checkpoints 1 to 3 of 5 done (`f6-results.md`): height scores, pipeline check, EA aerial slice, Esri-to-EA offset, relief dependence, drape render |
 | 4 Classical enhancement E1, E2 | Not started |
 | 5 ML experiments E3 to E7 | Not started; owner priorities are E4 (continuous height) and E6 (multi-capture SR) |
 
-Next: F5a (DSM), then F6 including the imagery-to-DEM offset measurement and the camera
-visibility check.
+Next: F6 checkpoint 4 (camera visibility); F5b before any Gazebo run, since collision
+still uses the visual mesh.
 
 ## Decisions
 
@@ -43,12 +43,24 @@ visibility check.
 | 2026-10-25 | Leaf = 4 x 4 Esri tiles (1,024 px, about 180 m at z19, 54 N) | Whole Esri tiles, no resampling; per-place native zoom is leaf depth |
 | 2026-10-25 | Meshes in true-metre local ENU through OSTN15 and OSGM15, with both heights recorded | BNG XY is 0.04% short; Cesium and GNSS use ellipsoidal height; geoid separation is about 50.8 m |
 | 2026-10-25 | Parents only where all four children exist; container over maximal complete nodes | No holes in parent textures, no extra fetches; ragged edge stays at leaf resolution |
-| 2026-10-25 | Store DTM and EA first-return DSM per node (DSM for the visual mesh, DTM for ground and collision) | Orthophoto on a DTM paints buildings and trees flat; not yet built |
+| 2026-10-25 | Store DTM and EA first-return DSM per node (DSM for the visual mesh, DTM for ground and collision) | Orthophoto on a DTM paints buildings and trees flat; built in F5a |
+| 2026-10-25 | F6 approved: `satmesh-eval` package with xdem, scikit-image and a ray caster; depth difference and object recall for camera visibility; raw point-cloud spike; opensr-test deferred to E3 | Owner decisions 1 to 4 on `f6-plan.md` |
+| 2026-10-25 | F6 sites: Upper Aire and Lower Aire | Owner choice; moorland and trees, then houses and roads |
+| 2026-10-25 | F6 second site moved from Lower Aire (BNG 452000 425000) to Ferrybridge (448000 424000) | The 2020 EA survey caught the Aire in flood at the first box: 31 of 900 windows reliable |
+| 2026-10-25 | Offset windows kept only above the 99th percentile of peak response between unrelated windows | Raw phase-correlation shifts span +-16 m on real pairs and skimage's error is uninformative |
+| 2026-10-25 | Esri-to-EA comparisons resample through pyproj with OSTN15, never `rasterio.warp` | The rasterio wheel has no UK grids; its Helmert fallback was 1.6 m north of OSTN15 at Upper Aire and produced a false 2 to 3 m offset |
+| 2026-10-25 | Ray casting with trimesh and embreex, not Open3D | Open3D 0.20 has no wheel for CPython 3.13 on this glibc |
+| 2026-10-25 | Real-photo localisation test (F7) out of F6 but required before v1 release | Owner decision 5; needs photographs with known poses |
+| 2026-10-25 | Ground grid stored as a per-node GeoTIFF (EPSG:3857, one pixel per grid node), not a ground mesh | F5b needs the DTM without refetching; a raster is readable by GIS and by the F6 scorer, and the decimation choices stay open |
+| 2026-10-25 | DSM used as served, not clamped to the DTM | It sits below the DTM at 5 % of pixels by up to 0.33 m; clamping would hide a survey-epoch disagreement F6 should measure |
 
 ## Open risks
 
-- Esri imagery sits about 2.4 m off EA imagery (S6) and the drape is unmeasured; matching
-  pipelines will see it.
+- Gazebo collision uses the visual (DSM) mesh until F5b: robots would collide with canopies.
+- DSM nodata (water, survey edges) raises and stops the build; untested on such a box.
+- Esri imagery sits 0.8 to 1.0 m north of EA 2020 imagery (F6 checkpoint 2; S6's 2.4 m was a
+  Helmert-reprojection artifact), and raised objects are displaced differently from open ground, so
+  a rigid correction will not do; matching pipelines will see it.
 - Whether Esri imagery is a true orthophoto is unknown; if not, buildings lean in the texture.
 - No ground-truth scoring yet: DEM, texture and geoid chain are untested against raw lidar and
   EA aerial imagery.
@@ -65,7 +77,7 @@ visibility check.
 
 | What | Where |
 | --- | --- |
-| Feature plans | `f1-f2-plan.md`, `f4-plan.md` (partly superseded), `f5-plan.md` |
-| Research | `s1-results.md`, `s5-results.md`, `s6-results.md`, `uk-sources.md`, `f5-tiling-research.md` |
-| F5 build record | `f5-results.md` |
+| Feature plans | `f1-f2-plan.md`, `f4-plan.md` (partly superseded), `f5-plan.md`, `f6-plan.md` |
+| Research | `s1-results.md`, `s5-results.md`, `s6-results.md`, `uk-sources.md`, `f5-tiling-research.md`, `f6-research.md` |
+| F5 build record | `f5-results.md`, `f5a-results.md` (DSM) |
 | Task list | `TODO.md` at the repo root |

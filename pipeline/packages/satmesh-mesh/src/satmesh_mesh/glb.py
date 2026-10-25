@@ -3,6 +3,7 @@
 import io
 
 import numpy as np
+import pygltflib
 import trimesh
 from PIL import Image
 from trimesh.visual import TextureVisuals
@@ -11,6 +12,10 @@ from trimesh.visual.material import PBRMaterial
 from satmesh_data import Raster
 
 JPEG_QUALITY = 92
+# glTF sampler constants (Khronos glTF 2.0 spec, sampler.schema.json)
+LINEAR = 9729
+LINEAR_MIPMAP_LINEAR = 9987
+CLAMP_TO_EDGE = 33071
 
 
 def glb_bytes(
@@ -35,7 +40,28 @@ def glb_bytes(
     if not isinstance(data, bytes):
         msg = f"trimesh exported {type(data).__name__}, expected bytes"
         raise TypeError(msg)
-    return data
+    return with_clamped_textures(data)
+
+
+def with_clamped_textures(glb: bytes) -> bytes:
+    """Return `glb` with every texture sampled clamp-to-edge.
+
+    glTF's default sampler repeats the texture, so a bilinear tap at a tile's edge mixes in the
+    opposite edge and draws a dotted line along every tile boundary. trimesh writes no sampler and
+    drops any it reads, so the sampler is added after each export.
+    """
+    gltf = pygltflib.GLTF2.load_from_bytes(glb)
+    gltf.samplers = [
+        pygltflib.Sampler(
+            magFilter=LINEAR,
+            minFilter=LINEAR_MIPMAP_LINEAR,
+            wrapS=CLAMP_TO_EDGE,
+            wrapT=CLAMP_TO_EDGE,
+        )
+    ]
+    for texture in gltf.textures:
+        texture.sampler = 0
+    return b"".join(gltf.save_to_bytes())
 
 
 def upward(vertices: np.ndarray, triangles: np.ndarray) -> np.ndarray:

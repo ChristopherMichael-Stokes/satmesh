@@ -14,7 +14,6 @@ members = [
 [manifest.dependency-groups]
 dev = [
     { name = "matplotlib", specifier = ">=3.11.2" },
-    { name = "pygltflib", specifier = ">=1.16.5" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "ty", specifier = ">=0.0.91" },
 ]
@@ -1050,6 +1049,7 @@ dependencies = [
     { name = "numpy" },
     { name = "pillow" },
     { name = "pydelatin" },
+    { name = "pygltflib" },
     { name = "satmesh-data" },
     { name = "trimesh" },
 ]
@@ -1059,6 +1059,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.5.4" },
     { name = "pillow", specifier = ">=13.0.0" },
     { name = "pydelatin", specifier = ">=0.4.0" },
+    { name = "pygltflib", specifier = ">=1.16.5" },
     { name = "satmesh-data", editable = "packages/satmesh-data" },
     { name = "trimesh", specifier = ">=5.2.0" },
 ]

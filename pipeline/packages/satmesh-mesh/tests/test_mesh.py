@@ -7,6 +7,8 @@ from rasterio.transform import from_origin
 from satmesh_data import Raster
 from satmesh_mesh import add_skirts, glb_bytes, triangulate_heights, upward
 
+# glTF 2.0 spec constant for wrapS and wrapT: CLAMP_TO_EDGE
+CLAMP_TO_EDGE = 33071
 SIZE = 61
 MAX_ERROR_M = 0.1
 SKIRT_DEPTH_M = 0.4
@@ -114,3 +116,6 @@ def test_glb_reads_back_with_texture_and_uv_contract() -> None:
     material = gltf.materials[0].pbrMetallicRoughness
     assert material.metallicFactor == 0.0
     assert gltf.images[0].mimeType == "image/jpeg"
+    (sampler,) = gltf.samplers
+    assert (sampler.wrapS, sampler.wrapT) == (CLAMP_TO_EDGE, CLAMP_TO_EDGE)
+    assert all(texture.sampler == 0 for texture in gltf.textures)

@@ -39,7 +39,7 @@ def test_every_leaf_vertex_lands_at_its_own_ecef_position(store: Path, tmp_path:
     gltf = pygltflib.GLTF2().load(str(out))
     extras = gltf.scenes[0].extras["satmesh"]
     area_to_ecef = np.array(extras["enu_to_ecef"])
-    leaves = stored_leaf_tiles(store)
+    leaves = leaf_tiles(store)
     assert len(gltf.meshes) == len(leaves) == 4
     for node in gltf.nodes:
         tile = mercantile.Tile(
@@ -57,7 +57,7 @@ def test_every_leaf_vertex_lands_at_its_own_ecef_position(store: Path, tmp_path:
         np.testing.assert_allclose(actual, expected, atol=ECEF_TOLERANCE_M)
 
 
-def stored_leaf_tiles(store: Path) -> list[mercantile.Tile]:
+def leaf_tiles(store: Path) -> list[mercantile.Tile]:
     return [
         mercantile.Tile(int(p.parent.name), int(p.stem), int(p.parent.parent.name))
         for p in (store / "nodes").glob("*/*/*.json")
@@ -68,3 +68,15 @@ def stored_leaf_tiles(store: Path) -> list[mercantile.Tile]:
 def test_empty_store_raises(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="no nodes"):
         export_area_glb(tmp_path, tmp_path / "area.glb")
+
+
+def test_textures_are_clamped_so_tile_edges_do_not_wrap(store: Path, tmp_path: Path) -> None:
+    out = tmp_path / "area.glb"
+    export_area_glb(store, out)
+    gltf = pygltflib.GLTF2().load(str(out))
+    clamp_to_edge = 33071  # glTF 2.0 spec constant
+    assert [(s.wrapS, s.wrapT) for s in gltf.samplers] == [(clamp_to_edge, clamp_to_edge)]
+    assert all(texture.sampler == 0 for texture in gltf.textures)
+    for tile in leaf_tiles(store):
+        own = pygltflib.GLTF2().load(str(node_paths(store, tile)[0]))
+        assert [(s.wrapS, s.wrapT) for s in own.samplers] == [(clamp_to_edge, clamp_to_edge)]

@@ -45,7 +45,7 @@
 - [ ] F5b Gazebo collision from a decimated DTM mesh without skirts; benchmark step time and tile
       count; confirm the glTF roll pose, `elevation` datum and levels in a running Gazebo
 - [ ] F5c DTM fetch for parents past about 6 km (WCS request size untested beyond 6000 x 6000 px);
-      area-averaged instead of point-sampled DEM for coarse parents; hairline seams between tiles
+      area-averaged instead of point-sampled DEM for coarse parents
 - [ ] F6 Evaluation harness: DEM error against EA lidar, texture against EA 10 cm aerial,
       consistency check
 

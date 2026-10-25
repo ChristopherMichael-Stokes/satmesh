@@ -56,7 +56,8 @@ visibility check.
   levels, mesh collision cost, tile-count and VRAM limits.
 - Large areas: parents past about 6 km need a DTM fetch not yet tried (WCS tested to 6000 x 6000
   px); a 20 km box is about 198,000 Esri tiles, about 55 h at 1 request/s.
-- Hairline seams between tiles (skirts hide cracks, they do not remove them).
+- Texture seam lines were wrap-around sampling, fixed with a clamp sampler (2026-10-25). Geometric
+  cracks between tiles are hidden by skirts, not removed; not seen in renders since the fix.
 - `sources_at` is not cached, so a cached rerun still makes one identify request.
 - Wales and Scotland have no EA DTM; zoom comes from sources at the area centre only.
 

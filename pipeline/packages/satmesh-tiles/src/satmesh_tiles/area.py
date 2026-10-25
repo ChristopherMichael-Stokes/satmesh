@@ -7,6 +7,7 @@ import numpy as np
 import trimesh
 
 from satmesh_core import EnuFrame
+from satmesh_mesh import with_clamped_textures
 from satmesh_tiles.node import NodeRecord
 from satmesh_tiles.tiler import node_paths, read_record
 from satmesh_tiles.tileset import stored_tiles
@@ -41,7 +42,7 @@ def export_area_glb(store_dir: Path, out_path: Path) -> EnuFrame:
                 geom_name=f"{name}-{tile.z}-{tile.x}-{tile.y}",
                 transform=tile_to_area,
             )
-    out_path.write_bytes(scene.export(file_type="glb"))
+    out_path.write_bytes(with_clamped_textures(_glb(scene)))
     return area
 
 
@@ -69,3 +70,11 @@ def _extras(area: EnuFrame) -> dict[str, object]:
         "origin_ecef": [float(v) for v in area.origin_ecef],
         "enu_to_ecef": [[float(v) for v in row] for row in area.enu_to_ecef_matrix()],
     }
+
+
+def _glb(scene: trimesh.Scene) -> bytes:
+    data = scene.export(file_type="glb")
+    if not isinstance(data, bytes):
+        msg = f"trimesh exported {type(data).__name__}, expected bytes"
+        raise TypeError(msg)
+    return data

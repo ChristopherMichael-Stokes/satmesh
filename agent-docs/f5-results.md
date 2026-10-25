@@ -54,7 +54,7 @@ design: `f5-tiling-research.md`.
 | Area GLB: every leaf vertex at its own ECEF position after rebasing | within 2 mm |
 | Gazebo SDF: mesh placed at the node's ECEF position through pose, visual roll and PROJ topocentric inverse | within 5 mm (checks our convention, not Gazebo) |
 | CesiumJS 1.140.0 headless (Chromium, swiftshader) | 10 tiles selected at SSE 1; seamless across z16 and z17; road, hedges and river sit correctly |
-| three.js area GLB render | north up; road on the relief; faint hairline seams at some tile edges |
+| three.js area GLB render | north up; road on the relief; dotted seam lines at tile edges before the sampler fix, none after |
 
 ## Bugs the live checks found
 
@@ -63,6 +63,12 @@ design: `f5-tiling-research.md`.
   extent. Child tiles loaded only at `maximumScreenSpaceError` 0.01.
 - Parent textures had their southern quadrants swapped: `mercantile.children` returns NW, NE, SE,
   SW; `parent_texture` assumed NW, NE, SW, SE. `ordered_children` fixes the order for both.
+- Dotted light lines along every tile boundary: glTF's default sampler repeats the texture, so a
+  bilinear tap at u or v of 0 or 1 mixes in the opposite edge. Fixed by writing a clamp-to-edge
+  sampler (linear, mipmap linear) into every GLB (`with_clamped_textures`). trimesh writes no
+  sampler and drops any it reads, so the area export patches again after its own export. Checked
+  by rendering the same oblique view before and after in three.js `[live]`. Stores built before
+  this fix have unclamped GLBs: build into a new directory (the cache makes it seconds).
 - `stored_tiles` built `Tile(x, y, z)` from path parts in the wrong order; caught by tests.
 
 ## Library and viewer notes

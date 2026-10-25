@@ -20,8 +20,8 @@
 - [x] S6 UK imagery: EA covers about 7,000 km2 of England from 2020 on, at 10 to 25 cm; real detail
       gain over Esri z19 where present; ECW needs a custom GDAL build
 - [ ] S7 Scottish lidar tile download mechanism (portal API)
-- [ ] S5 Mesh baseline: DEM plus Esri drape to GLB with pydelatin; check vertical scale in a metric
-      CRS
+- [x] S5 Mesh baseline: EA 1 m DTM (WCS) plus Esri z19 drape to GLB with pydelatin works; vertical
+      scale is exact in BNG, whose XY is 0.04% short; 61k vertices for 1 km2 at 0.1 m error
 
 ## Features
 

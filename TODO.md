@@ -17,7 +17,8 @@
 - [ ] S3 DEM source coverage at the test sites: 3DEP 1 m, 3DEP 10 m, GLO-30
 - [ ] S4 Ground-truth test sites: US sites with NAIP and 3DEP 1 m lidar, mixed terrain and land
       cover
-- [ ] S6 UK imagery: EA aerial index coverage at test sites versus Esri z19
+- [x] S6 UK imagery: EA covers about 7,000 km2 of England from 2020 on, at 10 to 25 cm; real detail
+      gain over Esri z19 where present; ECW needs a custom GDAL build
 - [ ] S7 Scottish lidar tile download mechanism (portal API)
 - [ ] S5 Mesh baseline: DEM plus Esri drape to GLB with pydelatin; check vertical scale in a metric
       CRS
@@ -28,7 +29,8 @@
 - [ ] F2 `satmesh-data`: throttled, cached Esri tile fetch; DEM fetch per source; source-selection
       policy
 - [ ] F2a Source registry (pydantic data file) with region preference lists; UK entries first
-- [ ] F2b Access adapters: ArcGIS tile cache, WCS, COG range read, index-then-download (ECW via GDAL)
+- [ ] F2b Access adapters: ArcGIS tile cache, WCS, COG range read, index-then-download (ECW via
+      GDAL with libecwj2 3.3, in Docker)
 - [ ] F3 Tile mosaic and cropping to the AOI
 - [ ] F4 `satmesh-mesh`: reproject to local metric CRS, adaptive triangulation, UV drape, GLB export
 - [ ] F5 `satmesh-cli`

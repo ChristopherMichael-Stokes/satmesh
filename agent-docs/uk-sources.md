@@ -44,8 +44,9 @@ No open orthophoto was found for Scotland or Wales. OS Data Hub offers no open a
 
 ## Unverified
 
+The EA aerial download, tile size and ECW decode are resolved in `s6-results.md`.
+
 - Scottish tile download API and per-phase resolutions.
 - Wales COG CRS, nodata, 16-bit encoding and accuracy.
-- EA aerial tile download mechanism, tile size and per-request limits.
 - NI River Basin coverage and download, whole-country 10 m DTM licence, coastal DTM resolution.
-- Rate limits of every service.
+- Rate limits of every service, the EA tile API included.

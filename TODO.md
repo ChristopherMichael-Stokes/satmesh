@@ -37,11 +37,11 @@
 - [x] F3 Tile mosaic (EPSG:3857, JPEG decoded by GDAL) and whole-pixel crop to the AOI plus margin;
       a placeholder inside the AOI raises
 - [x] F4 `satmesh-mesh`: pydelatin grid TIN, skirts, textured GLB writer
-- [x] F5 `satmesh-tiles` and `satmesh-cli`: georeferenced node store on the Esri tile grid (leaf =
-      4 x 4 Esri tiles, parents where all four children exist), resumable `satmesh build`, exports to
+- [x] F5 `satmesh-tiles` and `satmesh-cli`: georeferenced node store on the Esri tile grid (leaf = 4
+      x 4 Esri tiles, parents where all four children exist), resumable `satmesh build`, exports to
       3D Tiles, Gazebo and one area GLB
-- [x] F5a EA 1 m first-return DSM per node: visual mesh from the DSM so buildings and trees exist for
-      cameras, DTM kept per node as a ground grid for ground and collision
+- [x] F5a EA 1 m first-return DSM per node: visual mesh from the DSM so buildings and trees exist
+      for cameras, DTM kept per node as a ground grid for ground and collision
 - [ ] F5b Gazebo collision from a decimated DTM mesh without skirts; benchmark step time and tile
       count; confirm the glTF roll pose, `elevation` datum and levels in a running Gazebo
 - [ ] F5c DTM fetch for parents past about 6 km (WCS request size untested beyond 6000 x 6000 px);
@@ -60,8 +60,13 @@
       DADA retrained on lidar and imagery pairs; edge-leakage check; scored against lidar
 - [ ] E5 Real-ESRGAN fine-tuned on in-domain pairs (only if E3 shows a gap)
 - [ ] E6 (B) Multi-capture super-resolution: registration accuracy first, then classical
-      register-and-merge baseline, then HighRes-net / Deep Burst SR; Wayback and other-source captures
+      register-and-merge baseline, then HighRes-net / Deep Burst SR; Wayback and other-source
+      captures
 - [ ] E7 Monocular height as a high-frequency detail layer for E4
+- [ ] E8 Lidar surface refinement: the 1 m DSM's crowns and roof edges are lost, stair-stepped or
+      noisy depending on how it is meshed (F6 checkpoint 4). Owner notes there is prior art and has
+      intuition on techniques, including models; survey the prior art first, then score against the
+      F6 height and camera-visibility checks. Cover with E4 and E7
 
 ## Open
 

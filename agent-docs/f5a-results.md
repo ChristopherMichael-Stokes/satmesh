@@ -11,9 +11,9 @@ a renderer; the rest is covered by `make test`. Builds on `f5-results.md`.
   rise out of the ground in CesiumJS `[live]`. Facades and trunks are stretched roof-edge or
   canopy texels, never walls, as expected of a 2.5D surface.
 - Cost at 0.1 m `max_error`, first build (1 m bilinear grid): a leaf averages 5,094 vertices against
-  1,483 for the DTM (3.4 times), and the 18-node store is 7.4 MB against 2.8 MB. Nearest-pixel
-  sampling at 0.5 m, adopted after F6 found the 1 m bilinear grid smoothed crowns and roof edges,
-  costs about 3 times more again: 30 MB for the same 18 nodes. A build of 18 nodes from the Esri
+  1,483 for the DTM (3.4 times), and the 18-node store is 7.4 MB against 2.8 MB. Bilinear
+  sampling at 0.5 m, adopted after F6 found the 1 m grid smoothed crowns and roof edges, costs
+  about 1.5 times more again: 11 MB for the same 18 nodes. A build of 18 nodes from the Esri
   cache plus 36 WCS requests took 13 s.
 - The Gazebo exporter still points collision at the visual mesh, so a robot would now collide with
   tree canopies until F5b builds the collision mesh from the ground grid.
@@ -50,10 +50,11 @@ the quoted 0.15 m RMSE, so F6 should measure it.
   `EA_DTM` and `EA_DSM`; `fetch_ea_lidar(http, box, cache_dir, product)`, `check_lidar`,
   `LidarCheckError`. The cache path already held the coverage id, so cached DTMs stay valid.
 - `satmesh-tiles`: `build_node` takes `SurfacePaths(dsm, dtm)`. Both are sampled at the same grid
-  nodes, every 0.5 m (finer than first built; see `f6-results.md`): the DSM by nearest pixel so 1 m
-  crowns and edges survive, the DTM bilinearly; the TIN, UVs, skirts, ECEF placement and origin
-  height come from the DSM. The DTM grid is returned as `Node.ground_tif`, a float32 deflate GeoTIFF
-  in EPSG:3857 with one pixel per grid node (pixel centres on the tile edges), ODN metres.
+  nodes, every 0.5 m, bilinearly (finer than first built, which smoothed crowns and edges; nearest
+  pixel was tried and rejected for terracing and blocky trees, see `f6-results.md`); the TIN, UVs,
+  skirts, ECEF placement and origin height come from the DSM. The DTM grid is returned as
+  `Node.ground_tif`, a float32 deflate GeoTIFF in EPSG:3857 with one pixel per grid node (pixel
+  centres on the tile edges), ODN metres.
 - Store layout adds `<store>/nodes/{z}/{x}/{y}.ground.tif` (`ground_path`). `NodeRecord` gains
   `dsm`, the DSM file name. The origin height is now the minimum DSM height of the node. Parents
   grid and mesh at 2 m per level as before, so their ground grids are coarser.
@@ -77,7 +78,7 @@ the quoted 0.15 m RMSE, so F6 should measure it.
   coastal 200 m box off Spurn returned no gaps in either product, but it is unclear it was sea.
 - A building: the Upper Aire box has farm roofs only; wall stretching on a larger building is
   unseen.
-- Parents sample the DSM by nearest pixel at 1 m, 2 m, and so on up the tree, so coarse parents alias
+- Parents sample bilinearly at 1 m, 2 m, and so on up the tree, so coarse parents alias
   canopy. Area averaging is F5c.
 - Whether first-return canopy height is a fair stand-in for what a camera sees through leaf-off
   trees; F6 camera visibility settles this.

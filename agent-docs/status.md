@@ -48,7 +48,7 @@ collision still uses the visual mesh.
 | 2026-10-25 | F6 sites: Upper Aire and Lower Aire | Owner choice; moorland and trees, then houses and roads |
 | 2026-10-25 | F6 second site moved from Lower Aire (BNG 452000 425000) to Ferrybridge (448000 424000) | The 2020 EA survey caught the Aire in flood at the first box: 31 of 900 windows reliable |
 | 2026-10-25 | Offset windows kept only above the 99th percentile of peak response between unrelated windows | Raw phase-correlation shifts span +-16 m on real pairs and skimage's error is uninformative |
-| 2026-10-25 | DSM sampled by nearest pixel on a 0.5 m node grid; DTM bilinear | F6 showed 1 m bilinear sampling smoothed crowns and roof edges (raised-object NMAD 1.1 m at Upper Aire); the fix brings it to 0 m at about 3 times the store size |
+| 2026-10-25 | DSM and DTM sampled bilinearly every 0.5 m (was 1 m) | Nearest-pixel sampling matched the lidar exactly (raised-object NMAD 0.00 m) but rendered as terraced fields and blocky trees; owner judged bilinear 0.5 m clearly best by eye in Blender. Cost: raised-object NMAD 0.54 m at Upper Aire and 61 to 75 % of camera-visible raised points shown, against 85 to 92 % with nearest; about 1.5 times the 1 m store size |
 | 2026-10-25 | Esri-to-EA comparisons resample through pyproj with OSTN15, never `rasterio.warp` | The rasterio wheel has no UK grids; its Helmert fallback was 1.6 m north of OSTN15 at Upper Aire and produced a false 2 to 3 m offset |
 | 2026-10-25 | Ray casting with trimesh and embreex, not Open3D | Open3D 0.20 has no wheel for CPython 3.13 on this glibc |
 | 2026-10-25 | Real-photo localisation test (F7) out of F6 but required before v1 release | Owner decision 5; needs photographs with known poses |
@@ -57,6 +57,8 @@ collision still uses the visual mesh.
 
 ## Open risks
 
+- Crown and roof-edge fidelity against the lidar is traded for a smooth look (see the 0.5 m sampling
+  decision); E8 in `TODO.md` is where it is meant to be recovered.
 - Gazebo collision uses the visual (DSM) mesh until F5b: robots would collide with canopies.
 - DSM nodata (water, survey edges) raises and stops the build; untested on such a box.
 - Esri imagery sits 0.8 to 1.0 m north of EA 2020 imagery (F6 checkpoint 2; S6's 2.4 m was a

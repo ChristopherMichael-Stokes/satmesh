@@ -248,3 +248,18 @@ Open ground improved too (Ferrybridge NMAD 0.041 to 0.021 m). Vertices at the 18
 within 0.07 mm of their DSM pixel value. Remaining misses are 0.25 m lateral slack at steps and
 the 1 m pixel staircase against the reference's sloped ramps. Cost: about 3 times the vertices and
 store size; the ground grid, bilinear on a 0.5 m node grid, is 4 times larger than before.
+
+### Owner decision after viewing the meshes in Blender (2026-10-25)
+
+Nearest-pixel sampling matched the lidar but looked worse: terraced fields (a 1 m pixel is a flat
+plateau, so every slope becomes steps) and blocky "voxel" trees, which no height score showed
+because the scores sample at the lidar's own pixel centres. Four variants were compared as GLBs on
+Upper Aire; the owner chose bilinear at 0.5 m everywhere as clearly the best by eye. It is what the
+pipeline now does. Its costs, measured on Upper Aire: raised-object NMAD 0.54 m (p95 3.2 m), 61 %
+(ground rig) and 75 % (drone rig) of camera-visible raised points shown, pixel agreement 97.0 % and
+98.7 %, 11 MB for the 500 m box. Recovering crown and edge fidelity without voxels is E8 in
+`TODO.md`: the owner notes there is prior art on lidar surface refinement and has intuitions on
+techniques, including models, so the survey comes before any method.
+
+The height scores need a smoothness measure (error between pixel centres, or slope noise on open
+ground) before they can rank meshes the way the eye does; not yet built.

@@ -10,6 +10,7 @@ finest ground sample distance the sources support, enhanced by classical process
 | `pipeline/`   | yes          | `satmesh-core` (tile geometry, GSD); fetching, meshing and CLI packages to come; no PyTorch |
 | `agent-docs/` | no           | Docs written by and for agents: briefs, plans, research reports    |
 | `docs/`       | no           | Human-facing docs                                                  |
+| `docker/`     | no           | Images for tools no wheel ships: `gdal-ecw` converts ECW to GeoTIFF |
 | root          | no           | Shared checks (`prek.toml`), `ruff.toml`, `Makefile`, `TODO.md`    |
 
 - Each workspace has its own `uv.lock` and `.venv`. Members live at
@@ -52,6 +53,7 @@ Run from the repo root unless a workspace is named.
 | Types in one workspace       | `uv run --frozen ty check` from `pipeline/`             |
 | Add a dependency to a member | `uv add --package <dist-name> <dep>` from the workspace |
 | All tests                    | `make test`                                             |
+| Build the GDAL ECW image     | `make gdal-ecw-image` (about 3 min, 552 MB)             |
 
 ## Checks
 
@@ -59,7 +61,7 @@ Run from the repo root unless a workspace is named.
   hook in `prek.toml` in the same change.
 - Root `prek.toml` covers file hygiene, secrets (gitleaks), spelling (typos), ruff, notebook
   stripping (nbstripout), `pyproject.toml` validation, TOML (tombi), YAML (yamllint), Markdown
-  (rumdl), Makefiles (mbake, checkmake) and shell (shellcheck, shfmt).
+  (rumdl), Makefiles (mbake, checkmake), shell (shellcheck, shfmt) and Dockerfiles (hadolint).
 - Each workspace's `prek.toml` adds `uv-lock`, `uv-audit` and ty, run inside that workspace.
 - checkmake requires `setup` and `check` targets in every Makefile (`checkmake.ini`).
 - ruff selects every rule; the ignores in `ruff.toml` each carry their reason. ty raises every rule

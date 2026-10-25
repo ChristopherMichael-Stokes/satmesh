@@ -1,4 +1,4 @@
-.PHONY: setup check test update-hooks
+.PHONY: setup check test update-hooks gdal-ecw-image
 
 setup:
 	uv sync --project pipeline --all-packages --locked
@@ -12,3 +12,6 @@ test:
 
 update-hooks:
 	prek update --cooldown-days 7
+
+gdal-ecw-image:
+	docker build -t satmesh-gdal-ecw docker/gdal-ecw

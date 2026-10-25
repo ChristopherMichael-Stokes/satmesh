@@ -1,0 +1,25 @@
+[project]
+name = "satmesh-tiles"
+version = "0.1.0"
+description = "Tiled terrain store: georeferenced, textured leaf meshes on the Esri tile grid, and exporters."
+requires-python = ">=3.13"
+dependencies = [
+  "mercantile>=1.2.1",
+  "numpy>=2.5.4",
+  "pydantic>=2.14.1",
+  "pyproj>=3.8.0",
+  "rasterio>=1.5.2",
+  "satmesh-core",
+  "satmesh-data",
+  "satmesh-mesh",
+  "scipy>=1.18.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+satmesh-core = { workspace = true }
+satmesh-data = { workspace = true }
+satmesh-mesh = { workspace = true }

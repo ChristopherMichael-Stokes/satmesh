@@ -1,0 +1,27 @@
+[project]
+name = "satmesh-cli"
+version = "0.1.0"
+description = "The satmesh command: build a tiled terrain store from imagery and a DTM, and export it."
+requires-python = ">=3.13"
+dependencies = [
+  "httpx>=0.28.1",
+  "platformdirs>=4.13.5",
+  "satmesh-core",
+  "satmesh-data",
+  "satmesh-mesh",
+  "satmesh-tiles",
+  "typer>=0.27.3",
+]
+
+[project.scripts]
+satmesh = "satmesh_cli.main:app"
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+satmesh-core = { workspace = true }
+satmesh-data = { workspace = true }
+satmesh-mesh = { workspace = true }
+satmesh-tiles = { workspace = true }

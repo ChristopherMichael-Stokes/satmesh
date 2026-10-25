@@ -1,5 +1,8 @@
 # Plan: F4 `satmesh-mesh`, DTM plus texture to GLB
 
+Superseded in part by `f5-plan.md`: the BNG-metre frame, `drape_texture`, the texture cap and the
+single-GLB output are gone. Grid triangulation and the GLB writer remain in `satmesh-mesh`.
+
 Approved 2026-10-25 with option A for both decisions; implemented the same day. Turns the S5
 spike (`s5-results.md`) into a package. Inputs come from F2 (DTM GeoTIFF) and F3 (cropped Web
 Mercator `Raster`).

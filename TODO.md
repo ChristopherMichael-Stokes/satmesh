@@ -36,9 +36,16 @@
       GDAL with libecwj2 3.3, in Docker)
 - [x] F3 Tile mosaic (EPSG:3857, JPEG decoded by GDAL) and whole-pixel crop to the AOI plus margin;
       a placeholder inside the AOI raises
-- [x] F4 `satmesh-mesh`: texture reprojected to the DTM's CRS (8,192 px cap), pydelatin TIN,
-      affine UV drape, GLB with georeference in scene `extras`; XY in CRS metres, point scale recorded
-- [ ] F5 `satmesh-cli`
+- [x] F4 `satmesh-mesh`: pydelatin grid TIN, skirts, textured GLB writer
+- [x] F5 `satmesh-tiles` and `satmesh-cli`: georeferenced node store on the Esri tile grid (leaf =
+      4 x 4 Esri tiles, parents where all four children exist), resumable `satmesh build`, exports to
+      3D Tiles, Gazebo and one area GLB
+- [ ] F5a EA 1 m first-return DSM per node: visual mesh from the DSM so buildings and trees exist for
+      cameras, DTM kept for ground and collision (`GetCoverage` never run against the DSM)
+- [ ] F5b Gazebo collision from a decimated DTM mesh without skirts; benchmark step time and tile
+      count; confirm the glTF roll pose, `elevation` datum and levels in a running Gazebo
+- [ ] F5c DTM fetch for parents past about 6 km (WCS request size untested beyond 6000 x 6000 px);
+      area-averaged instead of point-sampled DEM for coarse parents; hairline seams between tiles
 - [ ] F6 Evaluation harness: DEM error against EA lidar, texture against EA 10 cm aerial,
       consistency check
 

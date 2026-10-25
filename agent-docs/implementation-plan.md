@@ -57,10 +57,9 @@ UVs for the drape are an affine function of projected XY, so no atlas unwrapping
 
 ## Layout
 
-- `pipeline/`: uv workspace without PyTorch. Packages: `satmesh-core`, `satmesh-data`, `satmesh-
-  mesh`,
-  `satmesh-cli`.
-- `ml/`: second uv workspace with PyTorch, created when a model's dependencies conflict with
+- `pipeline/`: uv workspace. Packages: `satmesh-core`, `satmesh-data`, `satmesh-mesh`,
+  `satmesh-tiles`, `satmesh-cli`.
+- `ml/`: second uv workspace for ML models, created when a model's dependencies conflict with
   `pipeline/`.
   Models cross over as exported files (ONNX) with a contract test.
 - Tile cache, DEM cache, models, and meshes are build outputs and are gitignored.

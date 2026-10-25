@@ -7,7 +7,7 @@ finest ground sample distance the sources support, enhanced by classical process
 
 | Path          | uv workspace | Holds                                                              |
 | ------------- | ------------ | ------------------------------------------------------------------ |
-| `pipeline/`   | yes          | `satmesh-core` (AOI, metric CRS, tile geometry, GSD), `satmesh-data` (Esri tiles, EA DTM, tile mosaic), `satmesh-mesh` (TIN, drape, GLB); CLI to come; no PyTorch |
+| `pipeline/`   | yes          | `satmesh-core` (AOI, metric CRS, tile geometry, GSD), `satmesh-data` (Esri tiles, EA DTM, tile mosaic), `satmesh-mesh` (grid TIN, skirts, GLB), `satmesh-tiles` (georeferenced node store, tiler, 3D Tiles, Gazebo and area GLB exporters), `satmesh-cli` (`satmesh` command) |
 | `agent-docs/` | no           | Docs written by and for agents: briefs, plans, research reports    |
 | `docs/`       | no           | Human-facing docs                                                  |
 | `docker/`     | no           | Images for tools no wheel ships: `gdal-ecw` converts ECW to GeoTIFF |
@@ -15,8 +15,8 @@ finest ground sample distance the sources support, enhanced by classical process
 
 - Each workspace has its own `uv.lock` and `.venv`. Members live at
   `<workspace>/packages/<dist-name>/src/<module>/` and are picked up by the `packages/*` glob.
-- An `ml/` workspace with PyTorch is added when a model's dependencies conflict with `pipeline/`.
-  Workspaces meet through exported model files, with a contract test.
+- An `ml/` workspace is added when a model's dependencies conflict with `pipeline/`. Workspaces meet
+  through exported model files, with a contract test.
 
 ## Agent docs
 
@@ -27,11 +27,11 @@ finest ground sample distance the sources support, enhanced by classical process
 - Plans and reports a session produces land in `agent-docs/` beside the brief that asked for
   them.
 - `TODO.md` is the concise task list; `agent-docs/implementation-plan.md` holds the detail.
+- `agent-docs/status.md` is the running log of state, decisions with reasons and open risks; update
+  it at every checkpoint, and write a `<feature>-results.md` with measurements and traps found.
 
 ## Hard constraints
 
-- **`pipeline/` never depends on PyTorch**, directly or transitively. Check `uv.lock` after adding
-  a dependency.
 - **Fetched tiles, DEMs, exported models and generated meshes are build outputs.** Never commit
   them (`.gitignore` covers the usual formats).
 - **Esri tile etiquette:** cache every tile by (z, y, x), throttle requests with backoff, send a
@@ -54,6 +54,8 @@ Run from the repo root unless a workspace is named.
 | Add a dependency to a member | `uv add --package <dist-name> <dep>` from the workspace |
 | All tests                    | `make test`                                             |
 | Build the GDAL ECW image     | `make gdal-ecw-image` (about 3 min, 552 MB)             |
+| Build a tile store           | `uv run satmesh build --bbox W S E N [--crs EPSG:27700] --store DIR` from `pipeline/` |
+| Export a store               | `uv run satmesh export {3dtiles,gazebo,glb} --store DIR ...` from `pipeline/` |
 
 ## Checks
 

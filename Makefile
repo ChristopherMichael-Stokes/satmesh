@@ -2,6 +2,8 @@
 
 setup:
 	uv sync --project pipeline --all-packages --locked
+	uv run --project pipeline pyproj sync --file uk_os_OSTN15_NTv2_OSGBtoETRS.tif
+	uv run --project pipeline pyproj sync --file uk_os_OSGM15_GB.tif
 	prek install
 
 check:

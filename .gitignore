@@ -1,0 +1,22 @@
+.venv/
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.rumdl_cache/
+.pytest_cache/
+dist/
+build/
+*.egg-info/
+
+.ipynb_checkpoints/
+uncommitted/
+
+# fetched tiles and DEMs, exported models and generated meshes are build outputs
+*.onnx
+*.pt
+*.pth
+*.glb
+*.gltf
+*.tif
+*.tiff
+*.jpg

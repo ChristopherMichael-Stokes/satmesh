@@ -145,10 +145,106 @@ at 448000 423000 was rejected because the 2020 coverage ends inside it (55 % bla
   (`embreex 4.4.0.post1`). 36 leaves and 555,000 faces render in 36 s. Pixel difference to the
   source mosaic: median 1.3, 95th percentile 8 luma levels (JPEG and resampling).
 - The render test is close to tautological for flat UVs, since a top view of a planimetrically
-  mapped texture is the texture. It does check that vertex positions, UVs and the OSTN15 chain agree.
+  mapped texture is the texture. It does check that vertex positions, UVs and the OSTN15 chain
+  agree.
 
 ### Not checked
 
 - Skirts and seams in the render: no cell fell outside a leaf, but the coverage test only shows
   every cell was hit.
 - Upper Aire render (a 500 m store); only Ferrybridge was rendered.
+
+## Checkpoint 4: height error of the store and camera visibility (2026-10-25)
+
+`visibility.py` and `mesh_score.py` in `satmesh-eval`. Reference is the EA first-return DSM
+triangulated at 1 m (2 million triangles per km2); test meshes are the store's finest nodes (555,000
+faces at Ferrybridge) and a DTM-only mesh standing for a store without F5a. Cameras are pinhole,
+90 degree horizontal field of view, 320 x 240 px, 30 per rig, placed at random on open ground
+(surface within 0.5 m of the ground, so none starts inside a building or tree); ground rig 1.7 m up
+and level, drone rig 60 m up at -25 degrees pitch. Range limit 300 m (Ferrybridge) and 150 m (Upper
+Aire, a 500 m store). Tolerance tau(r) = 0.5 m + 1 % of range. All are tunables.
+
+### Conclusions
+
+- The DSM store carries what cameras see; a DTM-only store does not `[live]`. Pixel agreement with
+  the reference within tau (reference-hit pixels):
+
+| Site | Rig | DSM store | DTM only |
+| --- | --- | --- | --- |
+| Ferrybridge | ground | 95.5 % | 53.2 % |
+| Ferrybridge | drone | 98.0 % | 69.5 % |
+| Upper Aire | ground | 93.1 % | 80.9 % |
+| Upper Aire | drone | 97.3 % | 81.7 % |
+
+- Surface points on raised objects (patches 2 m or more above the DTM, at least 4 m2, 3,000
+  sampled): a DTM-only store shows 0 of them from ground cameras and 0.2 % from the drone, as
+  expected, since the ground has no objects. The DSM store shows only 69 % (ground) and 89 % (drone)
+  at Ferrybridge, and 56 % and 70 % at Upper Aire. The loss is not a tolerance effect: loosening it
+  by 8 times lifts Ferrybridge's ground-camera figure from 69 % to 78 %; the store's hit is
+  typically within 0.2 m of the point (median +0.16 m) and the misses are rays that pass through a
+  smoothed crown or edge and land tens of metres behind (95th percentile +56 m).
+- The cause is in the store, not the metric. Height error of the store against the DSM at the DSM's
+  own pixel centres (vertical rays, `surface_height_error`):
+
+| Stratum | Ferrybridge NMAD m | p95 m | Upper Aire NMAD m | p95 m |
+| --- | --- | --- | --- | --- |
+| Open ground | 0.041 | 0.30 | 0.038 | 0.13 |
+| Raised objects (2 m or more) | 0.133 | 1.39 | 1.106 | 5.33 |
+| Slope under 5 degrees | 0.030 | 0.07 | 0.034 | 0.07 |
+| Slope over 30 degrees | 0.370 | 1.53 | 0.984 | 5.07 |
+
+  Medians are within 4 cm everywhere except Upper Aire raised objects (-0.34 m): the store
+  loses height at tree crowns and roof edges. Cause, by reading `node.py`: a leaf samples the DSM
+  bilinearly on its own Web Mercator grid at 1 m spacing. Those nodes fall between the DSM's
+  pixel centres, so bilinear interpolation averages up to four neighbours and flattens 1 m crowns
+  and edges, and the 0.1 m TIN error then applies to the already smoothed grid. `max_error_m` is
+  therefore an error against the resampled grid, not against the lidar.
+
+- Pixels the store hits where the reference does not (skirts, edges) are 0.01 to 0.03 % of the
+  reference-hit pixels.
+
+### Method notes
+
+- The reference and store share a source, so agreement on open ground (about 4 cm NMAD) checks the
+  georeference chain and TIN, not the lidar.
+- A flat-topped building has no single apex, so objects are tested by sampled surface points. A
+  first apex-based version failed on a flat roof whose interior a 1.7 m camera cannot see.
+- A first version let cameras land inside buildings; rays from there gave range errors of 100 to
+  200 m. Cameras are now drawn on open ground only.
+- Tests: synthetic ground and blocks with ranges worked out by trigonometry (45 degree look-down
+  gives 20 / sin 45 degrees), heading clockwise from north, projection against ray round trip,
+  ground-only mesh shows no raised point, occluded points not visible.
+
+### Not checked
+
+- Probable viewshed under DSM error (Fisher), planned once the error model exists; the height
+  error table above is that model.
+- Camera sets beyond 30 per rig and one seed.
+- Whether first-return canopy is what a leaf-off or oblique camera sees through trees.
+
+### Follow-up: nearest-pixel DSM sampling at 0.5 m (2026-10-25)
+
+Tried on Upper Aire (500 m) with four ways of sampling the DSM, then adopted the best in the
+pipeline. Height error of the store against the DSM, and share of reference-visible raised points
+shown (ground rig, drone rig):
+
+| Sampling | Raised-object NMAD, p95 m | Raised points shown | Store size |
+| --- | --- | --- | --- |
+| Bilinear, 1 m (before) | 1.11, 5.33 | 56 %, 70 % | 7.3 MB |
+| Nearest, 1 m | 1.05, 5.10 | 67 %, 79 % | 7.2 MB |
+| Bilinear, 0.5 m | 0.54, 3.24 | 61 %, 75 % | 19 MB |
+| Nearest, 0.5 m (adopted) | 0.00, 0.02 | 85 %, 92 % | 25 MB |
+
+Nearest at 0.5 m hits each 1 m DSM pixel with four grid nodes, so every pixel value survives; at
+1 m the nodes fall between pixel centres and nearest sampling drops or doubles pixels. The DTM
+ground grid stays bilinear. Built through the pipeline (`LEAF_GRID_SPACING_M` 0.5):
+
+| Site | Raised-object NMAD, p95 m | Raised points shown, ground, drone | Pixel agreement, ground, drone | Store size |
+| --- | --- | --- | --- | --- |
+| Ferrybridge | 0.000, 0.049 (was 0.133, 1.39) | 87 %, 97 % (was 69 %, 89 %) | 95.7 %, 98.4 % | 81 MB (was 27 MB) |
+| Upper Aire | see table above | 85 %, 92 % (was 56 %, 70 %) | 93.5 %, 97.7 % | 30 MB (was 7.3 MB) |
+
+Open ground improved too (Ferrybridge NMAD 0.041 to 0.021 m). Vertices at the 18 and 46 nodes sit
+within 0.07 mm of their DSM pixel value. Remaining misses are 0.25 m lateral slack at steps and
+the 1 m pixel staircase against the reference's sloped ramps. Cost: about 3 times the vertices and
+store size; the ground grid, bilinear on a 0.5 m node grid, is 4 times larger than before.

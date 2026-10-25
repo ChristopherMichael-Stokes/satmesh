@@ -12,11 +12,12 @@ from rasterio.io import MemoryFile
 from rasterio.transform import from_bounds
 
 from satmesh_core import Aoi
-from satmesh_data import WEB_MERCATOR, EsriClient
+from satmesh_data import EA_DSM, WEB_MERCATOR, EsriClient
 
 UPPER_AIRE_LON, UPPER_AIRE_LAT = -2.0015, 53.9236
 LEAF_ZOOM = 17
 INSET_M = 10.0
+CANOPY_M = 2.0
 IDENTIFY = {
     "results": [
         {
@@ -60,10 +61,11 @@ class FakeServices:
             self.requests["tile"] += 1
             return httpx.Response(200, content=jpeg(tile_colour(path)))
         self.requests["wcs"] += 1
-        return httpx.Response(200, content=self.dtm(request))
+        return httpx.Response(200, content=self.lidar(request))
 
     @staticmethod
-    def dtm(request: httpx.Request) -> bytes:
+    def lidar(request: httpx.Request) -> bytes:
+        """A sloping plane; the first-return DSM sits `CANOPY_M` above the DTM."""
         subsets = request.url.params.get_list("subset")
         east, north = (tuple(int(v) for v in re.findall(r"-?\d+", subset)) for subset in subsets)
         cols, rows = east[1] - east[0], north[1] - north[0]
@@ -72,6 +74,8 @@ class FakeServices:
             + 0.1 * np.arange(cols, dtype=np.float32)[None, :]
             + np.zeros((rows, 1), np.float32)
         )
+        if request.url.params["coverageId"] == EA_DSM.coverage_id:
+            heights += CANOPY_M
         with MemoryFile() as memory:
             with memory.open(
                 driver="GTiff",

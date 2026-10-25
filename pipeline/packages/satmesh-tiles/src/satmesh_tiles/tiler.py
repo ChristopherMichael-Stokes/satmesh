@@ -19,12 +19,15 @@ from satmesh_core import (
     wgs84_to_bng,
 )
 from satmesh_data import (
+    EA_DSM,
+    EA_DTM,
     WEB_MERCATOR,
+    EaLidarProduct,
     EsriClient,
     EsriSource,
     Raster,
     choose_zoom,
-    fetch_ea_dtm,
+    fetch_ea_lidar,
     mosaic_tiles,
 )
 from satmesh_mesh import DEFAULT_MAX_ERROR_M
@@ -32,6 +35,7 @@ from satmesh_tiles.node import (
     LEAF_ZOOM_DEPTH,
     MeshSettings,
     NodeRecord,
+    SurfacePaths,
     build_node,
     esri_tiles,
 )
@@ -154,6 +158,11 @@ def node_paths(store_dir: Path, tile: mercantile.Tile) -> tuple[Path, Path]:
     return base / f"{tile.y}.glb", base / f"{tile.y}.json"
 
 
+def ground_path(store_dir: Path, tile: mercantile.Tile) -> Path:
+    """Return the path of a node's ground (DTM) height grid, a Web Mercator GeoTIFF."""
+    return node_paths(store_dir, tile)[0].with_suffix(".ground.tif")
+
+
 def read_record(store_dir: Path, tile: mercantile.Tile) -> NodeRecord:
     """Return the record of a built node."""
     return NodeRecord.model_validate_json(node_paths(store_dir, tile)[1].read_text())
@@ -170,7 +179,8 @@ def build_store(  # noqa: PLR0913 (edges of the build: network clients, director
 ) -> BuildSummary:
     """Write every missing node of `plan` to `store_dir`; nodes already present are skipped.
 
-    Leaves fetch their 16 Esri tiles (cached by the client) and a DTM box (cached by the fetch);
+    Leaves fetch their 16 Esri tiles (cached by the client) and a DSM and a DTM box (cached by the
+    fetch);
     parents are halved from their children's textures and meshed at twice the grid spacing and
     error per level. A rerun after an interruption repeats no network request and no finished node.
     """
@@ -196,7 +206,7 @@ def build_store(  # noqa: PLR0913 (edges of the build: network clients, director
             store_dir,
             tile,
             texture,
-            _fetch_dtm(http, tile, cache_dir),
+            _fetch_surfaces(http, tile, cache_dir),
             plan.imagery,
             MeshSettings.for_level(plan.leaf_zoom - tile.z, max_error_m),
         )
@@ -212,19 +222,20 @@ def _write_node(  # noqa: PLR0913, PLR0917 (one node's inputs)
     store_dir: Path,
     tile: mercantile.Tile,
     texture: Raster,
-    dtm_path: Path,
+    surfaces: SurfacePaths,
     imagery: EsriSource,
     settings: MeshSettings,
 ) -> None:
-    node = build_node(tile, texture, dtm_path, imagery, settings)
+    node = build_node(tile, texture, surfaces, imagery, settings)
     glb_path, record_path = node_paths(store_dir, tile)
     glb_path.parent.mkdir(parents=True, exist_ok=True)
     _write_atomically(glb_path, node.glb)
+    _write_atomically(ground_path(store_dir, tile), node.ground_tif)
     _write_atomically(record_path, node.record.model_dump_json(indent=1).encode())
     logger.info("built node z%d x%d y%d: %d vertices", tile.z, tile.x, tile.y, node.record.vertices)
 
 
-def _fetch_dtm(http: httpx.Client, tile: mercantile.Tile, cache_dir: Path) -> Path:
+def _fetch_surfaces(http: httpx.Client, tile: mercantile.Tile, cache_dir: Path) -> SurfacePaths:
     bounds = mercantile.xy_bounds(tile)
     footprint = Aoi(
         crs=WEB_MERCATOR, west=bounds.left, south=bounds.bottom, east=bounds.right, north=bounds.top
@@ -237,7 +248,11 @@ def _fetch_dtm(http: httpx.Client, tile: mercantile.Tile, cache_dir: Path) -> Pa
         east=math.ceil(east) + DTM_BOX_MARGIN_M,
         north=math.ceil(north) + DTM_BOX_MARGIN_M,
     )
-    return fetch_ea_dtm(http, box, cache_dir)
+
+    def fetch(product: EaLidarProduct) -> Path:
+        return fetch_ea_lidar(http, box, cache_dir, product)
+
+    return SurfacePaths(dsm=fetch(EA_DSM), dtm=fetch(EA_DTM))
 
 
 def _write_atomically(path: Path, data: bytes) -> None:

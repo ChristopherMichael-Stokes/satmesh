@@ -20,6 +20,7 @@ from satmesh_data import WEB_MERCATOR, Raster
 from satmesh_tiles import (
     build_store,
     complete_tree,
+    ground_path,
     node_paths,
     parent_texture,
     plan_tiles,
@@ -120,6 +121,8 @@ def test_build_writes_every_node_and_a_rerun_repeats_nothing(
         glb, _ = node_paths(store, tile)
         assert glb.stat().st_size > 0
         assert read_record(store, tile).z == tile.z
+        assert ground_path(store, tile).stat().st_size > 0
+    assert services.requests["wcs"] == 2 * first.built  # one DSM and one DTM box per node
     requests_after_first = dict(services.requests)
     second = build_store(plan, store, esri=esri, http=http, cache_dir=tmp_path / "cache")
     assert (second.built, second.skipped) == (0, 5)

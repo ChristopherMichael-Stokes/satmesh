@@ -12,7 +12,7 @@ import typer
 from platformdirs import user_cache_dir
 
 from satmesh_core import WGS84, Aoi, GridMissingError
-from satmesh_data import DtmCheckError, EsriClient, PlaceholderTileError, new_client
+from satmesh_data import EsriClient, LidarCheckError, PlaceholderTileError, new_client
 from satmesh_mesh import DEFAULT_MAX_ERROR_M
 from satmesh_tiles import (
     ESRI_TILES_PER_LEAF_SIDE,
@@ -50,7 +50,7 @@ def reported_errors() -> Generator[None]:
         ValueError,
         GridMissingError,
         PlaceholderTileError,
-        DtmCheckError,
+        LidarCheckError,
         httpx.HTTPError,
     ) as e:
         typer.echo(f"error: {e}", err=True)

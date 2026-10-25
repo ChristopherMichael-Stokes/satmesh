@@ -17,7 +17,8 @@ make setup
 ## Use
 
 Needs the UK PROJ grids (`make setup` fetches them) and, for Great Britain, nothing else: imagery is
-Esri World Imagery and heights are the Environment Agency 1 m lidar DTM.
+Esri World Imagery and heights are the Environment Agency 1 m lidar: the first-return DSM for the
+visual mesh and the DTM for the ground grid stored beside it.
 
 ```sh
 cd pipeline

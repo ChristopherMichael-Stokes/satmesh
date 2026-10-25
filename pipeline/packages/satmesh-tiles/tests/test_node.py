@@ -7,6 +7,7 @@ import pygltflib
 import pytest
 import rasterio
 from pyproj import Transformer
+from rasterio.io import MemoryFile
 from rasterio.transform import from_bounds, from_origin
 
 from satmesh_data import WEB_MERCATOR, EsriSource, Raster
@@ -14,6 +15,7 @@ from satmesh_tiles import (
     ESRI_TILES_PER_LEAF_SIDE,
     MeshSettings,
     NodeRecord,
+    SurfacePaths,
     build_node,
     esri_tiles,
 )
@@ -29,6 +31,9 @@ TILE_PX = 256
 # plane H = ORIGIN_H + SLOPE_E * (E - e0) + SLOPE_N * (N - n0), exact under bilinear sampling
 ORIGIN_H, SLOPE_E, SLOPE_N = 120.0, 0.2, -0.1
 DTM_MARGIN_M = 30
+# the first-return DSM stands this far above the DTM everywhere
+CANOPY_M = 3.0
+GROUND_TOLERANCE_M = 1e-3  # float32 at 200 m
 
 LEAF = mercantile.tile(UPPER_AIRE_LON, UPPER_AIRE_LAT, LEAF_ZOOM)
 BOUNDS = mercantile.xy_bounds(LEAF)
@@ -50,7 +55,7 @@ def plane_height(easting: np.ndarray, northing: np.ndarray, e0: float, n0: float
     return ORIGIN_H + SLOPE_E * (easting - e0) + SLOPE_N * (northing - n0)
 
 
-def write_plane_dtm(path: Path) -> tuple[float, float]:
+def write_plane(path: Path, rise_m: float = 0.0) -> tuple[float, float]:
     corners = [
         TO_BNG.transform(x, y)
         for x in (BOUNDS.left, BOUNDS.right)
@@ -63,7 +68,7 @@ def write_plane_dtm(path: Path) -> tuple[float, float]:
     cols, rows = east - west, north - south
     easting = west + 0.5 + np.arange(cols)[None, :]
     northing = north - 0.5 - np.arange(rows)[:, None]
-    heights = plane_height(easting, northing, west, south)
+    heights = plane_height(easting, northing, west, south) + rise_m
     with rasterio.open(
         path,
         "w",
@@ -89,6 +94,13 @@ def leaf_texture() -> Raster:
     )
 
 
+def write_surfaces(directory: Path) -> tuple[SurfacePaths, float, float]:
+    surfaces = SurfacePaths(dsm=directory / "dsm.tif", dtm=directory / "dtm.tif")
+    west, south = write_plane(surfaces.dtm)
+    write_plane(surfaces.dsm, CANOPY_M)
+    return surfaces, west, south
+
+
 def positions(glb: bytes) -> tuple[np.ndarray, np.ndarray]:
     gltf = pygltflib.GLTF2.load_from_bytes(glb)
     primitive = gltf.meshes[0].primitives[0]
@@ -107,9 +119,8 @@ def positions(glb: bytes) -> tuple[np.ndarray, np.ndarray]:
 
 @pytest.fixture(scope="module")
 def built(tmp_path_factory: pytest.TempPathFactory) -> tuple[bytes, NodeRecord, float, float]:
-    dtm = tmp_path_factory.mktemp("dtm") / "plane.tif"
-    west, south = write_plane_dtm(dtm)
-    leaf = build_node(LEAF, leaf_texture(), dtm, ESRI_SOURCE, MESH_SETTINGS)
+    surfaces, west, south = write_surfaces(tmp_path_factory.mktemp("surfaces"))
+    leaf = build_node(LEAF, leaf_texture(), surfaces, ESRI_SOURCE, MESH_SETTINGS)
     return leaf.glb, leaf.record, west, south
 
 
@@ -140,7 +151,7 @@ def test_uv_follows_each_vertex_position_on_the_web_mercator_grid(
     )
 
 
-def test_heights_match_the_dtm_in_ordnance_datum_through_the_grids(
+def test_mesh_heights_match_the_dsm_in_ordnance_datum_through_the_grids(
     built: tuple[bytes, NodeRecord, float, float],
 ) -> None:
     glb, record, west, south = built
@@ -155,7 +166,7 @@ def test_heights_match_the_dtm_in_ordnance_datum_through_the_grids(
     easting, northing, odn = Transformer.from_crs(
         "EPSG:4979", "EPSG:7405", always_xy=True
     ).transform(lon, lat, height)
-    expected = plane_height(easting, northing, west, south)
+    expected = plane_height(easting, northing, west, south) + CANOPY_M
     assert np.abs(odn - expected).max() <= MAX_ERROR_M + GLB_POSITION_TOLERANCE_M
 
 
@@ -170,10 +181,29 @@ def test_record_counts_match_the_mesh(built: tuple[bytes, NodeRecord, float, flo
     assert record.imagery.zoom == LEAF_ZOOM + 2
 
 
-def test_dtm_that_misses_the_leaf_raises(tmp_path: Path) -> None:
-    dtm = tmp_path / "small.tif"
+def test_ground_grid_holds_the_dtm_on_the_tile_nodes(tmp_path: Path) -> None:
+    surfaces, west, south = write_surfaces(tmp_path)
+    leaf = build_node(LEAF, leaf_texture(), surfaces, ESRI_SOURCE, MESH_SETTINGS)
+    with MemoryFile(leaf.ground_tif) as memory, memory.open() as src:
+        assert src.crs.to_epsg() == 3857
+        rows, cols = src.shape
+        assert rows == cols == leaf.record.grid_nodes**0.5
+        x, y = rasterio.transform.xy(src.transform, [0, rows - 1], [0, cols - 1])
+        assert (x[0], y[0]) == pytest.approx((BOUNDS.left, BOUNDS.top))
+        assert (x[1], y[1]) == pytest.approx((BOUNDS.right, BOUNDS.bottom))
+        ground = src.read(1)
+        row_index, col_index = np.indices(src.shape)
+        x, y = src.xy(row_index.ravel(), col_index.ravel())
+    easting, northing = TO_BNG.transform(x, y)
+    expected = plane_height(easting, northing, west, south).reshape(ground.shape)
+    np.testing.assert_allclose(ground, expected, atol=GROUND_TOLERANCE_M)
+
+
+def test_dsm_that_misses_the_leaf_raises(tmp_path: Path) -> None:
+    surfaces, _, _ = write_surfaces(tmp_path)
+    small = tmp_path / "small.tif"
     with rasterio.open(
-        dtm,
+        small,
         "w",
         driver="GTiff",
         width=10,
@@ -184,13 +214,18 @@ def test_dtm_that_misses_the_leaf_raises(tmp_path: Path) -> None:
         transform=from_origin(400000, 447500, 1.0, 1.0),
     ) as dst:
         dst.write(np.zeros((10, 10), np.float32), 1)
-    with pytest.raises(ValueError, match="does not cover"):
-        build_node(LEAF, leaf_texture(), dtm, ESRI_SOURCE, MESH_SETTINGS)
+    with pytest.raises(ValueError, match=r"small\.tif .* does not cover"):
+        build_node(
+            LEAF,
+            leaf_texture(),
+            SurfacePaths(dsm=small, dtm=surfaces.dtm),
+            ESRI_SOURCE,
+            MESH_SETTINGS,
+        )
 
 
 def test_texture_that_is_not_the_leaf_raises(tmp_path: Path) -> None:
-    dtm = tmp_path / "plane.tif"
-    write_plane_dtm(dtm)
+    surfaces, _, _ = write_surfaces(tmp_path)
     other = mercantile.Tile(LEAF.x + 1, LEAF.y, LEAF.z)
     bounds = mercantile.xy_bounds(other)
     side = ESRI_TILES_PER_LEAF_SIDE * TILE_PX
@@ -200,4 +235,4 @@ def test_texture_that_is_not_the_leaf_raises(tmp_path: Path) -> None:
         WEB_MERCATOR,
     )
     with pytest.raises(ValueError, match="not the tile"):
-        build_node(LEAF, wrong, dtm, ESRI_SOURCE, MESH_SETTINGS)
+        build_node(LEAF, wrong, surfaces, ESRI_SOURCE, MESH_SETTINGS)

@@ -8,6 +8,7 @@ dependencies = [
   "platformdirs>=4.13.5",
   "satmesh-core",
   "satmesh-data",
+  "satmesh-eval",
   "satmesh-mesh",
   "satmesh-tiles",
   "typer>=0.27.3",
@@ -23,5 +24,6 @@ build-backend = "uv_build"
 [tool.uv.sources]
 satmesh-core = { workspace = true }
 satmesh-data = { workspace = true }
+satmesh-eval = { workspace = true }
 satmesh-mesh = { workspace = true }
 satmesh-tiles = { workspace = true }

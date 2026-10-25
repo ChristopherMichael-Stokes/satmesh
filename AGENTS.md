@@ -7,7 +7,7 @@ finest ground sample distance the sources support, enhanced by classical process
 
 | Path          | uv workspace | Holds                                                              |
 | ------------- | ------------ | ------------------------------------------------------------------ |
-| `pipeline/`   | yes          | `satmesh-core` (AOI, metric CRS, tile geometry, GSD), `satmesh-data` (Esri tiles, EA DTM and DSM, tile mosaic), `satmesh-mesh` (grid TIN, skirts, GLB), `satmesh-tiles` (georeferenced node store, tiler, 3D Tiles, Gazebo and area GLB exporters), `satmesh-eval` (height scores, pipeline check; imagery offset and camera visibility to come), `satmesh-cli` (`satmesh` command) |
+| `pipeline/`   | yes          | `satmesh-core` (AOI, metric CRS, tile geometry, GSD), `satmesh-data` (Esri tiles, EA DTM and DSM, tile mosaic), `satmesh-mesh` (grid TIN, skirts, GLB), `satmesh-tiles` (georeferenced node store, tiler, 3D Tiles, Gazebo and area GLB exporters), `satmesh-eval` (height and smoothness scores, pipeline check, imagery offset, camera visibility), `satmesh-cli` (`satmesh` command) |
 | `agent-docs/` | no           | Docs written by and for agents: briefs, plans, research reports    |
 | `docs/`       | no           | Human-facing docs                                                  |
 | `docker/`     | no           | Images for tools no wheel ships: `gdal-ecw` converts ECW to GeoTIFF |
@@ -56,6 +56,10 @@ Run from the repo root unless a workspace is named.
 | Build the GDAL ECW image     | `make gdal-ecw-image` (about 3 min, 552 MB)             |
 | Build a tile store           | `uv run satmesh build --bbox W S E N [--crs EPSG:27700] --store DIR` from `pipeline/` |
 | Export a store               | `uv run satmesh export {3dtiles,gazebo,glb} --store DIR ...` from `pipeline/` |
+| Score a store                | `uv run satmesh eval {heights,smoothness,visibility} --store DIR --bbox W S E N` (BNG metres) from `pipeline/` |
+| Esri-to-EA imagery offset    | `uv run satmesh eval offset --aerial EA.tif --bbox W S E N --zoom 19` from `pipeline/` |
+| Texture detail vs EA aerial  | `uv run satmesh eval texture --aerial EA.tif --bbox W S E N --zoom 19` from `pipeline/` |
+| Eval on a 100 m slice        | `make eval-slice` (builds a store, then runs the three store checks; needs network) |
 
 ## Checks
 

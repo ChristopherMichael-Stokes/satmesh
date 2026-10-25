@@ -120,7 +120,7 @@ def _sample_through_proj(
     inverse = ~raster.transform
     source_cols, source_rows = inverse @ (x, y)
     # source pixels are smaller than the grid's: smooth over the ratio before sampling
-    sigma_px = SMOOTHING_SIGMA_PER_GRID_RATIO * grid_m / _source_ground_pixel_m(raster, box)
+    sigma_px = SMOOTHING_SIGMA_PER_GRID_RATIO * grid_m / source_ground_pixel_m(raster, box)
     return np.stack(
         [
             map_coordinates(
@@ -134,7 +134,7 @@ def _sample_through_proj(
     )
 
 
-def _source_ground_pixel_m(raster: Raster, box: Aoi) -> float:
+def source_ground_pixel_m(raster: Raster, box: Aoi) -> float:
     """Ground size of one source pixel at the box centre, from two points one pixel apart."""
     centre_e, centre_n = (box.west + box.east) / 2, (box.south + box.north) / 2
     to_source = Transformer.from_crs(BRITISH_NATIONAL_GRID, raster.crs, always_xy=True)

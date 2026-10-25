@@ -49,3 +49,10 @@ def test_exports_of_an_empty_store_report_no_nodes(tmp_path: Path) -> None:
         result = runner.invoke(app, command)
         assert result.exit_code == 1, command
         assert "no nodes" in result.output, command
+
+
+def test_eval_group_lists_the_four_checks() -> None:
+    result = runner.invoke(app, ["eval", "--help"])
+    assert result.exit_code == 0
+    for check in ("heights", "smoothness", "visibility", "offset"):
+        assert check in result.output

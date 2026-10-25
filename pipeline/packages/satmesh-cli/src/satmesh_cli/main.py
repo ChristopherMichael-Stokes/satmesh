@@ -13,6 +13,15 @@ from platformdirs import user_cache_dir
 
 from satmesh_core import WGS84, Aoi, GridMissingError
 from satmesh_data import EsriClient, LidarCheckError, PlaceholderTileError, new_client
+from satmesh_eval.report import (
+    bng_box,
+    heights_report,
+    load_site,
+    offset_report,
+    smoothness_report,
+    texture_report,
+    visibility_report,
+)
 from satmesh_mesh import DEFAULT_MAX_ERROR_M
 from satmesh_tiles import (
     ESRI_TILES_PER_LEAF_SIDE,
@@ -30,8 +39,18 @@ SECONDS_PER_MINUTE = 60
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="Tiled terrain meshes.")
 export_app = typer.Typer(no_args_is_help=True, help="Write a store for a consumer.")
 app.add_typer(export_app, name="export")
+eval_app = typer.Typer(no_args_is_help=True, help="Score a store against EA lidar and aerial data.")
+app.add_typer(eval_app, name="eval")
 
 StoreOption = Annotated[Path, typer.Option(help="Tile store directory.")]
+CacheDirOption = Annotated[
+    Path,
+    typer.Option(envvar="SATMESH_CACHE_DIR", help="Fetched tiles and DTMs, reused across runs."),
+]
+EvalBboxOption = Annotated[
+    tuple[float, float, float, float],
+    typer.Option(help="West South East North in British National Grid metres, inside the store."),
+]
 
 
 @app.callback()
@@ -126,3 +145,69 @@ def export_glb(
     with reported_errors():
         export_area_glb(store, out)
         typer.echo(out)
+
+
+@eval_app.command("heights")
+def eval_heights(
+    store: StoreOption, bbox: EvalBboxOption, cache_dir: CacheDirOption = DEFAULT_CACHE_DIR
+) -> None:
+    """Height error of the store against the EA first-return DSM, by stratum."""
+    box = bng_box(bbox)
+    with reported_errors(), new_client() as http:
+        typer.echo(heights_report(store, load_site(box, cache_dir, http)))
+
+
+@eval_app.command("smoothness")
+def eval_smoothness(
+    store: StoreOption, bbox: EvalBboxOption, cache_dir: CacheDirOption = DEFAULT_CACHE_DIR
+) -> None:
+    """Facet normal error, terrace and grid-alignment scores of the store."""
+    box = bng_box(bbox)
+    with reported_errors(), new_client() as http:
+        typer.echo(smoothness_report(store, load_site(box, cache_dir, http)))
+
+
+@eval_app.command("visibility")
+def eval_visibility(  # noqa: PLR0913 (store, area, cache and the three camera settings)
+    store: StoreOption,
+    bbox: EvalBboxOption,
+    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+    *,
+    cameras: Annotated[int, typer.Option(help="Random cameras per rig.")] = 30,
+    range_m: Annotated[
+        float, typer.Option(help="Range limit; cameras keep this far from the box edge.")
+    ] = 150.0,
+    seed: Annotated[int, typer.Option(help="Seed of the camera draw.")] = 1,
+) -> None:
+    """Pixel agreement and raised-object visibility from random cameras, against the DSM."""
+    box = bng_box(bbox)
+    with reported_errors(), new_client() as http:
+        site = load_site(box, cache_dir, http)
+        typer.echo(visibility_report(store, site, cameras=cameras, range_m=range_m, seed=seed))
+
+
+@eval_app.command("offset")
+def eval_offset(
+    aerial: Annotated[Path, typer.Option(help="EA aerial RGB GeoTIFF in BNG covering the box.")],
+    bbox: EvalBboxOption,
+    zoom: Annotated[int, typer.Option(help="Esri zoom level to compare.")],
+    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+) -> None:
+    """Displacement of Esri imagery from an EA aerial over the box."""
+    box = bng_box(bbox)
+    with reported_errors(), new_client() as http:
+        typer.echo(offset_report(aerial, box, zoom, EsriClient(http, cache_dir)))
+
+
+@eval_app.command("texture")
+def eval_texture(
+    aerial: Annotated[Path, typer.Option(help="EA aerial RGB GeoTIFF in BNG covering the box.")],
+    bbox: EvalBboxOption,
+    zoom: Annotated[int, typer.Option(help="Esri zoom level to compare.")],
+    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+) -> None:
+    """Esri detail power against an EA aerial by frequency band, away from raised objects."""
+    box = bng_box(bbox)
+    with reported_errors(), new_client() as http:
+        site = load_site(box, cache_dir, http)
+        typer.echo(texture_report(aerial, box, zoom, EsriClient(http, cache_dir), site))

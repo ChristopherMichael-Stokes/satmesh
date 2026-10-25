@@ -24,6 +24,20 @@ The ML effort goes mostly to the DEM, where the source is coarse, and not to the
 best Esri
 tiles are already near the limit.
 
+## Source registry
+
+Esri is the fallback. A registry maps each region to an ordered list of imagery sources and an ordered
+list of DEM sources; lookup walks the list and takes the first source that covers the AOI. The
+registry is a validated data file (pydantic models), not code. Each entry records:
+
+- kind (imagery or DEM), surface (DTM or DSM), native resolution, CRS and vertical datum
+- access type: ArcGIS tile cache, WCS, COG range read, tile download, or index-then-download
+- region polygon, capture years where known, licence and attribution
+
+Each access type needs its own adapter in `satmesh-data`. UK entries and their evidence are in
+`uk-sources.md`; other regions are added after their own survey. Source choice is per AOI, so a
+mesh can combine a lidar DEM with Esri imagery.
+
 ## Stack
 
 | Step | Library |
@@ -58,7 +72,7 @@ UVs for the drape are an affine function of projected XY, so no atlas unwrapping
 Copy xfeat-rt tooling per `TODO.md`. Exit: `make setup`, `make check`, `make test` pass on a stub
 package.
 
-### 1. Source spikes (S1 to S4)
+### 1. Source spikes (S1 to S7)
 
 - S1 settles how finely each location can be imaged: confirm layer 4 `SRC_RES` against the
   placeholder-hash
@@ -91,18 +105,28 @@ Built before any enhancement so each experiment has a score.
 
 Terrain: feature-preserving smoothing, then void fill, then bicubic up to mesh resolution. Texture:
 histogram matching and multiband blending at source and zoom boundaries. Exit: each step improves or
-holds
-the F6 scores.
+holds the F6 scores.
 
-### 5. ML experiments (E3 to E7, in order of expected value)
+### 5. ML experiments
 
-1. E3 SwinIR or HAT x2 with the non-GAN weights, applied only where the source resolution is coarser
-   than the
-   tile GSD.
-2. E4 PixTransform per tile, fitted without training data and constrained to the coarse DEM. A
-   moderate
-   upscale factor, scored against lidar.
-3. E5 to E7 only if the earlier results justify them.
+The two owner-set directions come first; the rest follow by expected value.
+
+1. **A. Continuous depth for low-resolution DEMs (E4).** Turn a coarse DEM (GLO-30 at 30 m, OS Terrain
+   50 at 50 m, or 2 m lidar) into a continuous, higher-resolution height field. Candidates:
+   PixTransform per tile (fitted without training data, constrained to agree with the coarse DEM),
+   DADA retrained on lidar and imagery pairs, and monocular height as a detail layer (E7). Scored
+   against 1 m lidar at UK sites, split by slope and land cover. Guided methods copy image edges
+   (road paint, shadows) into height, so the score includes an edge-leakage check.
+2. **B. Super-resolution over multiple captures (E6).** Fuse several captures of the same location
+   into one higher-resolution texture. Inputs: Esri Wayback releases deduplicated by capture date,
+   plus any other-source captures (EA aerial years, other APGB-free imagery). Candidates: HighRes-net
+   and Deep Burst SR, with a classical register-and-merge baseline. S2 measures how many distinct
+   captures exist per site; E6 runs regardless, and a site with a single capture is a negative
+   result to record. Real multi-frame gain needs sub-pixel shifts between captures, so registration
+   accuracy is measured first.
+3. E3 SwinIR or HAT x2 with the non-GAN weights, applied only where the source resolution is coarser
+   than the tile GSD.
+4. E5 Real-ESRGAN fine-tuned on in-domain pairs, only if E3 shows a gap.
 
 Each experiment records its dataset, scores, and a keep or drop decision in `agent-docs/`.
 

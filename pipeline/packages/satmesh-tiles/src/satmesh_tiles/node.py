@@ -31,14 +31,18 @@ from satmesh_mesh import (
 
 ESRI_TILES_PER_LEAF_SIDE = 4
 LEAF_ZOOM_DEPTH = 2  # log2(ESRI_TILES_PER_LEAF_SIDE): a leaf's Esri tiles are 2 zooms deeper
-# EA LIDAR Composite pixel size; a leaf samples its height grid at this spacing to keep the detail
-LEAF_GRID_SPACING_M = 1.0
+# Half the EA LIDAR Composite pixel size: with nearest-pixel sampling of the DSM each of its pixels
+# is hit by four grid nodes, so the 1 m crowns and roof edges survive. At 1 m spacing the nodes fall
+# between pixel centres and nearest sampling drops or doubles pixels instead.
+LEAF_GRID_SPACING_M = 0.5
 # The gap between two neighbouring tiles' edges is at most the sum of their TIN errors, which is
 # under twice the coarser tile's error; twice that again leaves margin.
 SKIRT_DEPTH_PER_ERROR = 4.0
-# bilinear sampling is exact on the DTM's pixel centres and the box must sit inside them
+# raster index of a pixel centre is half a pixel inside its corner coordinate
 PIXEL_CENTRE_OFFSET = 0.5
 EDGE_TOLERANCE_M = 1e-6
+# scipy.ndimage spline orders: the DSM keeps its own pixel values, the smooth DTM is interpolated
+NEAREST, BILINEAR = 0, 1
 
 
 @dataclass(frozen=True)
@@ -141,7 +145,8 @@ def build_node(
 
     The height grids are sampled every `settings.grid_spacing_m` ground metres on the node's own
     Web Mercator grid, so every grid node has an exact texture coordinate and a neighbouring node
-    samples identical heights along a shared edge. Heights are ODN; the mesh is placed in ENU
+    samples identical heights along a shared edge. The DSM takes the value of the nearest pixel and
+    the DTM is interpolated bilinearly. Heights are ODN; the mesh is placed in ENU
     through OSTN15 and OSGM15. The DTM is not meshed: its sampled grid is returned as a GeoTIFF
     for ground queries and collision.
     """
@@ -225,8 +230,8 @@ def _sample_grid(
     )
     lon, lat = Transformer.from_crs(WEB_MERCATOR, WGS84, always_xy=True).transform(x, y)
     easting, northing = wgs84_to_bng().transform(lon, lat)
-    odn_heights = _bilinear_heights(surfaces.dsm, easting, northing)
-    ground_odn_heights = _bilinear_heights(surfaces.dtm, easting, northing)
+    odn_heights = _sample_heights(surfaces.dsm, easting, northing, NEAREST)
+    ground_odn_heights = _sample_heights(surfaces.dtm, easting, northing, BILINEAR)
     lon, lat, height = bng_odn_to_wgs84().transform(easting, northing, odn_heights)
     ecef = np.stack(geodetic_to_ecef().transform(lon, lat, height), axis=-1)
     origin_lon, origin_lat = (
@@ -254,7 +259,9 @@ def _triple(values: np.ndarray) -> tuple[float, float, float]:
     return x, y, z
 
 
-def _bilinear_heights(path: Path, easting: np.ndarray, northing: np.ndarray) -> np.ndarray:
+def _sample_heights(
+    path: Path, easting: np.ndarray, northing: np.ndarray, order: int
+) -> np.ndarray:
     with rasterio.open(path) as src:
         transform = src.transform
         heights = src.read(1, masked=True)
@@ -275,7 +282,7 @@ def _bilinear_heights(path: Path, easting: np.ndarray, northing: np.ndarray) -> 
         raise ValueError(msg)
     columns = (easting - transform.c) / transform.a - PIXEL_CENTRE_OFFSET
     rows = (northing - transform.f) / transform.e - PIXEL_CENTRE_OFFSET
-    return map_coordinates(heights.filled(), [rows, columns], order=1, mode="nearest")
+    return map_coordinates(heights.filled(), [rows, columns], order=order, mode="nearest")
 
 
 def _ground_geotiff(heights: np.ndarray, bounds: mercantile.Bbox) -> bytes:

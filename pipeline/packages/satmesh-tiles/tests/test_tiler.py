@@ -153,8 +153,8 @@ def test_parents_use_coarser_grid_and_error(services: FakeServices, tmp_path: Pa
     store = tmp_path / "store"
     build_store(plan, store, esri=esri, http=http, cache_dir=tmp_path / "cache", max_error_m=0.1)
     leaf, parent = read_record(store, min(leaves)), read_record(store, plan.roots[0])
-    assert (leaf.grid_spacing_m, leaf.max_error_m) == (1.0, 0.1)
-    assert (parent.grid_spacing_m, parent.max_error_m) == (2.0, 0.2)
+    assert (leaf.grid_spacing_m, leaf.max_error_m) == (0.5, 0.1)
+    assert (parent.grid_spacing_m, parent.max_error_m) == (1.0, 0.2)
 
 
 def test_parent_texture_tiles_land_where_their_esri_tiles_are(

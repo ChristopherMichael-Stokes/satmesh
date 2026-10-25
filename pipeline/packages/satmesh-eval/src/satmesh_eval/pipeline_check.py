@@ -1,10 +1,10 @@
 """Pipeline height check: do a stored node's vertices sit at the heights of the EA rasters?
 
-The mesh is built from the first-return DSM, so a node's terrain vertices must reproduce the DSM at
-their own BNG position, and its ground grid must reproduce the DTM. This checks the georeference
-chain (ENU, ECEF, OSTN15 and OSGM15), the UVs' sibling positions and the ground-grid transform with
-a path independent of the build: pyproj called directly and a separate bilinear sampler. It does
-not measure the lidar's own accuracy.
+The mesh is built from the first-return DSM, so a node's terrain vertices must reproduce the value
+of the DSM pixel containing their own BNG position, and its ground grid must reproduce the DTM
+(bilinear). This checks the georeference chain (ENU, ECEF, OSTN15 and OSGM15), the UVs' sibling
+positions and the ground-grid transform with a path independent of the build: pyproj called
+directly and a separate sampler. It does not measure the lidar's own accuracy.
 """
 
 from dataclasses import dataclass
@@ -53,8 +53,8 @@ def check_store(store_dir: Path, cache_dir: Path) -> list[NodeHeightCheck]:
 def check_node(store_dir: Path, cache_dir: Path, tile: mercantile.Tile) -> NodeHeightCheck:
     """Compare one node's terrain vertices with the DSM and its ground grid with the DTM."""
     record = read_record(store_dir, tile)
-    dsm = _interpolator(cached_lidar_path(cache_dir, EA_DSM, record.dsm))
-    dtm = _interpolator(cached_lidar_path(cache_dir, EA_DTM, record.dtm))
+    dsm = _interpolator(cached_lidar_path(cache_dir, EA_DSM, record.dsm), "nearest")
+    dtm = _interpolator(cached_lidar_path(cache_dir, EA_DTM, record.dtm), "linear")
     easting, northing, odn = _vertex_bng_odn(node_paths(store_dir, tile)[0], record)
     ground_e, ground_n, ground_odn = _ground_bng_odn(ground_path(store_dir, tile))
     return NodeHeightCheck(
@@ -101,7 +101,7 @@ def _ground_bng_odn(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return easting, northing, heights.ravel()
 
 
-def _interpolator(path: Path) -> RegularGridInterpolator:
+def _interpolator(path: Path, method: str) -> RegularGridInterpolator:
     with rasterio.open(path) as src:
         heights = src.read(1).astype(np.float64)
         transform = src.transform
@@ -109,4 +109,4 @@ def _interpolator(path: Path) -> RegularGridInterpolator:
     eastings = transform.c + transform.a * (np.arange(cols) + 0.5)
     northings = transform.f + transform.e * (np.arange(rows) + 0.5)
     # RegularGridInterpolator wants ascending axes; northings descend down the rows
-    return RegularGridInterpolator((northings[::-1], eastings), heights[::-1], method="linear")
+    return RegularGridInterpolator((northings[::-1], eastings), heights[::-1], method=method)

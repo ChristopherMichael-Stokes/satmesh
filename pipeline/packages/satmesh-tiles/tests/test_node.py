@@ -166,7 +166,10 @@ def test_mesh_heights_match_the_dsm_in_ordnance_datum_through_the_grids(
     easting, northing, odn = Transformer.from_crs(
         "EPSG:4979", "EPSG:7405", always_xy=True
     ).transform(lon, lat, height)
-    expected = plane_height(easting, northing, west, south) + CANOPY_M
+    # the DSM takes the value of the pixel containing each node: integer-metre pixel centres
+    centre_e = west + np.floor(easting - west) + 0.5
+    centre_n = south + np.floor(northing - south) + 0.5
+    expected = plane_height(centre_e, centre_n, west, south) + CANOPY_M
     assert np.abs(odn - expected).max() <= MAX_ERROR_M + GLB_POSITION_TOLERANCE_M
 
 

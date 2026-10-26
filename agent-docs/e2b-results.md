@@ -143,3 +143,20 @@ z19: Worcester (west, BNG 385500 254600), Southend (east, 588300 186400), Newcas
 - Corrected images put roofs on their lidar outline in the strips inspected (Southend, Worcester)
   with stepped edges from the 1 m height grid; facades hidden from the lidar are not recovered.
 - The owner judges the images (artifact page of 24 building strips and three overviews).
+
+## Esri scene polygons by one query (2026-10-26)
+
+- `World_Imagery/MapServer/4/query` with an envelope (`geometryType=esriGeometryEnvelope`,
+  `inSR=4326`, `outFields=*`, `returnGeometry=true`, `outSR=4326`, `geometryPrecision=6`,
+  `maxAllowableOffset` 1e-4 to 5e-4 degrees to keep the response small, `where` URL-encoded as
+  `MinMapLevel<=Z AND MaxMapLevel>=Z`) returns every scene footprint of a 5 km area in one request
+  (15 polygons, below the 100-record page; `resultOffset` paging works for dense areas). VERIFIED live.
+- It is more complete than T0's 13 x 13 identify grid: 5 small slivers the grid missed.
+- Fields: `OBJECTID`, `SRC_DATE` (YYYYMMDD), `SRC_RES`, `SRC_ACC`, `SRC_DESC` (sensor),
+  `MinMapLevel`, `MaxMapLevel`, `DrawOrder`, `BlockName`, `ReleaseName`.
+- Overlap: the footprints of one zoom level are disjoint (T0 area: 14 Vivid polygons, pairwise
+  overlap at float noise; Auckland, about 0.01 m2), so no draw-order rule is needed. The winner at
+  zoom z is the polygon with `MinMapLevel <= z <= MaxMapLevel` containing the point. Identify
+  ignores zoom and also returns TerraColor. UNVERIFIED: that a higher `DrawOrder` draws on top.
+- MultiPolygons with holes occur; test points with even-odd fill. Cache footprints with the
+  release name, which changes (here `DYNAMIC_ESRI_Leeds_25Q3`).

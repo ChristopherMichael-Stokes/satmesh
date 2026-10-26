@@ -6,7 +6,8 @@ is metadata or search results and needs a check before it is relied on.
 ## Conclusions
 
 - No UK nation offers open aerial imagery with a programmatic tile or WMS API that beats Esri z19.
-  APGB (Bluesky, Getmapping) 12.5 and 25 cm imagery is public-sector licensed and not redistributable.
+  APGB (Bluesky, Getmapping) 12.5 and 25 cm imagery is public-sector licensed and not
+  redistributable.
 - Finer open imagery exists only locally: Environment Agency (EA) orthophoto in England (download,
   ECW, project-based) and a 10 cm coastal orthophoto in Northern Ireland (ArcGIS tile cache).
 - DEMs are the real UK gain: England and Wales have open 1 m DTM and DSM with programmatic access.

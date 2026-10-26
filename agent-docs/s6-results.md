@@ -1,7 +1,7 @@
 # S6 results: EA vertical aerial photography versus Esri z19
 
-Run 2026-10-25. Part A is the index coverage, part B a pixel comparison on one EA tile. `[live]` marks
-what was observed against endpoints.
+Run 2026-10-25. Part A is the index coverage, part B a pixel comparison on one EA tile. `[live]`
+marks what was observed against endpoints.
 
 ## Conclusions
 
@@ -92,8 +92,9 @@ interior point. All of them reach Esri z19.
 
 The download needs two unauthenticated calls:
 
-1. POST a WGS84 GeoJSON polygon to `https://environment.data.gov.uk/tiles/collections/survey/search`.
-   Filter the results to `product.id` starting `vertical_aerial_photography`.
+1. POST a WGS84 GeoJSON polygon to
+   `https://environment.data.gov.uk/tiles/collections/survey/search`. Filter the results to
+   `product.id` starting `vertical_aerial_photography`.
 2. GET `https://environment.data.gov.uk/tiles/collections/survey/{product}/{year}/{res}/{tile_id}`,
    which returns a zip of ECW files for one 5 km OS grid square.
 

@@ -10,7 +10,8 @@ As built, against the plan:
 - Package `satmesh-tiles` holds the store, tiler and exporters; `satmesh-mesh` keeps grid
   triangulation, skirts and the GLB writer.
 - A node's height grid is its own Web Mercator grid sampled by bilinear interpolation at 1 m for a
-  leaf, so every vertex has an exact UV; parents sample at 2 m per level and mesh at twice the error.
+  leaf, so every vertex has an exact UV; parents sample at 2 m per level and mesh at twice the
+  error.
 - A parent exists only where all four children do. `tileset.json` is a contentless container over
   the maximal complete nodes, with the container's `geometricError` set to its extent so CesiumJS
   refines it. Use `maximumScreenSpaceError` 1 to 2 in the viewer for crisp texture.

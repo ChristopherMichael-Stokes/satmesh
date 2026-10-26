@@ -13,9 +13,9 @@ Run 2026-10-25 at Upper Aire, near Skipton. `[live]` marks what was observed aga
 - BNG XY is 0.04% short of ground distance at this site (point scale 0.9996013), while height is
   true metres. That is 0.5 m over the 1.4 km diagonal, under the 1 m DTM pixel. F4 can ignore it in
   the UK or divide XY by the point scale. Elsewhere F4 needs its own local metric CRS.
-- Delatin's error bound holds: the worst |mesh − DTM| over every DTM pixel equals `max_error` at each
-  setting tried. Triangulation takes under 0.3 s for 1 M pixels, so `max_error` is a free knob for
-  output size.
+- Delatin's error bound holds: the worst |mesh − DTM| over every DTM pixel equals `max_error` at
+  each setting tried. Triangulation takes under 0.3 s for 1 M pixels, so `max_error` is a free knob
+  for output size.
 - Four library traps to handle in F4:
   - pydelatin's y axis counts rows up from the bottom of the array.
   - pydelatin's `rescale_positions` assumes a square tile.

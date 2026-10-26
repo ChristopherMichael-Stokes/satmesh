@@ -65,15 +65,17 @@ None pulls in PyTorch; `uv.lock` is checked after adding them.
 - `choose_zoom`: the Denver case from S1 (0.34 m source only at level 20, 0.5 m at levels 12 to 19)
   picks z20.
 - `EsriClient` against `httpx.MockTransport` serving canned responses: a cache hit makes no request,
-  a placeholder raises and is not cached, 503 then 200 retries, the zoom guard raises with no request.
+  a placeholder raises and is not cached, 503 then 200 retries, the zoom guard raises with no
+  request.
 - `fetch_ea_dtm`: a GeoTIFF written in the test with rasterio and served by `MockTransport`, with
   wrong-CRS, wrong-bounds and nodata variants.
-- No live tests in `make test`. A scratch harness fetches the S5 Upper Aire box live and compares the
-  outputs with S5's files.
+- No live tests in `make test`. A scratch harness fetches the S5 Upper Aire box live and compares
+  the outputs with S5's files.
 
 ## Docs
 
-- `TODO.md`: S3 and S4 reworded to UK sites with EA lidar ground truth, and F1 and F2 ticked when done.
+- `TODO.md`: S3 and S4 reworded to UK sites with EA lidar ground truth, and F1 and F2 ticked when
+  done.
 - `implementation-plan.md`: stage 1 exit and stage 3 changed to UK ground truth; S2, S2b and S7
   marked as on demand.
 - `AGENTS.md` layout row for `pipeline/` lists `satmesh-data`.

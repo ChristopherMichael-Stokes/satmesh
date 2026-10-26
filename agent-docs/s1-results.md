@@ -1,8 +1,8 @@
 # S1 results: Esri World Imagery native depth
 
 Probe: layer 4 (`Citations`) `identify` at a point, polygon with the highest `TO_CACHE_LEVEL`, then
-the tile at that zoom and one deeper. Run 2026-10-25. At all 38 sites the deepest zoom is a real tile
-and the next zoom is the "Map data not yet available" placeholder (2521 bytes, md5 prefix
+the tile at that zoom and one deeper. Run 2026-10-25. At all 38 sites the deepest zoom is a real
+tile and the next zoom is the "Map data not yet available" placeholder (2521 bytes, md5 prefix
 `f27d9de7`), so zoom selection can come from metadata alone.
 
 ## UK (18 sites)
@@ -42,8 +42,8 @@ so the tiles are oversampled about 1.6 to 2.7 times. Capture dates range from 20
 | Turkana, Rajasthan, Hokkaido | Vivid | 0.34 | 18 |
 | Mato Grosso, Outback, Sahara | Vivid | 0.31 to 0.34 | 17 |
 
-- Layer 4 polygons carry their own cache-level ranges: Denver's 0.34 m source exists only at level 20,
-  and a 0.5 m source covers levels 12 to 19. Choose the polygon by `TO_CACHE_LEVEL`.
+- Layer 4 polygons carry their own cache-level ranges: Denver's 0.34 m source exists only at level
+  20, and a 0.5 m source covers levels 12 to 19. Choose the polygon by `TO_CACHE_LEVEL`.
 - `SRC_RES` overstates delivered detail where the cache stops at z17 or z18: those tiles are about
   1 m/px while `SRC_RES` reads 0.31 to 0.34 m.
 - Tile GSD figures are computed from the Web Mercator formula, not measured.

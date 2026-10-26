@@ -44,8 +44,8 @@ Out, each with its own later task:
   `rescale_positions` is not used: it assumes a square raster.
 - Winding is set so face normals point up, checked on the built arrays rather than via
   `trimesh.invert` (stale normals under `process=False`, S5).
-- `MAX_ERROR_M` default 0.1 m: under the EA composite's quoted 15 cm RMSE, so the TIN adds less error
-  than the source carries. 61k vertices per km2 at Upper Aire (S5).
+- `MAX_ERROR_M` default 0.1 m: under the EA composite's quoted 15 cm RMSE, so the TIN adds less
+  error than the source carries. 61k vertices per km2 at Upper Aire (S5).
 
 ## Decisions (owner chose A for both)
 

@@ -30,8 +30,8 @@ and missing PROJ grids, which silently cost about 51 m of height.
 | Static files | Yes | Yes; the spec asks clients to send an `Accept` header, which a static server ignores |
 
 - Since 1.130, CesiumJS can drape imagery layers over 3D Tiles
-  ([blog](https://cesium.com/blog/2025/06/30/draping-imagery-over-3d-tiles-in-cesiumjs/)), so 3D Tiles
-  could also take a separate texture layer.
+  ([blog](https://cesium.com/blog/2025/06/30/draping-imagery-over-3d-tiles-in-cesiumjs/)), so 3D
+  Tiles could also take a separate texture layer.
 - `layer.json` accepts `"projection": "EPSG:3857"` (code linked above), so a quantized-mesh
   pyramid can follow the Esri grid.
 
@@ -66,8 +66,8 @@ The pyproj wheel ships neither grid, and the default network setting is off. Wit
 | Helmert "OSGB36 to WGS 84 (6)" | 1.6 m | −50.8 m (ODN treated as ellipsoidal) |
 | Ballpark | 100.7 m | −50.8 m |
 
-- To get the grids, set `PROJ_NETWORK=ON` (cached in the user data directory) or run
-  `pyproj sync` ([pyproj](https://pyproj4.github.io/pyproj/stable/transformation_grids.html)). Grids:
+- To get the grids, set `PROJ_NETWORK=ON` (cached in the user data directory) or run `pyproj sync`
+  ([pyproj](https://pyproj4.github.io/pyproj/stable/transformation_grids.html)). Grids:
   `uk_os_OSTN15_NTv2_OSGBtoETRS.tif`, `uk_os_OSGM15_GB.tif`.
 - Guard: require `TransformerGroup(...).best_available` and raise otherwise.
 - Frame each tile in topocentric ENU at its centre: `+proj=cart` then `+proj=topocentric`, both in
@@ -76,7 +76,9 @@ The pyproj wheel ships neither grid, and the default network setting is off. Wit
 - In glTF, write x = east, y = up, z = −north; the runtime turns y-up into z-up. The tile
   `transform` is ENU-to-ECEF at the centre. The BNG point-scale error (0.9996) disappears.
 - Others: Cesium stores heights above the ellipsoid. Cesium ion converts orthometric heights with
-  EGM96 by default (staff, [forum](https://community.cesium.com/t/what-height-options-to-select-for-cesiumion-terrain-upload/14422)). OSGM15 is more accurate in GB.
+  EGM96 by default (staff,
+  [forum](https://community.cesium.com/t/what-height-options-to-select-for-cesiumion-terrain-upload/14422)).
+  OSGM15 is more accurate in GB.
 - Record both heights per tile: ellipsoidal h and orthometric H, linked by geoid N (+50.79 m
   here).
 
@@ -112,9 +114,11 @@ The pyproj wheel ships neither grid, and the default network setting is off. Wit
 
 ## 6. Gazebo
 
-- Formats: Harmonic's mesh manager (gz-common5) loads STL, COLLADA, OBJ, glTF/GLB and FBX; glTF
-  goes through assimp ([source](https://github.com/gazebosim/gz-common/blob/gz-common5/graphics/include/gz/common/MeshManager.hh)).
-  Current LTS releases are Harmonic (to 2029) and Jetty (to 2031) ([releases](https://gazebosim.org/docs/latest/releases/)).
+- Formats: Harmonic's mesh manager (gz-common5) loads STL, COLLADA, OBJ, glTF/GLB and FBX; glTF goes
+  through assimp
+  ([source](https://github.com/gazebosim/gz-common/blob/gz-common5/graphics/include/gz/common/MeshManager.hh)).
+  Current LTS releases are Harmonic (to 2029) and Jetty (to 2031)
+  ([releases](https://gazebosim.org/docs/latest/releases/)).
 - Georeference: `<spherical_coordinates>` with WGS84 and ENU, the only world frame
   ([docs](https://gazebosim.org/api/sim/8/spherical_coordinates.html)). gz-math converts through
   ECEF but calls `elevation` "relative to sea level"
@@ -123,8 +127,9 @@ The pyproj wheel ships neither grid, and the default network setting is off. Wit
 - Large worlds: no terrain level-of-detail streaming found. "Levels" load and unload models by
   robot distance in one server (`--levels`) ([docs](https://gazebosim.org/api/sim/8/levels.html)).
   So: one static model per leaf at full resolution, all in one world ENU frame, grouped into levels.
-- Collision: use a simplified or heightmap collider, not the visual mesh, because mesh contacts
-  are expensive ([ROSCon 2024](https://roscon.ros.org/2024/talks/Optimizing_Gazebo_simulation-_Challenges_in_building_complex_simulation_environments..pdf)).
+- Collision: use a simplified or heightmap collider, not the visual mesh, because mesh contacts are
+  expensive
+  ([ROSCon 2024](https://roscon.ros.org/2024/talks/Optimizing_Gazebo_simulation-_Challenges_in_building_complex_simulation_environments..pdf)).
 - Limits: DEM heightmaps load through GDAL, padded to 2^n + 1
   ([Dem](https://gazebosim.org/api/common/6/classgz_1_1common_1_1Dem.html)). Practical tile-count
   and VRAM limits are `[unverified]`; benchmark them.
@@ -151,13 +156,14 @@ The pyproj wheel ships neither grid, and the default network setting is off. Wit
 - An orthophoto on a bare-earth DTM paints buildings and trees flat on the ground. Low or
   ground cameras then see through where walls should be. On a DSM, buildings become 2.5D lumps:
   no overhangs, and facades are stretched roof-edge texels.
-- A conventional orthophoto still shows buildings leaning, because it was corrected only to
-  terrain ([ISPRS](https://isprs-archives.copernicus.org/articles/XLII-2/1199/2018/isprs-archives-XLII-2-1199-2018.pdf)).
+- A conventional orthophoto still shows buildings leaning, because it was corrected only to terrain
+  ([ISPRS](https://isprs-archives.copernicus.org/articles/XLII-2/1199/2018/isprs-archives-XLII-2-1199-2018.pdf)).
   True orthophotos need a DSM and occlusion handling. Whether Esri imagery is true-ortho is
   `[unverified]`.
 - Prior art for realistic views is photogrammetric meshes from oblique imagery, such as Google
-  Photorealistic 3D Tiles ([Google](https://developers.google.com/maps/documentation/tile/3d-tiles)),
-  used for simulation in AirSim ([arXiv 2401.07962](https://arxiv.org/abs/2401.07962)).
+  Photorealistic 3D Tiles
+  ([Google](https://developers.google.com/maps/documentation/tile/3d-tiles)), used for simulation in
+  AirSim ([arXiv 2401.07962](https://arxiv.org/abs/2401.07962)).
 - Implication: store DTM and DSM layers per tile. EA serves a 1 m first-return DSM (s5-results).
   Use the DSM for visibility checks, the DTM for ground and collision. Expect facades to be wrong
   either way.

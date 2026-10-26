@@ -3,6 +3,7 @@
 import logging
 import math
 from collections.abc import Iterable, Sequence
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -49,6 +50,9 @@ DTM_BOX_MARGIN_M = 2
 # lists them in another order
 CHILD_ORDER = ((0, 0), (1, 0), (0, 1), (1, 1))
 STORE_NODE_DIR = Path("nodes")
+# one thread fetching a leaf's Esri tiles and one its DSM and DTM, so the Esri request schedule
+# never idles while a node is meshed or the EA WCS answers
+PREFETCH_WORKERS = 2
 
 
 @dataclass(frozen=True)
@@ -183,8 +187,16 @@ def build_store(  # noqa: PLR0913 (edges of the build: network clients, director
     fetch);
     parents are halved from their children's textures and meshed at twice the grid spacing and
     error per level. A rerun after an interruption repeats no network request and no finished node.
+    Fetches for the leaves still to come run ahead of the node being built, in build order.
     """
     counts = {"built": 0, "skipped": 0}
+    prefetcher = ThreadPoolExecutor(PREFETCH_WORKERS)
+    fetches = {
+        leaf: _submit_fetches(
+            prefetcher, leaf, plan, esri, http, cache_dir, surfaces_missing=surfaces_missing
+        )
+        for leaf, surfaces_missing in _leaves_to_fetch(plan, store_dir)
+    }
 
     def build(tile: mercantile.Tile, *, texture_needed: bool) -> Raster | None:
         missing = not node_paths(store_dir, tile)[1].exists()
@@ -194,6 +206,8 @@ def build_store(  # noqa: PLR0913 (edges of the build: network clients, director
         if not needed:
             counts["skipped"] += 1
             return None
+        for fetch in fetches.get(tile, ()):
+            fetch.result()
         texture = (
             parent_texture([t for t in child_textures if t is not None], tile)
             if kids
@@ -213,9 +227,51 @@ def build_store(  # noqa: PLR0913 (edges of the build: network clients, director
         counts["built"] += 1
         return texture
 
-    for root in plan.roots:
-        build(root, texture_needed=False)
+    try:
+        for root in plan.roots:
+            build(root, texture_needed=False)
+    finally:
+        prefetcher.shutdown(cancel_futures=True)
     return BuildSummary(counts["built"], counts["skipped"])
+
+
+def _leaves_to_fetch(plan: TilePlan, store_dir: Path) -> list[tuple[mercantile.Tile, bool]]:
+    """Return the leaves `build_store` reads imagery for, in its order, each with its surface need.
+
+    A leaf needs its DSM and DTM when the leaf itself is missing, not only an ancestor.
+    """
+    found: list[tuple[mercantile.Tile, bool]] = []
+
+    def visit(tile: mercantile.Tile, *, texture_needed: bool) -> None:
+        missing = not node_paths(store_dir, tile)[1].exists()
+        needed = missing or texture_needed
+        kids = plan.children.get(tile, ())
+        for kid in kids:
+            visit(kid, texture_needed=needed)
+        if needed and not kids:
+            found.append((tile, missing))
+
+    for root in plan.roots:
+        visit(root, texture_needed=False)
+    return found
+
+
+def _submit_fetches(  # noqa: PLR0913, PLR0917 (one leaf's inputs and the two clients)
+    pool: ThreadPoolExecutor,
+    leaf: mercantile.Tile,
+    plan: TilePlan,
+    esri: EsriClient,
+    http: httpx.Client,
+    cache_dir: Path,
+    *,
+    surfaces_missing: bool,
+) -> list[Future[object]]:
+    """Queue the fetches of one leaf; each fills a cache that the build then reads."""
+    zoom = plan.leaf_zoom + LEAF_ZOOM_DEPTH
+    fetches: list[Future[object]] = [pool.submit(mosaic_tiles, esri, esri_tiles(leaf), zoom)]
+    if surfaces_missing:
+        fetches.append(pool.submit(_fetch_surfaces, http, leaf, cache_dir))
+    return fetches
 
 
 def _write_node(  # noqa: PLR0913, PLR0917 (one node's inputs)

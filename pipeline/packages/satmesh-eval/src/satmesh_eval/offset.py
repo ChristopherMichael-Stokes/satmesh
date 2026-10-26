@@ -17,7 +17,10 @@ Offsets are the displacement of the second ("other") image relative to the first
 metres east and north: other(x) = reference(x - offset).
 """
 
+import os
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from itertools import pairwise, product
 
 import cv2
 import numpy as np
@@ -110,13 +113,9 @@ def luminance_on_grid(raster: Raster, box: Aoi, grid_m: float = GRID_M) -> np.nd
 def _sample_through_proj(
     raster: Raster, box: Aoi, grid_m: float, rows: int, cols: int
 ) -> np.ndarray:
-    group = TransformerGroup(BRITISH_NATIONAL_GRID, raster.crs, always_xy=True)
-    if not group.best_available:
-        msg = f"PROJ lacks the grids for {BRITISH_NATIONAL_GRID} to {raster.crs}; run `pyproj sync`"
-        raise ValueError(msg)
     eastings = box.west + grid_m * (np.arange(cols) + 0.5)
     northings = box.north - grid_m * (np.arange(rows) + 0.5)
-    x, y = group.transformers[0].transform(*np.meshgrid(eastings, northings))
+    x, y = _bng_to_crs_in_threads(raster.crs, *np.meshgrid(eastings, northings))
     inverse = ~raster.transform
     source_cols, source_rows = inverse @ (x, y)
     # source pixels are smaller than the grid's: smooth over the ratio before sampling
@@ -132,6 +131,37 @@ def _sample_through_proj(
             for band in raster.pixels
         ]
     )
+
+
+def row_strips(rows: int) -> list[slice]:
+    """Split `rows` rows into one contiguous slice per usable core, for work done in threads."""
+    edges = np.linspace(0, rows, min(rows, os.process_cpu_count() or 1) + 1).astype(int)
+    return [slice(start, stop) for start, stop in pairwise(edges)]
+
+
+def _bng_to_crs_in_threads(
+    crs: str, easting: np.ndarray, northing: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Transform BNG points to `crs` in row strips, one thread each."""
+    with ThreadPoolExecutor() as pool:
+        parts = list(
+            pool.map(
+                lambda rows: _bng_to_crs(crs, easting[rows], northing[rows]),
+                row_strips(len(easting)),
+            )
+        )
+    return np.concatenate([x for x, _ in parts]), np.concatenate([y for _, y in parts])
+
+
+def _bng_to_crs(
+    crs: str, easting: np.ndarray, northing: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    # a PROJ transformer holds an open grid file and is not safe to share between threads
+    group = TransformerGroup(BRITISH_NATIONAL_GRID, crs, always_xy=True)
+    if not group.best_available:
+        msg = f"PROJ lacks the grids for {BRITISH_NATIONAL_GRID} to {crs}; run `pyproj sync`"
+        raise ValueError(msg)
+    return group.transformers[0].transform(easting, northing)
 
 
 def source_ground_pixel_m(raster: Raster, box: Aoi) -> float:
@@ -164,24 +194,29 @@ def window_shifts(  # noqa: PLR0913 (window-grid settings, each a tunable)
     response = np.full_like(east, np.nan)
     limit_px = MAX_SHIFT_FRACTION_OF_WINDOW * window_px
     taper = np.outer(np.hanning(window_px), np.hanning(window_px))
-    for i, r in enumerate(starts_r):
-        for j, c in enumerate(starts_c):
-            ref_w = reference[r : r + window_px, c : c + window_px]
-            oth_w = other[r : r + window_px, c : c + window_px]
-            if not (_usable(ref_w) and _usable(oth_w)):
-                continue
-            shift, _, _ = phase_cross_correlation(
-                _tapered(ref_w, taper),
-                _tapered(oth_w, taper),
-                upsample_factor=upsample_factor,
-                normalization="phase",
-            )
-            if np.hypot(*shift) > limit_px:
-                continue
-            response[i, j] = _peak_response(ref_w, oth_w)
-            # skimage returns the shift that registers `other` onto `reference`; rows run south
-            east[i, j] = -shift[1] * grid_m
-            north[i, j] = shift[0] * grid_m
+
+    def measure_window(index: tuple[int, int]) -> None:
+        i, j = index
+        r, c = starts_r[i], starts_c[j]
+        ref_w = reference[r : r + window_px, c : c + window_px]
+        oth_w = other[r : r + window_px, c : c + window_px]
+        if not (_usable(ref_w) and _usable(oth_w)):
+            return
+        shift, _, _ = phase_cross_correlation(
+            _tapered(ref_w, taper),
+            _tapered(oth_w, taper),
+            upsample_factor=upsample_factor,
+            normalization="phase",
+        )
+        if np.hypot(*shift) > limit_px:
+            return
+        response[i, j] = _peak_response(ref_w, oth_w)
+        # skimage returns the shift that registers `other` onto `reference`; rows run south
+        east[i, j] = -shift[1] * grid_m
+        north[i, j] = shift[0] * grid_m
+
+    with ThreadPoolExecutor() as pool:
+        list(pool.map(measure_window, product(range(len(starts_r)), range(len(starts_c)))))
     return ShiftField(east, north, response)
 
 

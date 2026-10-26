@@ -97,10 +97,13 @@ decision log). Show textured renders from fixed camera views before proposing a 
 | 2026-10-25 | Keep the bilinear 0.5 m DSM sampling; E8 closed without a geometry change | Node-aligned bilinear, raw-point Delaunay and fitted roof planes scored better against the DSM but the owner judged the current mesh best by eye in textured and shaded renders; scores against the DSM did not predict that |
 | 2026-10-26 | Esri request rate set by `--esri-requests-per-second` (default 1); fetches within a mosaic run in 8 threads sharing one schedule; stay threaded, not async | Owner raised the rate; the cap is the request rate, so concurrency only hides latency and async would rewrite the sync client, retry and callers for no gain |
 | 2026-10-26 | E2: lidar-referenced Esri shift by gradient correlation, applied only where enough windows survive; error bound estimate shipped with products; MI and nDSM rejected | B2 matched EA aerial within 0.3 m at 4 of 8 boxes with gradients, 2 of 8 with MI; urban, wooded and coastal boxes fail (`e2-results.md`) |
+| 2026-10-26 | `build` and `correct` sped up with byte-identical output (`speedup-results.md`): imagery prefetch, one read per LAZ, threaded evaluation, cells in up to 8 worker processes, BLAS pools set to 1 thread by `satmesh_cli` | Owner: no loss of quality, output parity, lower latency and higher throughput. Averaging lidar points into grid cells and splitting the triangulation both change the output, so both were dropped |
 | 2026-10-25 | Mesh smoothness scored by facet normals at centroids against Horn normals of the DSM, plus flat-facets-on-slope and grid-aligned aspect excess | Height scores at pixel centres cannot see terracing; nearest 0.5 m ranks worst on all three as the eye did; thresholds are tunables and the blind-comparison validation has not been run |
 
 ## Open risks
 
+- `correct` memory: about 2 GB per worker, 8 workers at most, all cells' lidar points held at
+  once; a many-km area needs a bounded reader.
 - Crown and roof-edge fidelity against the lidar is traded for a smooth look (see the 0.5 m sampling
   decision); E8 tried three ways of recovering it and the owner rejected all three by eye.
 - Gazebo collision uses the visual (DSM) mesh until F5b: robots would collide with canopies.

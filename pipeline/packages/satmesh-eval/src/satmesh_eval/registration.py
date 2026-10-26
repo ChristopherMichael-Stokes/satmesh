@@ -8,6 +8,15 @@ against the EA aerial photography (`agent-docs/e2-results.md`).
 """
 
 import math
+import multiprocessing
+import os
+from concurrent.futures import (
+    FIRST_COMPLETED,
+    Future,
+    ProcessPoolExecutor,
+    ThreadPoolExecutor,
+    wait,
+)
 from itertools import pairwise
 from pathlib import Path
 
@@ -17,6 +26,7 @@ import numpy as np
 from satmesh_core import BRITISH_NATIONAL_GRID, Aoi
 from satmesh_data import (
     EsriClient,
+    Raster,
     fetch_point_cloud,
     find_point_cloud_tiles,
 )
@@ -54,6 +64,9 @@ UNCORRECTED_ERROR_BOUND_M = 2.8
 REFERENCE_MARGIN_M = 20.0
 # a cell narrower than three windows has too few for a stable median
 MIN_CELL_SIDE_PX = 3 * WINDOW_PX
+# A worker holds about 2 GB for a 0.8 km2 cell (lidar triangulation, 0.25 m grids): 12 such cells
+# on 8 workers peaked at 17.6 GB in all. The cap keeps a many-core machine within memory (tunable).
+MAX_CELL_WORKERS = 8
 
 
 def cell_correction(
@@ -105,21 +118,57 @@ def measure_correction(
         for tile_id, captures in squares.items()
     }
     laz_paths = [path for paths in laz.values() for path in paths]
-    cells = []
-    for box in cell_boxes(area):
-        if min(box.east - box.west, box.north - box.south) / GRID_M < MIN_CELL_SIDE_PX:
-            cells.append(_uncorrected(box, 0, 0))
-            continue
-        xy, intensity = read_first_return_intensity(laz_paths, box, REFERENCE_MARGIN_M)
-        reference = intensity_gradient_image(xy, intensity, box)
-        esri_gradient = gradient_magnitude_u8(
-            luminance_on_grid(esri_raster_over(esri, box, zoom), box)
-        )
-        cells.append(cell_correction(box, reference, esri_gradient))
+    boxes = cell_boxes(area)
+    measurable = [box for box in boxes if _measurable(box)]
+    points = read_first_return_intensity(laz_paths, measurable, REFERENCE_MARGIN_M)
+    measured = iter(_measure_cells(measurable, points, zoom, esri))
+    cells = [next(measured) if _measurable(box) else _uncorrected(box, 0, 0) for box in boxes]
     return CorrectionField(
         uncorrected_error_bound_m=UNCORRECTED_ERROR_BOUND_M,
         cells=tuple(cells),
     )
+
+
+def _measurable(box: Aoi) -> bool:
+    return min(box.east - box.west, box.north - box.south) / GRID_M >= MIN_CELL_SIDE_PX
+
+
+def _measure_cells(
+    boxes: list[Aoi], points: list[tuple[np.ndarray, np.ndarray]], zoom: int, esri: EsriClient
+) -> list[CellCorrection]:
+    """Measure each cell in a worker process and return the results in the order of `boxes`.
+
+    Esri tiles are fetched here because the client's request schedule lives in this process; at
+    most one cell per worker is in flight, which bounds the memory held by queued cells.
+    """
+    if not boxes:
+        return []
+    workers = min(MAX_CELL_WORKERS, os.process_cpu_count() or 1, len(boxes))
+    futures: list[Future[CellCorrection]] = []
+    running: set[Future[CellCorrection]] = set()
+    context = multiprocessing.get_context("spawn")
+    with ProcessPoolExecutor(workers, mp_context=context) as pool:
+        for box, (xy, intensity) in zip(boxes, points, strict=True):
+            if len(running) >= workers:
+                _, running = wait(running, return_when=FIRST_COMPLETED)
+            future = pool.submit(
+                _measure_cell, box, xy, intensity, esri_raster_over(esri, box, zoom)
+            )
+            futures.append(future)
+            running.add(future)
+    return [future.result() for future in futures]
+
+
+def _measure_cell(
+    box: Aoi, xy: np.ndarray, intensity: np.ndarray, esri_raster: Raster
+) -> CellCorrection:
+    # the lidar triangulation and the Esri resampling are independent and both release the GIL
+    with ThreadPoolExecutor(2) as pool:
+        reference = pool.submit(intensity_gradient_image, xy, intensity, box)
+        esri_gradient = pool.submit(
+            lambda: gradient_magnitude_u8(luminance_on_grid(esri_raster, box))
+        )
+        return cell_correction(box, reference.result(), esri_gradient.result())
 
 
 def cell_boxes(area: Aoi) -> list[Aoi]:

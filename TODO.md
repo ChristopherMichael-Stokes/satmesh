@@ -2,10 +2,6 @@
 
 ## Next
 
-- [ ] Speed up the build: fetch imagery for the next tile while the current one is being
-      processed, simplest approach first; speed up the position correction step too, on CPU only:
-      profile one cell, then average lidar points into grid cells instead of triangulating them,
-      read each lidar file once, and match cells in parallel across cores
 - [ ] Show progress for the build and the position correction: steps done out of total, elapsed
       time and time remaining, and which step is running (downloading lidar, reading points,
       matching a cell, updating tiles)
@@ -57,3 +53,5 @@
 - Imagery offset survey over eight England sites and a lidar-based correction trial
 - Lidar surface refinement trials; the current mesh stays
 - Imagery position correction (`satmesh correct`) with an error bound on every export; England only
+- Faster build (imagery fetched ahead of the node being built) and faster position correction
+  (cells measured in parallel, one read of each lidar file); the results are byte-identical

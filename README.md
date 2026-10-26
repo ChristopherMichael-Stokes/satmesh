@@ -33,9 +33,10 @@ uv run satmesh export glb --store ../out/store --out ../out/area.glb
 ground in England, by a different amount in different places. `correct` measures the shift against
 the Environment Agency lidar intensity over cells of about 1 km, applies it where the match is
 reliable, and leaves the rest as it was. It downloads lidar point clouds (about 100 to 500 MB per
-5 km square, cached). Every export writes `positional_error.json` with a 95 % error bound per tile:
-0.4 to 1.5 m where corrected, 2.8 m where not, and "unmeasured" if `correct` was never run. Raised
-objects such as roofs and tree crowns are not corrected. England only.
+5 km square, cached). It measures up to 8 cells at once, about 2 GB of memory each. Every export
+writes `positional_error.json` with a 95 % error bound per tile: 0.4 to 1.5 m where corrected, 2.8 m
+where not, and "unmeasured" if `correct` was never run. Raised objects such as roofs and tree
+crowns are not corrected. England only.
 
 `build` is resumable and caches fetched tiles under `~/.cache/satmesh` (`--cache-dir` or
 `SATMESH_CACHE_DIR` to change it). Esri tiles are fetched at one request per second by default, so

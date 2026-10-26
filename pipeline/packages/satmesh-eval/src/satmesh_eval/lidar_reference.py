@@ -7,6 +7,7 @@ scale-free, and is what the Esri luma is matched against (`registration.py`).
 """
 
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import cv2
@@ -16,7 +17,7 @@ from scipy.interpolate import LinearNDInterpolator
 from scipy.spatial import KDTree
 
 from satmesh_core import Aoi
-from satmesh_eval.offset import GRID_M
+from satmesh_eval.offset import GRID_M, row_strips
 
 FIRST_RETURN = 1
 CLASS_NOISE = 7  # ASPRS LAS classification
@@ -31,27 +32,39 @@ U8_MAX = 255.0
 
 
 def read_first_return_intensity(
-    laz_paths: Sequence[Path], box: Aoi, margin_m: float
-) -> tuple[np.ndarray, np.ndarray]:
-    """Return the (N, 2) easting and northing and the intensity of first returns near `box`.
+    laz_paths: Sequence[Path], boxes: Sequence[Aoi], margin_m: float
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Return, per box, the (N, 2) easting and northing and the intensity of first returns near it.
 
-    Points inside `box` grown by `margin_m` are kept; noise-class points are dropped.
+    Each file is read once. Points inside a box grown by `margin_m` are kept, in file order;
+    noise-class points are dropped. All boxes' points are held in memory at once, about 25 bytes
+    per point, which is 100 MB per square kilometre at the EA's 4 points/m2.
     """
-    xy_parts, intensity_parts = [], []
+    parts: list[list[tuple[np.ndarray, np.ndarray]]] = [[] for _ in boxes]
     for path in laz_paths:
         with laspy.open(path) as reader:
             for chunk in reader.chunk_iterator(READ_CHUNK_POINTS):
-                keep = (
-                    (chunk.return_number == FIRST_RETURN)
-                    & (chunk.classification != CLASS_NOISE)
-                    & (chunk.x >= box.west - margin_m)
-                    & (chunk.x < box.east + margin_m)
-                    & (chunk.y >= box.south - margin_m)
-                    & (chunk.y < box.north + margin_m)
+                first = (chunk.return_number == FIRST_RETURN) & (
+                    chunk.classification != CLASS_NOISE
                 )
-                xy_parts.append(np.column_stack([chunk.x[keep], chunk.y[keep]]))
-                intensity_parts.append(np.asarray(chunk.intensity[keep], np.float64))
-    return np.concatenate(xy_parts), np.concatenate(intensity_parts)
+                # plain arrays: laspy's scaled views return wrong rows for a mask with few hits
+                x, y = np.asarray(chunk.x)[first], np.asarray(chunk.y)[first]
+                intensity = np.asarray(chunk.intensity)[first]
+                for box_parts, box in zip(parts, boxes, strict=True):
+                    keep = (
+                        (x >= box.west - margin_m)
+                        & (x < box.east + margin_m)
+                        & (y >= box.south - margin_m)
+                        & (y < box.north + margin_m)
+                    )
+                    box_parts.append((np.column_stack([x[keep], y[keep]]), intensity[keep]))
+    return [
+        (
+            np.concatenate([xy for xy, _ in box_parts]),
+            np.concatenate([i for _, i in box_parts]).astype(np.float64),
+        )
+        for box_parts in parts
+    ]
 
 
 def intensity_gradient_image(
@@ -67,10 +80,25 @@ def intensity_gradient_image(
     easting = box.west + grid_m * (np.arange(cols) + 0.5)
     northing = box.north - grid_m * (np.arange(rows) + 0.5)
     ee, nn = np.meshgrid(easting, northing)
-    image = LinearNDInterpolator(xy, intensity, fill_value=np.nan)(ee, nn)
-    gap = KDTree(xy).query(np.column_stack([ee.ravel(), nn.ravel()]))[0].reshape(ee.shape)
+    image = _interpolate_in_threads(LinearNDInterpolator(xy, intensity, fill_value=np.nan), ee, nn)
+    gap = (
+        KDTree(xy).query(np.column_stack([ee.ravel(), nn.ravel()]), workers=-1)[0].reshape(ee.shape)
+    )
     image[gap > MAX_GAP_M] = np.nan
     return gradient_magnitude_u8(image)
+
+
+def _interpolate_in_threads(
+    interpolate: LinearNDInterpolator, ee: np.ndarray, nn: np.ndarray
+) -> np.ndarray:
+    """Evaluate a built interpolator over row strips in threads sharing its triangulation."""
+    # the first call builds the triangulation's barycentric transforms; threads racing there each
+    # repeat that work
+    interpolate(ee[:1, :1], nn[:1, :1])
+    with ThreadPoolExecutor() as pool:
+        return np.concatenate(
+            list(pool.map(lambda rows: interpolate(ee[rows], nn[rows]), row_strips(ee.shape[0])))
+        )
 
 
 def gradient_magnitude_u8(image: np.ndarray) -> np.ndarray:

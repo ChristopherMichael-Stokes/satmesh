@@ -113,3 +113,33 @@ snippet only.
   initialised from the per-building offsets already measured.
 
 The cheap verification needs no repository code. Implementation comes back to the owner first.
+
+## Lean fit at four sites (2026-10-26)
+
+Scratch experiment (scripts in the session scratchpad, images in `uncommitted/e2b-lean/<site>/`,
+git-ignored). Per Esri scene polygon, a robust least-squares fit of the per-building offsets on
+eave height (10th percentile of roof height, declared before fitting), t + l * h, with a bootstrap
+over buildings. Corrected imagery: out(p) = Esri(p + t + l * h_dsm(p)). Sites, 1 km boxes at Esri
+z19: Worcester (west, BNG 385500 254600), Southend (east, 588300 186400), Newcastle (north,
+426700 564500), Brighton (south, 531500 106300).
+
+| Scene | Buildings | Azimuth (95 %) | Lean k, m per m (95 %) | Closure: matcher offset before to after, m |
+| --- | --- | --- | --- | --- |
+| Worcester 2025-08-06 WV03 | 21 | 158 (91 to 251) | 0.37 (0.15 to 1.14) | 1.80 to 1.54 |
+| Worcester 2025-04-10 LG02 | 11 | 242 (137 to 314) | 0.56 (0.20 to 1.61) | 0.81 to 0.55 |
+| Southend 2025-07-12 GE01 | 23 | 193 (183 to 218) | 0.54 (0.27 to 0.83) | 1.68 to 1.22 |
+| Newcastle 2025-09-09 WV03 | 17 | 153 (83 to 246) | 0.12 (0.07 to 0.58) | 2.79 to 0.67 |
+
+- Brighton: no fit; 5 buildings passed the matcher (terraced roofs touch and fail the building
+  tests); a second box gave 2.
+- Matcher acceptance is 4 to 17 % of candidate buildings, mostly flat-roofed blocks; pitched
+  terraces are under-represented.
+- Only Southend's direction is tight. The ground shift t is badly constrained because roofs span
+  only 3 to 9 m, so the "shift only" image is often worse than as published and is not what
+  `satmesh correct` produces.
+- Closure improves at three of four scenes (matcher self-consistency, not independent truth);
+  Southend's residual slope on height rose. No lower interval bound exceeds the 0.58 m per m
+  off-nadir cap, so the synthetic halving from S0b is not confirmed as a factor of two.
+- Corrected images put roofs on their lidar outline in the strips inspected (Southend, Worcester)
+  with stepped edges from the 1 m height grid; facades hidden from the lidar are not recovered.
+- The owner judges the images (artifact page of 24 building strips and three overviews).

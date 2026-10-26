@@ -2,15 +2,19 @@
 
 ## Next
 
-- [ ] Research the best ways to recover fine height detail from coarse elevation data, then try
-      the best candidates
-- [ ] Research fixes for stretched texture on steep faces (walls, tree sides, roof peaks),
-      including generative fill; filled pixels must be flagged
+- [ ] Fix stretched texture on steep faces: snap the texture of walls and tree sides to measured
+      colours and flag every such pixel (plan written, awaiting approval)
+- [ ] Make the position correction work in towns and woodland, where it currently leaves the
+      imagery as it was (plan written, awaiting approval)
+- [ ] Try the best candidate for recovering fine height detail from coarse elevation data (Yemen
+      has no lidar, so this is where it matters); score it first on degraded England lidar
+- [ ] Test a completely different region, Yemen: find open elevation data and imagery coverage
+      there (surveyed: GLO-30 is open and 0.31 to 0.46 m imagery exists, but no open reference
+      height data), make the build work outside Great Britain (UTM, geoid, coarse
+      elevation), and choose a test area
 
 ## Later
 
-- [ ] Make the position correction work in towns and woodland, where it currently leaves the
-      imagery as it was
 - [ ] Combine several captures of the same place into one sharper image
 - [ ] Source registry: which imagery and elevation data to use per region, with fallbacks
 - [ ] Terrain for areas larger than about 6 km, averaged rather than point-sampled for coarse tiles
@@ -26,14 +30,14 @@
 - [ ] Choose more England test sites with lidar and 10 cm aerial imagery
 - [ ] Split out a separate environment for ML tools if their dependencies clash with the pipeline
 
+## Last
+
+- [ ] Gazebo: a lighter collision mesh, then test in a running simulator
+
 ## Needs you
 
 - [ ] Supply photographs with known camera positions for the real-photo localisation test
       (required before the first release)
-
-## Last
-
-- [ ] Gazebo: a lighter collision mesh, then test in a running simulator
 
 ## Done
 

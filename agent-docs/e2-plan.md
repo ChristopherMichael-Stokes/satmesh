@@ -1,6 +1,6 @@
 # E2 plan: lidar-referenced correction of the Esri imagery position
 
-Design B of `e2-research.md`. Survey: `offset-survey.md`. Awaiting owner approval.
+Design B of `e2-research.md`. Survey: `offset-survey.md`. Approved and built to `satmesh correct` (`e2-results.md`).
 
 ## Goal
 

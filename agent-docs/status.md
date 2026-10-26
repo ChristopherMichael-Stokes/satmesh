@@ -16,7 +16,7 @@ with their reasons, open risks. Detail per feature lives in the plan and results
 - Esri imagery is the fallback source; enhancement (super-resolution, DEM refinement) replaces
   tile contents later, so the store keeps the source pixels.
 
-## State against the plan (2026-10-25)
+## State against the plan (2026-10-26)
 
 | Stage | State |
 | --- | --- |
@@ -24,8 +24,8 @@ with their reasons, open risks. Detail per feature lives in the plan and results
 | 1 Spikes | S1, S5, S6 done. Open: S3, S4; S2, S2b, S7 on demand |
 | 2 Baseline pipeline | F1 to F5a done for Great Britain (DSM visual mesh, DTM ground grid). Open: F2a, F2b, F5b Gazebo collision, F5c large-area DTM |
 | 3 Evaluation harness F6 | Done (`f6-results.md`): height, smoothness, camera-visibility and held-out-point scores; Esri-to-EA offset and texture-detail spectrum; consistency function (library only); all behind `satmesh eval` |
-| 4 Classical enhancement E1, E2 | E2 offset survey done; correction design next |
-| 5 ML experiments E3 to E7 | Not started. E8 (lidar surface refinement) closed without a change. E4 needs a proper survey of models and techniques before any trial; owner priorities are E4 and E6 |
+| 4 Classical enhancement E1, E2 | E2 shipped as `satmesh correct` (`e2-results.md`); E2b (towns and woodland) planned in `e2b-plan.md`; E1 not started |
+| 5 ML experiments E3 to E7 | Not started. E8 (lidar surface refinement) closed without a change. E4 survey done (`e4-research.md`), first trial PixTransform not started; E9 survey done (`e9-research.md`), plan in `e9-plan.md`; owner priorities are E4 and E6 |
 
 ## TODO.md to plan codes
 
@@ -36,6 +36,8 @@ with their reasons, open risks. Detail per feature lives in the plan and results
 | Height-detail recovery research, then trials | E4 (survey first, owner instruction) |
 | Stretched texture on steep faces | E9 |
 | Ship the imagery position correction (done 2026-10-26) | E2 |
+| Position correction in towns and woodland | E2b |
+| Test a different region (Yemen) | F2a, F2b |
 | Combine several captures | E6 |
 | Source registry | F2a, F2b |
 | Terrain past about 6 km | F5c |
@@ -53,19 +55,22 @@ with their reasons, open risks. Detail per feature lives in the plan and results
 
 ## Where to resume
 
-1. Esri-to-EA offset survey done (`offset-survey.md`): north 0.2 to 2.8 m across eight England
-   boxes, east -0.6 to +0.6 m, so not one global shift. Next: correction design (E2), a plan to the
-   owner with options. Open first: does the offset vary smoothly inside a region, and does it
-   depend on object height (F6 checkpoint 3 split not run on the new boxes).
-   Plan approved and run to B2 (`e2-plan.md`, `e2-results.md`): the lidar-referenced shift is within
-   0.3 m of the EA-aerial one at 4 of 8 boxes (5 required); mutual information was tried and is worse
-   (2 of 8). Owner chose (2026-10-26): ship gradient-correlation correction where enough windows
-   survive, leave the rest uncorrected, and attach an error bound estimate to final products.
-2. E4 research survey (see `TODO.md`), then the first height-recovery trial: degrade the EA DSM and
-   score recovery against the 1 m original.
-3. F2a source registry, once E4 shows what the fallback chain needs.
-4. F7 real-photo localisation, needed before v1; it needs owner-supplied photographs with known poses.
-5. F5b Gazebo collision, last, per the owner; collision uses the visual mesh until then.
+Owner order (2026-10-26):
+
+1. E9 steep faces: `e9-plan.md`, awaiting approval. Snap steep-triangle UVs to measured texels and
+   flag them (`_FILL`). Start with S0 (stretch histogram) and S0b (is Esri a true orthophoto?).
+2. E2b towns and woodland: `e2b-plan.md`, awaiting approval. Start with T0, a 5 x 5 km store at
+   Ferrybridge and Knottingley, to test whether the shift is constant within an Esri scene.
+3. E4 trial: `e4-research.md` recommends PixTransform per tile, scored on the degraded EA DSM
+   (x2, x5, x30) with an edge-leakage check; judge by eye as well.
+4. Yemen as the different-region test (F2a source registry, UTM, geoid, coarse elevation). The
+   source survey is `region-research.md`; its plan follows from that report.
+5. F5b Gazebo collision, then F7 real-photo localisation (needs owner-supplied photographs with
+   known poses; required before v1).
+
+Done since the last record: `build` and `correct` speed-up with byte-identical output
+(`speedup-results.md`), progress bars, `run.log` and `--nw`/`--se` corner input
+(`progress-logging-input-plan.md`).
 
 Judge meshes by eye: scores against the DSM did not predict the owner's ranking in E8 (see the
 decision log). Show textured renders from fixed camera views before proposing a geometry change.
@@ -129,8 +134,11 @@ decision log). Show textured renders from fixed camera views before proposing a 
 
 | What | Where |
 | --- | --- |
-| Feature plans | `f1-f2-plan.md`, `f4-plan.md` (partly superseded), `f5-plan.md`, `f6-plan.md` |
+| Feature plans | `f1-f2-plan.md`, `f4-plan.md` (partly superseded), `f5-plan.md`, `f6-plan.md`, `e2-plan.md` (built), `e2b-plan.md`, `e9-plan.md`, `progress-logging-input-plan.md` (built) |
 | Research | `s1-results.md`, `s5-results.md`, `s6-results.md`, `uk-sources.md`, `f5-tiling-research.md`, `f6-research.md` |
 | F5 build record | `f5-results.md`, `f5a-results.md` (DSM) |
 | E8 survey, results | `e8-research.md`, `e8-results.md`, `lidar-pointcloud-spike.md` |
+| E2 survey, results | `e2-research.md`, `offset-survey.md`, `e2-results.md` |
+| E4, E9, region surveys | `e4-research.md`, `e9-research.md`, `region-research.md` |
+| Speed-up record | `speedup-results.md` |
 | Task list | `TODO.md` at the repo root |

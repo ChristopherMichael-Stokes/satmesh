@@ -2,8 +2,6 @@
 
 ## Next
 
-- [ ] Fix stretched texture on steep faces: snap the texture of walls and tree sides to measured
-      colours and flag every such pixel (plan written, awaiting approval)
 - [ ] Make the position correction work in towns and woodland, where it currently leaves the
       imagery as it was (plan written, awaiting approval)
 - [ ] Try the best candidate for recovering fine height detail from coarse elevation data (Yemen

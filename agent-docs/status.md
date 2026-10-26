@@ -25,7 +25,7 @@ with their reasons, open risks. Detail per feature lives in the plan and results
 | 2 Baseline pipeline | F1 to F5a done for Great Britain (DSM visual mesh, DTM ground grid). Open: F2a, F2b, F5b Gazebo collision, F5c large-area DTM |
 | 3 Evaluation harness F6 | Done (`f6-results.md`): height, smoothness, camera-visibility and held-out-point scores; Esri-to-EA offset and texture-detail spectrum; consistency function (library only); all behind `satmesh eval` |
 | 4 Classical enhancement E1, E2 | E2 shipped as `satmesh correct` (`e2-results.md`); E2b (towns and woodland) planned in `e2b-plan.md`; E1 not started |
-| 5 ML experiments E3 to E7 | Not started. E8 (lidar surface refinement) closed without a change. E4 survey done (`e4-research.md`), first trial PixTransform not started; E9 survey done (`e9-research.md`), plan in `e9-plan.md`; owner priorities are E4 and E6 |
+| 5 ML experiments E3 to E7 | Not started. E8 (lidar surface refinement) closed without a change. E4 survey done (`e4-research.md`), first trial PixTransform not started; E9 closed after S0 and S0b (`e9-results.md`), no fill built; owner priorities are E4 and E6 |
 
 ## TODO.md to plan codes
 
@@ -57,10 +57,10 @@ with their reasons, open risks. Detail per feature lives in the plan and results
 
 Owner order (2026-10-26):
 
-1. E9 steep faces: `e9-plan.md`, awaiting approval. Snap steep-triangle UVs to measured texels and
-   flag them (`_FILL`). Start with S0 (stretch histogram) and S0b (is Esri a true orthophoto?).
-2. E2b towns and woodland: `e2b-plan.md`, awaiting approval. Start with T0, a 5 x 5 km store at
-   Ferrybridge and Knottingley, to test whether the shift is constant within an Esri scene.
+1. E9 steep faces: closed by the owner after S0 and S0b (`e9-results.md`); no fill was built.
+2. E2b towns and woodland: `e2b-plan.md`, approved 2026-10-26 with its proposals (Ferrybridge,
+   0.3 m, T2 returns to the owner, `borrowed` status). T0 done (`e2b-results.md`): H4 not
+   supported or refuted; next T1 (ground-only windows) on the T0 store.
 3. E4 trial: `e4-research.md` recommends PixTransform per tile, scored on the degraded EA DSM
    (x2, x5, x30) with an edge-leakage check; judge by eye as well.
 4. Yemen as the different-region test (F2a source registry, UTM, geoid, coarse elevation). The
@@ -104,6 +104,8 @@ decision log). Show textured renders from fixed camera views before proposing a 
 | 2026-10-26 | E2: lidar-referenced Esri shift by gradient correlation, applied only where enough windows survive; error bound estimate shipped with products; MI and nDSM rejected | B2 matched EA aerial within 0.3 m at 4 of 8 boxes with gradients, 2 of 8 with MI; urban, wooded and coastal boxes fail (`e2-results.md`) |
 | 2026-10-26 | `build` and `correct` sped up with byte-identical output (`speedup-results.md`): imagery prefetch, one read per LAZ, threaded evaluation, cells in up to 8 worker processes, BLAS pools set to 1 thread by `satmesh_cli` | Owner: no loss of quality, output parity, lower latency and higher throughput. Averaging lidar points into grid cells and splitting the triangulation both change the output, so both were dropped |
 | 2026-10-26 | Progress, run log and corner input (`progress-logging-input-plan.md`, approved): `ProgressReport` hook in `satmesh-core` called by `build_store`, `measure_correction` and `apply_correction`; `rich` bars and `loguru` sinks in `satmesh-cli`; `<store>/run.log` appended by every store command; `--nw` and `--se` replace `--bbox` and `--crs`; BLAS pools limited by `threadpoolctl` in the window matching instead of an environment default | Owner approved the plan and the dependencies (loguru, rich, threadpoolctl); eval commands take the corners snapped inward to whole BNG metres |
+| 2026-10-26 | Owner closed E9 after S0 and S0b | Steep faces are 4 to 10 % of a ground camera's view and a fill adds no measured information; position and lean matter more. Real-photo test photographs: the owner has them and they are good enough, so no further request |
+| 2026-10-26 | Owner approved the E9 and E2b proposals and the opening measurements S0, S0b, T0 | `_FILL` vertex attribute plus a flat-colour export; snapping an explicit step; threshold set from S0; T0 at Ferrybridge; 0.3 m; T2 returns to the owner after its prior-art check; borrowed cells get their own status and bound |
 | 2026-10-25 | Mesh smoothness scored by facet normals at centroids against Horn normals of the DSM, plus flat-facets-on-slope and grid-aligned aspect excess | Height scores at pixel centres cannot see terracing; nearest 0.5 m ranks worst on all three as the eye did; thresholds are tunables and the blind-comparison validation has not been run |
 
 ## Open risks
@@ -118,7 +120,9 @@ decision log). Show textured renders from fixed camera views before proposing a 
   `offset-survey.md`; S6's 2.4 m was a Helmert-reprojection artifact), and raised objects are
   displaced differently from open ground, so a rigid correction will not do; matching pipelines
   will see it.
-- Whether Esri imagery is a true orthophoto is unknown; if not, buildings lean in the texture.
+- Esri imagery is not a true orthophoto at Worcester (roofs displaced about 0.3 to 0.6 m per m of
+  height toward south-west; S0b, `e9-results.md`); undetermined at the survey sites, so buildings
+  can lean in the texture and the position correction does not remove it.
 - No ground-truth scoring yet: DEM, texture and geoid chain are untested against raw lidar and
   EA aerial imagery.
 - Gazebo untested: roll pose for glTF, `elevation` datum (gz-math treats it as ellipsoidal),

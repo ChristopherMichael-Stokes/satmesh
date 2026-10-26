@@ -1,6 +1,6 @@
 # E9 plan: stretched texture on steep faces
 
-Survey: `e9-research.md`. Awaiting owner approval.
+Survey: `e9-research.md`. Closed by the owner after S0 and S0b; results in `e9-results.md`.
 
 ## Problem in our data
 

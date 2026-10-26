@@ -5,3 +5,5 @@ CPY = "CPY"
 nd = "nd"
 # level of detail
 LOD = "LOD"
+# texture-synthesis method name (Richardson et al. 2023)
+Ture = "Ture"

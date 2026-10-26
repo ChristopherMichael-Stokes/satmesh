@@ -24,17 +24,43 @@ with their reasons, open risks. Detail per feature lives in the plan and results
 | 1 Spikes | S1, S5, S6 done. Open: S3, S4; S2, S2b, S7 on demand |
 | 2 Baseline pipeline | F1 to F5a done for Great Britain (DSM visual mesh, DTM ground grid). Open: F2a, F2b, F5b Gazebo collision, F5c large-area DTM |
 | 3 Evaluation harness F6 | Done (`f6-results.md`): height, smoothness, camera-visibility and held-out-point scores; Esri-to-EA offset and texture-detail spectrum; consistency function (library only); all behind `satmesh eval` |
-| 4 Classical enhancement E1, E2 | Not started. E2 begins with the Esri-to-EA offset survey below |
+| 4 Classical enhancement E1, E2 | E2 offset survey done; correction design next |
 | 5 ML experiments E3 to E7 | Not started. E8 (lidar surface refinement) closed without a change. E4 needs a proper survey of models and techniques before any trial; owner priorities are E4 and E6 |
+
+## TODO.md to plan codes
+
+`TODO.md` is human-facing and uses no codes. Its items map to the plan codes used in this folder:
+
+| TODO.md item | Code |
+| --- | --- |
+| Height-detail recovery research, then trials | E4 (survey first, owner instruction) |
+| Stretched texture on steep faces | E9 |
+| Ship the imagery position correction | E2 |
+| Combine several captures | E6 |
+| Source registry | F2a, F2b |
+| Terrain past about 6 km | F5c |
+| Smoother elevation data | E1 |
+| Sharpen past native zoom | E3 |
+| Fine-tuned super-resolution | E5 |
+| Single-image height as detail | E7 |
+| Wales lidar points, Scottish lidar route | E2 follow-up, S7 |
+| Older Esri releases | S2, S2b |
+| Elevation coverage at UK sites | S3 |
+| More England test sites | S4 |
+| ML environment split | `ml/` workspace |
+| Real-photo localisation test | F7 |
+| Gazebo | F5b |
 
 ## Where to resume
 
-1. Esri-to-EA offset: two sites measured (north +0.76 and +0.99 m, east -0.02 and -0.34 m). A
-   survey of six more 1 km boxes across England was started and stopped by the owner before any
-   site finished; nothing was kept. It settles whether the offset is constant, regional or per
-   tile, which decides the correction design. Brief: measure with `satmesh eval offset`, EA 10 cm
-   aerial from the survey API, Esri at its native zoom, 500 m slice first, report to
-   `offset-survey.md`.
+1. Esri-to-EA offset survey done (`offset-survey.md`): north 0.2 to 2.8 m across eight England
+   boxes, east -0.6 to +0.6 m, so not one global shift. Next: correction design (E2), a plan to the
+   owner with options. Open first: does the offset vary smoothly inside a region, and does it
+   depend on object height (F6 checkpoint 3 split not run on the new boxes).
+   Plan approved and run to B2 (`e2-plan.md`, `e2-results.md`): the lidar-referenced shift is within
+   0.3 m of the EA-aerial one at 4 of 8 boxes (5 required); mutual information was tried and is worse
+   (2 of 8). Owner chose (2026-10-26): ship gradient-correlation correction where enough windows
+   survive, leave the rest uncorrected, and attach an error bound estimate to final products.
 2. E4 research survey (see `TODO.md`), then the first height-recovery trial: degrade the EA DSM and
    score recovery against the 1 m original.
 3. F2a source registry, once E4 shows what the fallback chain needs.
@@ -69,6 +95,7 @@ decision log). Show textured renders from fixed camera views before proposing a 
 | 2026-10-25 | Ground grid stored as a per-node GeoTIFF (EPSG:3857, one pixel per grid node), not a ground mesh | F5b needs the DTM without refetching; a raster is readable by GIS and by the F6 scorer, and the decimation choices stay open |
 | 2026-10-25 | DSM used as served, not clamped to the DTM | It sits below the DTM at 5 % of pixels by up to 0.33 m; clamping would hide a survey-epoch disagreement F6 should measure |
 | 2026-10-25 | Keep the bilinear 0.5 m DSM sampling; E8 closed without a geometry change | Node-aligned bilinear, raw-point Delaunay and fitted roof planes scored better against the DSM but the owner judged the current mesh best by eye in textured and shaded renders; scores against the DSM did not predict that |
+| 2026-10-26 | E2: lidar-referenced Esri shift by gradient correlation, applied only where enough windows survive; error bound estimate shipped with products; MI and nDSM rejected | B2 matched EA aerial within 0.3 m at 4 of 8 boxes with gradients, 2 of 8 with MI; urban, wooded and coastal boxes fail (`e2-results.md`) |
 | 2026-10-25 | Mesh smoothness scored by facet normals at centroids against Horn normals of the DSM, plus flat-facets-on-slope and grid-aligned aspect excess | Height scores at pixel centres cannot see terracing; nearest 0.5 m ranks worst on all three as the eye did; thresholds are tunables and the blind-comparison validation has not been run |
 
 ## Open risks
@@ -77,9 +104,10 @@ decision log). Show textured renders from fixed camera views before proposing a 
   decision); E8 tried three ways of recovering it and the owner rejected all three by eye.
 - Gazebo collision uses the visual (DSM) mesh until F5b: robots would collide with canopies.
 - DSM nodata (water, survey edges) raises and stops the build; untested on such a box.
-- Esri imagery sits 0.8 to 1.0 m north of EA 2020 imagery (F6 checkpoint 2; S6's 2.4 m was a
-  Helmert-reprojection artifact), and raised objects are displaced differently from open ground, so
-  a rigid correction will not do; matching pipelines will see it.
+- Esri imagery sits 0.2 to 2.8 m north of EA imagery across eight England boxes (F6 checkpoint 2,
+  `offset-survey.md`; S6's 2.4 m was a Helmert-reprojection artifact), and raised objects are
+  displaced differently from open ground, so a rigid correction will not do; matching pipelines
+  will see it.
 - Whether Esri imagery is a true orthophoto is unknown; if not, buildings lean in the texture.
 - No ground-truth scoring yet: DEM, texture and geoid chain are untested against raw lidar and
   EA aerial imagery.

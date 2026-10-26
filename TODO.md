@@ -2,79 +2,45 @@
 
 ## Next
 
-- [ ] Esri-to-EA offset survey over six more England boxes, then the correction design (E2);
-      see `agent-docs/status.md`, Where to resume
-- [ ] E4 research survey before any height-recovery trial
+- [ ] Research the best ways to recover fine height detail from coarse elevation data, then try
+      the best candidates
+- [ ] Research fixes for stretched texture on steep faces (walls, tree sides, roof peaks),
+      including generative fill; filled pixels must be flagged
+- [ ] Ship the imagery position correction: apply it where it can be measured, leave the rest
+      alone, and attach an error estimate to every product
 
-## Scaffold
+## Later
 
-- [x] Root config copied from xfeat-rt (prek, ruff, rumdl, typos, bake, checkmake, Makefile,
-      LICENSE)
-- [x] `AGENTS.md`, `CLAUDE.md`, `README.md`
-- [x] `pipeline/` uv workspace with `satmesh-core` stub and a passing test
-- [x] `make setup`, `make check`, `make test` pass
+- [ ] Combine several captures of the same place into one sharper image
+- [ ] Source registry: which imagery and elevation data to use per region, with fallbacks
+- [ ] Terrain for areas larger than about 6 km, averaged rather than point-sampled for coarse tiles
+- [ ] Smoother, hole-free elevation data by classical processing, scored against lidar
+- [ ] Sharpen imagery past its native zoom, only where the automatic check says it helps
+- [ ] Fine-tune a super-resolution model on our own imagery pairs, only if the step above falls short
+- [ ] Use single-image height estimates as a fine detail layer
+- [ ] Find lidar point data for Wales (the position correction needs it)
+- [ ] Find the Scottish lidar download route
+- [ ] Check whether older Esri releases hold finer imagery at a point, and how many capture dates a
+      site has
+- [ ] Check elevation coverage at the UK test sites
+- [ ] Choose more England test sites with lidar and 10 cm aerial imagery
+- [ ] Split out a separate environment for ML tools if their dependencies clash with the pipeline
 
-## Spikes
+## Needs you
 
-- [x] S1 Esri native-resolution probe: layer 4 `identify` gives `SRC_RES`/`MaxMapLevel`;
-      placeholder-tile hash detects the end of native data
-- [ ] S2 Wayback scan: do older releases hold finer `SRC_RES` at a point? Measure over ~20 sites
-      (on demand, before E6)
-- [ ] S2b Count distinct capture dates per site across Wayback releases (on demand, feeds E6)
-- [ ] S3 DEM source coverage at the UK test sites: EA 1 m DTM and DSM, OS Terrain 50, GLO-30
-- [ ] S4 Ground-truth test sites: England sites with EA 1 m lidar and EA 10 cm aerial imagery,
-      mixed terrain and land cover (Upper Aire first)
-- [x] S6 UK imagery: EA covers about 7,000 km2 of England from 2020 on, at 10 to 25 cm; real detail
-      gain over Esri z19 where present; ECW needs a custom GDAL build
-- [ ] S7 Scottish lidar tile download mechanism (portal API; on demand, for Scottish sites)
-- [x] S5 Mesh baseline: EA 1 m DTM (WCS) plus Esri z19 drape to GLB with pydelatin works; vertical
-      scale is exact in BNG, whose XY is 0.04% short; 61k vertices for 1 km2 at 0.1 m error
+- [ ] Supply photographs with known camera positions for the real-photo localisation test
+      (required before the first release)
 
-## Features
+## Last
 
-- [x] F1 `satmesh-core`: AOI, metric CRS (BNG in Great Britain, else UTM), covering tiles, GSD;
-      zoom selection from Esri metadata moved to F2
-- [x] F2 `satmesh-data`: Esri layer 4 metadata and zoom choice, throttled and cached tile fetch with
-      placeholder detection, EA 1 m DTM by WCS; source selection moved to F2a
-- [ ] F2a Source registry (pydantic data file) with region preference lists and the selection policy
-      that walks them; UK entries first
-- [ ] F2b Access adapters: ArcGIS tile cache, WCS, COG range read, index-then-download (ECW via
-      GDAL with libecwj2 3.3, in Docker)
-- [x] F3 Tile mosaic (EPSG:3857, JPEG decoded by GDAL) and whole-pixel crop to the AOI plus margin;
-      a placeholder inside the AOI raises
-- [x] F4 `satmesh-mesh`: pydelatin grid TIN, skirts, textured GLB writer
-- [x] F5 `satmesh-tiles` and `satmesh-cli`: georeferenced node store on the Esri tile grid (leaf = 4
-      x 4 Esri tiles, parents where all four children exist), resumable `satmesh build`, exports to
-      3D Tiles, Gazebo and one area GLB
-- [x] F5a EA 1 m first-return DSM per node: visual mesh from the DSM so buildings and trees exist
-      for cameras, DTM kept per node as a ground grid for ground and collision
-- [ ] F5b Gazebo collision from a decimated DTM mesh without skirts; benchmark step time and tile
-      count; confirm the glTF roll pose, `elevation` datum and levels in a running Gazebo
-- [ ] F5c DTM fetch for parents past about 6 km (WCS request size untested beyond 6000 x 6000 px);
-      area-averaged instead of point-sampled DEM for coarse parents
-- [x] F6 Evaluation harness: DEM error against EA lidar, texture against EA 10 cm aerial,
-      consistency check
+- [ ] Gazebo: a lighter collision mesh, then test in a running simulator
 
-## Experiments
+## Done
 
-- [ ] F7 Real-photo localisation test (MeshLoc-style render-and-match against photographs with
-      known poses): needs owner-supplied photos; required before the v1 release
-- [ ] E1 DEM classical chain: feature-preserving smoothing, void fill, bicubic; error against lidar
-- [ ] E2 Texture harmonisation across zoom and source boundaries
-- [ ] E3 SwinIR/HAT x2 on tiles past native depth, gated by the consistency check
-- [ ] E4 (A) Continuous high-resolution height from low-resolution DEMs: PixTransform per tile,
-      DADA retrained on lidar and imagery pairs; edge-leakage check; scored against lidar
-      Research first (owner, 2026-10-25): a proper survey of the best models and techniques for
-      height recovery, ML and classical, before any trial, so the best candidates are tried; the E8
-      survey covers guided super-resolution only and found no method tested at our scale
-- [ ] E5 Real-ESRGAN fine-tuned on in-domain pairs (only if E3 shows a gap)
-- [ ] E6 (B) Multi-capture super-resolution: registration accuracy first, then classical
-      register-and-merge baseline, then HighRes-net / Deep Burst SR; Wayback and other-source
-      captures
-- [ ] E7 Monocular height as a high-frequency detail layer for E4
-- [x] E8 Lidar surface refinement: survey, node placement, raw-point TIN and roof planes tried; the
-      current bilinear 0.5 m mesh stays (owner judged by eye), see `agent-docs/e8-results.md`
-
-## Open
-
-- [ ] Create `ml/` workspace when the first model's dependencies conflict with `pipeline/`
+- Project scaffold, checks and workspace
+- Esri imagery and elevation fetch with caching and throttling; imagery mosaic
+- Terrain mesh builder with skirts and textured GLB output
+- Tiled store with 3D Tiles, Gazebo and single-GLB export; buildings and trees included
+- Evaluation tools: height error, smoothness, camera visibility, imagery offset, texture detail
+- Imagery offset survey over eight England sites and a lidar-based correction trial
+- Lidar surface refinement trials; the current mesh stays

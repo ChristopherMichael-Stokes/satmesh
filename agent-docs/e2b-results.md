@@ -74,3 +74,42 @@ setting, at least 95 % (B), was added after the artefact below appeared.
 
 Untried: a ground-class-only lidar reference with windows that are fully ground, without mask
 edges. It faces the same shortage of ground windows.
+
+## T2 prior-art check: lean model (2026-10-26)
+
+Survey by a research subagent. VERIFIED means the source was opened and read; UNOPENED means a
+snippet only.
+
+- An established method fits: model the basemap's residual geometry as a constrained 3D affine
+  projection, displacement = t + l * h, with t the ground shift, l the lean vector (azimuth
+  atan2(l_E, l_N), magnitude tan of the off-nadir angle) and h the height above the DEM the
+  basemap was orthorectified with. Project the lidar into image geometry under the model, match
+  templates (normalised cross-correlation or mutual information), refit, iterate. Parmehr, Fraser,
+  Zhang and Leach 2013 (ISPRS Annals II-5/W2, VERIFIED) do this for WorldView-2 against lidar;
+  results are qualitative, mutual information fails where elevation varies little. Fraser and
+  Yamakawa's affine model (Yamakawa and Fraser 2004, VERIFIED) gives the form. Mastin, Kepner and
+  Fisher (CVPR 2009, VERIFIED, partly read) render the lidar under candidate cameras and maximise
+  mutual information. Suliman and Zhang (2014, 2017, abstracts VERIFIED) project the DSM but need a
+  sensor model or a stereo pair.
+- No basemap-specific result found; the DEM Esri's Maxar basemap is orthorectified with is not
+  published. The Maxar basemap specification (VERIFIED) allows off-nadir angles to 30 degrees and
+  accuracy 8.5 m CE90 for the standard products. Esri identify (live, VERIFIED) returns a scene
+  polygon, capture date and sensor per pixel, so each scene can be fitted separately.
+- Libraries, no new algorithm: `scipy.optimize.least_squares` with a robust loss (`soft_l1`) for
+  the four-parameter fit, bootstrap over buildings, OpenCV `matchTemplate` or SimpleITK mutual
+  information for matching, `scipy.optimize.minimize(method="Powell")` for refinement, and the
+  existing lidar mesh rendered orthographically along the lean direction for forward projection.
+  xdem coregistration does not apply (DEM to DEM).
+- Conflict to settle first: a 30 degree cap allows at most tan 30 = 0.58 m per m. The pooled
+  S0b cross-check slope is about 0.55 m per m, and the synthetic check says the measurement is about
+  half the truth, which would be about 1.1 m per m and above the cap. Either the halving does not
+  carry to real data or false matches inflate the slope. Settle it by refitting the existing
+  per-building offsets per Esri scene polygon with a robust loss, and by a closure test (shift
+  each template by the fitted lean, re-match, regress again).
+- Failure modes: seamlines and mixed scenes in one area, facades visible in the image but absent
+  from a DSM render, shadows, capture-date differences between image and lidar, leaf state, flat
+  areas without a peak, a coarse orthorectification DEM leaving slope-dependent shifts.
+- Recommended: Parmehr-style iteration with the four-parameter model, per Esri scene polygon,
+  initialised from the per-building offsets already measured.
+
+The cheap verification needs no repository code. Implementation comes back to the owner first.

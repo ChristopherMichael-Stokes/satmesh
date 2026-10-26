@@ -15,6 +15,7 @@ from rasterio.transform import from_bounds
 from satmesh_core import (
     BRITISH_NATIONAL_GRID,
     Aoi,
+    ProgressReport,
     bng_odn_to_wgs84,
     metric_crs,
     wgs84_to_bng,
@@ -53,6 +54,7 @@ STORE_NODE_DIR = Path("nodes")
 # one thread fetching a leaf's Esri tiles and one its DSM and DTM, so the Esri request schedule
 # never idles while a node is meshed or the EA WCS answers
 PREFETCH_WORKERS = 2
+NODES_PHASE = "nodes"
 
 
 @dataclass(frozen=True)
@@ -179,6 +181,7 @@ def build_store(  # noqa: PLR0913 (edges of the build: network clients, director
     esri: EsriClient,
     http: httpx.Client,
     cache_dir: Path,
+    report: ProgressReport,
     max_error_m: float = DEFAULT_MAX_ERROR_M,
 ) -> BuildSummary:
     """Write every missing node of `plan` to `store_dir`; nodes already present are skipped.
@@ -188,8 +191,11 @@ def build_store(  # noqa: PLR0913 (edges of the build: network clients, director
     parents are halved from their children's textures and meshed at twice the grid spacing and
     error per level. A rerun after an interruption repeats no network request and no finished node.
     Fetches for the leaves still to come run ahead of the node being built, in build order.
+    `report` is called with phase "nodes" before the first node and after each one.
     """
     counts = {"built": 0, "skipped": 0}
+    total = len(plan.leaves) + len(plan.children)
+    report(NODES_PHASE, 0, total)
     prefetcher = ThreadPoolExecutor(PREFETCH_WORKERS)
     fetches = {
         leaf: _submit_fetches(
@@ -205,6 +211,7 @@ def build_store(  # noqa: PLR0913 (edges of the build: network clients, director
         child_textures = [build(kid, texture_needed=needed) for kid in kids]
         if not needed:
             counts["skipped"] += 1
+            report(NODES_PHASE, counts["built"] + counts["skipped"], total)
             return None
         for fetch in fetches.get(tile, ()):
             fetch.result()
@@ -215,6 +222,7 @@ def build_store(  # noqa: PLR0913 (edges of the build: network clients, director
         )
         if not missing:
             counts["skipped"] += 1
+            report(NODES_PHASE, counts["built"] + counts["skipped"], total)
             return texture
         _write_node(
             store_dir,
@@ -225,6 +233,7 @@ def build_store(  # noqa: PLR0913 (edges of the build: network clients, director
             MeshSettings.for_level(plan.leaf_zoom - tile.z, max_error_m),
         )
         counts["built"] += 1
+        report(NODES_PHASE, counts["built"] + counts["skipped"], total)
         return texture
 
     try:

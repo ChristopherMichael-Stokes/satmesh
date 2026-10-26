@@ -17,7 +17,7 @@ import mercantile
 from pydantic import BaseModel, ConfigDict
 from pyproj import Transformer
 
-from satmesh_core import WGS84, wgs84_to_bng
+from satmesh_core import WGS84, ProgressReport, wgs84_to_bng
 from satmesh_data import WEB_MERCATOR
 from satmesh_mesh import shift_texture_coordinates
 from satmesh_tiles.node import PositionRecord
@@ -27,6 +27,7 @@ from satmesh_tiles.tileset import stored_tiles
 CellStatus = Literal["corrected", "uncorrected"]
 CORRECTION_FILE = "correction.json"
 POSITIONAL_ERROR_FILE = "positional_error.json"
+UPDATE_PHASE = "updating tiles"
 ERROR_BOUND_MEANING = (
     "95 % radial bound on the position error of the imagery on open ground, in metres. Raised "
     "objects (roofs, tree crowns) lean in the source imagery and are not corrected."
@@ -89,22 +90,28 @@ class CorrectionSummary:
     rewritten: int
 
 
-def apply_correction(store_dir: Path, field: CorrectionField) -> CorrectionSummary:
+def apply_correction(
+    store_dir: Path, field: CorrectionField, report: ProgressReport
+) -> CorrectionSummary:
     """Move every node's texture coordinates to the corrected position and record it.
 
     Safe to repeat or to follow with a revised field: each node moves by the difference between
     the correction in its record and the new one. The GLB is written before the record, so an
-    interrupted run is redone, not skipped.
+    interrupted run is redone, not skipped. `report` is called with phase "updating tiles" before
+    the first node and after each one.
     """
     (store_dir / CORRECTION_FILE).write_text(field.model_dump_json(indent=1))
     corrected = uncorrected = rewritten = 0
-    for tile in sorted(stored_tiles(store_dir)):
+    tiles = sorted(stored_tiles(store_dir))
+    report(UPDATE_PHASE, 0, len(tiles))
+    for done, tile in enumerate(tiles, start=1):
         record = read_record(store_dir, tile)
         centre_e, centre_n = _centre_bng(tile)
         position = field.position_at(centre_e, centre_n)
         corrected += position.status == "corrected"
         uncorrected += position.status == "uncorrected"
         if record.position == position:
+            report(UPDATE_PHASE, done, len(tiles))
             continue
         before = record.position or PositionRecord(
             status="uncorrected", east_m=0.0, north_m=0.0, error_bound_m=0.0
@@ -123,6 +130,7 @@ def apply_correction(store_dir: Path, field: CorrectionField) -> CorrectionSumma
         updated = record.model_copy(update={"position": position})
         write_atomically(record_path, updated.model_dump_json(indent=1).encode())
         rewritten += 1
+        report(UPDATE_PHASE, done, len(tiles))
     return CorrectionSummary(corrected, uncorrected, rewritten)
 
 

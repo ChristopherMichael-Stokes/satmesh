@@ -9,6 +9,7 @@ from fakes import (
     LEAF_ZOOM,
     FakeServices,
     clients,
+    ignore_progress,
     square_of_four_leaves,
     tile_colour,
 )
@@ -115,7 +116,9 @@ def test_build_writes_every_node_and_a_rerun_repeats_nothing(
     esri, http = clients(services, tmp_path / "cache")
     plan = plan_tiles(aoi, esri)
     store = tmp_path / "store"
-    first = build_store(plan, store, esri=esri, http=http, cache_dir=tmp_path / "cache")
+    first = build_store(
+        plan, store, esri=esri, http=http, cache_dir=tmp_path / "cache", report=ignore_progress
+    )
     assert (first.built, first.skipped) == (5, 0)
     for tile in [*leaves, plan.roots[0]]:
         glb, _ = node_paths(store, tile)
@@ -124,9 +127,31 @@ def test_build_writes_every_node_and_a_rerun_repeats_nothing(
         assert ground_path(store, tile).stat().st_size > 0
     assert services.requests["wcs"] == 2 * first.built  # one DSM and one DTM box per node
     requests_after_first = dict(services.requests)
-    second = build_store(plan, store, esri=esri, http=http, cache_dir=tmp_path / "cache")
+    second = build_store(
+        plan, store, esri=esri, http=http, cache_dir=tmp_path / "cache", report=ignore_progress
+    )
     assert (second.built, second.skipped) == (0, 5)
     assert services.requests == requests_after_first
+
+
+def test_build_reports_every_node_once_ending_at_the_total(
+    services: FakeServices, tmp_path: Path
+) -> None:
+    aoi, _ = square_of_four_leaves()
+    esri, http = clients(services, tmp_path / "cache")
+    plan = plan_tiles(aoi, esri)
+    reports: list[tuple[str, int, int]] = []
+    build_store(
+        plan,
+        tmp_path / "store",
+        esri=esri,
+        http=http,
+        cache_dir=tmp_path / "cache",
+        report=lambda phase, done, total: reports.append((phase, done, total)),
+    )
+    assert reports[0] == ("nodes", 0, 5)
+    assert [done for _, done, _ in reports] == [0, 1, 2, 3, 4, 5]
+    assert {(phase, total) for phase, _, total in reports} == {("nodes", 5)}
 
 
 def test_a_missing_leaf_is_rebuilt_from_cache_without_new_requests(
@@ -136,11 +161,15 @@ def test_a_missing_leaf_is_rebuilt_from_cache_without_new_requests(
     esri, http = clients(services, tmp_path / "cache")
     plan = plan_tiles(aoi, esri)
     store = tmp_path / "store"
-    build_store(plan, store, esri=esri, http=http, cache_dir=tmp_path / "cache")
+    build_store(
+        plan, store, esri=esri, http=http, cache_dir=tmp_path / "cache", report=ignore_progress
+    )
     requests_after_first = dict(services.requests)
     lost = min(leaves)
     node_paths(store, lost)[1].unlink()
-    summary = build_store(plan, store, esri=esri, http=http, cache_dir=tmp_path / "cache")
+    summary = build_store(
+        plan, store, esri=esri, http=http, cache_dir=tmp_path / "cache", report=ignore_progress
+    )
     assert summary.built == 1
     assert services.requests == requests_after_first
     assert read_record(store, lost).z == LEAF_ZOOM
@@ -151,7 +180,15 @@ def test_parents_use_coarser_grid_and_error(services: FakeServices, tmp_path: Pa
     esri, http = clients(services, tmp_path / "cache")
     plan = plan_tiles(aoi, esri)
     store = tmp_path / "store"
-    build_store(plan, store, esri=esri, http=http, cache_dir=tmp_path / "cache", max_error_m=0.1)
+    build_store(
+        plan,
+        store,
+        esri=esri,
+        http=http,
+        cache_dir=tmp_path / "cache",
+        max_error_m=0.1,
+        report=ignore_progress,
+    )
     leaf, parent = read_record(store, min(leaves)), read_record(store, plan.roots[0])
     assert (leaf.grid_spacing_m, leaf.max_error_m) == (0.5, 0.1)
     assert (parent.grid_spacing_m, parent.max_error_m) == (1.0, 0.2)
@@ -164,7 +201,9 @@ def test_parent_texture_tiles_land_where_their_esri_tiles_are(
     esri, http = clients(services, tmp_path / "cache")
     plan = plan_tiles(aoi, esri)
     store = tmp_path / "store"
-    build_store(plan, store, esri=esri, http=http, cache_dir=tmp_path / "cache")
+    build_store(
+        plan, store, esri=esri, http=http, cache_dir=tmp_path / "cache", report=ignore_progress
+    )
     parent = plan.roots[0]
     gltf = pygltflib.GLTF2().load(str(node_paths(store, parent)[0]))
     view = gltf.bufferViews[gltf.images[0].bufferView]

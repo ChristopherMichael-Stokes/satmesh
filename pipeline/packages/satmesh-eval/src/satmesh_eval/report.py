@@ -10,7 +10,7 @@ import rasterio
 import trimesh
 from rasterio.transform import Affine
 
-from satmesh_core import BRITISH_NATIONAL_GRID, Aoi
+from satmesh_core import Aoi
 from satmesh_data import EA_DSM, EA_DTM, EsriClient, fetch_ea_lidar
 from satmesh_eval.heights import HeightScore, score_by_stratum, score_heights
 from satmesh_eval.imagery import esri_raster_over, read_rgb_geotiff
@@ -54,12 +54,6 @@ class Site:
     surface: np.ndarray
     ground: np.ndarray
     transform: Affine
-
-
-def bng_box(bbox: tuple[float, float, float, float]) -> Aoi:
-    """Return the Aoi for west, south, east, north in British National Grid metres."""
-    west, south, east, north = bbox
-    return Aoi(crs=BRITISH_NATIONAL_GRID, west=west, south=south, east=east, north=north)
 
 
 def load_site(box: Aoi, cache_dir: Path, http: httpx.Client) -> Site:

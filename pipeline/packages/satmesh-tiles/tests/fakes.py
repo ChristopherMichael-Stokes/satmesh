@@ -34,6 +34,10 @@ IDENTIFY = {
 }
 
 
+def ignore_progress(phase: str, done: int, total: int) -> None:
+    """A progress hook that shows nothing."""
+
+
 def jpeg(colour: tuple[int, int, int]) -> bytes:
     buffer = io.BytesIO()
     Image.new("RGB", (256, 256), colour).save(buffer, format="JPEG", quality=95)

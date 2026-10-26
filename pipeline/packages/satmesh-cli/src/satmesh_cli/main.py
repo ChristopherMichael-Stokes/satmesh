@@ -1,6 +1,5 @@
 """Typer app: `satmesh build` fills a tile store, `satmesh export` writes it for a consumer."""
 
-import logging
 import math
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -10,13 +9,15 @@ from typing import Annotated
 import httpx
 import mercantile
 import typer
+from loguru import logger
 from platformdirs import user_cache_dir
 
-from satmesh_core import BRITISH_NATIONAL_GRID, WGS84, Aoi, GridMissingError
+from satmesh_cli.corners import LatLon, corners_to_bng_inside, corners_to_wgs84, parse_lat_lon
+from satmesh_cli.reporting import file_log, run_log
+from satmesh_core import BRITISH_NATIONAL_GRID, Aoi, GridMissingError
 from satmesh_data import EsriClient, LidarCheckError, PlaceholderTileError, new_client
 from satmesh_eval.registration import measure_correction
 from satmesh_eval.report import (
-    bng_box,
     heights_report,
     load_site,
     offset_report,
@@ -61,17 +62,18 @@ EsriRateOption = Annotated[
         help="Esri tile requests per second, shared by all fetches. Esri publishes no limit.",
     ),
 ]
-EvalBboxOption = Annotated[
-    tuple[float, float, float, float],
-    typer.Option(help="West South East North in British National Grid metres, inside the store."),
+NorthWestOption = Annotated[
+    LatLon,
+    typer.Option(
+        parser=parse_lat_lon, metavar="LAT, LON", help="North-west corner, as copied from a map."
+    ),
 ]
-
-
-@app.callback()
-def configure_logging() -> None:
-    """Log build progress to stderr."""
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
-    logging.getLogger("httpx").setLevel(logging.WARNING)
+SouthEastOption = Annotated[
+    LatLon,
+    typer.Option(
+        parser=parse_lat_lon, metavar="LAT, LON", help="South-east corner, as copied from a map."
+    ),
+]
 
 
 @contextmanager
@@ -91,15 +93,10 @@ def reported_errors() -> Generator[None]:
 
 
 @app.command()
-def build(  # noqa: PLR0913, PLR0917 (the area, store, CRS and three tuning options)
-    bbox: Annotated[
-        tuple[float, float, float, float],
-        typer.Option(help="West South East North of the area, in --crs units."),
-    ],
+def build(  # noqa: PLR0913, PLR0917 (the two corners, store and three tuning options)
+    nw: NorthWestOption,
+    se: SouthEastOption,
     store: StoreOption,
-    crs: Annotated[
-        str, typer.Option(help="CRS of --bbox: EPSG:4326 degrees or EPSG:27700 metres.")
-    ] = WGS84,
     cache_dir: Annotated[
         Path,
         typer.Option(
@@ -112,21 +109,36 @@ def build(  # noqa: PLR0913, PLR0917 (the area, store, CRS and three tuning opti
     esri_requests_per_second: EsriRateOption = DEFAULT_ESRI_REQUESTS_PER_SECOND,
 ) -> None:
     """Fetch imagery and terrain for an area and write its tiles to the store; resumable."""
-    with reported_errors(), new_client() as http:
+    settings = {
+        "nw": nw,
+        "se": se,
+        "cache_dir": cache_dir,
+        "max_error_m": max_error_m,
+        "esri_requests_per_second": esri_requests_per_second,
+    }
+    with reported_errors(), run_log(store, "build", settings) as report, new_client() as http:
         esri = EsriClient(http, cache_dir, min_interval_s=1 / esri_requests_per_second)
-        plan = plan_tiles(
-            Aoi(crs=crs, west=bbox[0], south=bbox[1], east=bbox[2], north=bbox[3]), esri
-        )
+        plan = plan_tiles(corners_to_wgs84(nw, se), esri)
         tiles = len(plan.leaves) * ESRI_TILES_PER_LEAF_SIDE**2
         eta_min = math.ceil(tiles / esri_requests_per_second / SECONDS_PER_MINUTE)
-        typer.echo(
-            f"{len(plan.leaves)} leaves at z{plan.leaf_zoom}, {len(plan.children)} parents; "
-            f"up to {tiles} Esri tiles, about {eta_min} min if none are cached",
-            err=True,
+        logger.info(
+            "{} leaves at z{}, {} parents; up to {} Esri tiles, about {} min if none are cached",
+            len(plan.leaves),
+            plan.leaf_zoom,
+            len(plan.children),
+            tiles,
+            eta_min,
         )
         summary = build_store(
-            plan, store, esri=esri, http=http, cache_dir=cache_dir, max_error_m=max_error_m
+            plan,
+            store,
+            esri=esri,
+            http=http,
+            cache_dir=cache_dir,
+            report=report,
+            max_error_m=max_error_m,
         )
+        file_log.info("built {} nodes, skipped {}", summary.built, summary.skipped)
     typer.echo(f"built {summary.built} nodes, skipped {summary.skipped} already in {store}")
 
 
@@ -149,7 +161,8 @@ def correct(
     Cells that cannot be measured keep the imagery as it is and carry the survey's largest
     displacement as their bound. Downloads EA point clouds (about 100 to 500 MB per 5 km square).
     """
-    with reported_errors(), new_client() as http:
+    settings = {"cache_dir": cache_dir, "esri_requests_per_second": esri_requests_per_second}
+    with reported_errors(), run_log(store, "correct", settings) as report, new_client() as http:
         tiles = stored_tiles(store)
         if not tiles:
             msg = f"no nodes in store {store}"
@@ -157,26 +170,28 @@ def correct(
         finest = max(tile.z for tile in tiles)
         zoom = read_record(store, next(t for t in sorted(tiles) if t.z == finest)).imagery.zoom
         area = _store_area([t for t in tiles if t.z == finest])
-        typer.echo(
-            f"measuring over {len(tiles)} nodes at Esri z{zoom}; point clouds are downloaded "
-            "on first use",
-            err=True,
+        logger.info(
+            "measuring over {} nodes at Esri z{}; point clouds are downloaded on first use",
+            len(tiles),
+            zoom,
         )
         esri = EsriClient(http, cache_dir, min_interval_s=1 / esri_requests_per_second)
-        field = measure_correction(area, zoom, esri, http, cache_dir)
-        summary = apply_correction(store, field)
-    measured = [c for c in field.cells if c.status == "corrected"]
-    typer.echo(
-        f"{len(measured)} of {len(field.cells)} cells corrected; "
-        f"{summary.corrected} nodes corrected, {summary.uncorrected} left as they were "
-        f"(bound {field.uncorrected_error_bound_m} m), {summary.rewritten} rewritten"
-    )
+        field = measure_correction(area, zoom, esri, http, cache_dir, report)
+        summary = apply_correction(store, field, report)
+        measured = [c for c in field.cells if c.status == "corrected"]
+        result = (
+            f"{len(measured)} of {len(field.cells)} cells corrected; "
+            f"{summary.corrected} nodes corrected, {summary.uncorrected} left as they were "
+            f"(bound {field.uncorrected_error_bound_m} m), {summary.rewritten} rewritten"
+        )
+        file_log.info(result)
+    typer.echo(result)
 
 
 @export_app.command("3dtiles")
 def export_tileset(store: StoreOption) -> None:
     """Write tileset.json into the store: serve the store directory to open it in CesiumJS."""
-    with reported_errors():
+    with reported_errors(), run_log(store, "export 3dtiles", {}):
         tileset = export_3dtiles(store)
         write_positional_error(store, store / POSITIONAL_ERROR_FILE)
         typer.echo(tileset)
@@ -192,7 +207,7 @@ def export_world(
     ] = None,
 ) -> None:
     """Write a Gazebo world with one static model per finest-level tile."""
-    with reported_errors():
+    with reported_errors(), run_log(store, "export gazebo", {"out": out, "performer": performer}):
         world = export_gazebo(store, out, performer)
         write_positional_error(store, out / POSITIONAL_ERROR_FILE)
         typer.echo(world)
@@ -204,7 +219,7 @@ def export_glb(
     out: Annotated[Path, typer.Option(help="Output GLB path.")],
 ) -> None:
     """Write every finest-level tile as one GLB in a single local frame, for renderers."""
-    with reported_errors():
+    with reported_errors(), run_log(store, "export glb", {"out": out}):
         export_area_glb(store, out)
         write_positional_error(store, out.with_suffix(f".{POSITIONAL_ERROR_FILE}"))
         typer.echo(out)
@@ -212,28 +227,37 @@ def export_glb(
 
 @eval_app.command("heights")
 def eval_heights(
-    store: StoreOption, bbox: EvalBboxOption, cache_dir: CacheDirOption = DEFAULT_CACHE_DIR
+    store: StoreOption,
+    nw: NorthWestOption,
+    se: SouthEastOption,
+    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
 ) -> None:
     """Height error of the store against the EA first-return DSM, by stratum."""
-    box = bng_box(bbox)
-    with reported_errors(), new_client() as http:
+    box = corners_to_bng_inside(nw, se)
+    settings = {"nw": nw, "se": se, "bng_box": box, "cache_dir": cache_dir}
+    with reported_errors(), run_log(store, "eval heights", settings), new_client() as http:
         typer.echo(heights_report(store, load_site(box, cache_dir, http)))
 
 
 @eval_app.command("smoothness")
 def eval_smoothness(
-    store: StoreOption, bbox: EvalBboxOption, cache_dir: CacheDirOption = DEFAULT_CACHE_DIR
+    store: StoreOption,
+    nw: NorthWestOption,
+    se: SouthEastOption,
+    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
 ) -> None:
     """Facet normal error, terrace and grid-alignment scores of the store."""
-    box = bng_box(bbox)
-    with reported_errors(), new_client() as http:
+    box = corners_to_bng_inside(nw, se)
+    settings = {"nw": nw, "se": se, "bng_box": box, "cache_dir": cache_dir}
+    with reported_errors(), run_log(store, "eval smoothness", settings), new_client() as http:
         typer.echo(smoothness_report(store, load_site(box, cache_dir, http)))
 
 
 @eval_app.command("visibility")
 def eval_visibility(  # noqa: PLR0913 (store, area, cache and the three camera settings)
     store: StoreOption,
-    bbox: EvalBboxOption,
+    nw: NorthWestOption,
+    se: SouthEastOption,
     cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
     *,
     cameras: Annotated[int, typer.Option(help="Random cameras per rig.")] = 30,
@@ -243,8 +267,17 @@ def eval_visibility(  # noqa: PLR0913 (store, area, cache and the three camera s
     seed: Annotated[int, typer.Option(help="Seed of the camera draw.")] = 1,
 ) -> None:
     """Pixel agreement and raised-object visibility from random cameras, against the DSM."""
-    box = bng_box(bbox)
-    with reported_errors(), new_client() as http:
+    box = corners_to_bng_inside(nw, se)
+    settings = {
+        "nw": nw,
+        "se": se,
+        "bng_box": box,
+        "cache_dir": cache_dir,
+        "cameras": cameras,
+        "range_m": range_m,
+        "seed": seed,
+    }
+    with reported_errors(), run_log(store, "eval visibility", settings), new_client() as http:
         site = load_site(box, cache_dir, http)
         typer.echo(visibility_report(store, site, cameras=cameras, range_m=range_m, seed=seed))
 
@@ -252,12 +285,13 @@ def eval_visibility(  # noqa: PLR0913 (store, area, cache and the three camera s
 @eval_app.command("offset")
 def eval_offset(
     aerial: Annotated[Path, typer.Option(help="EA aerial RGB GeoTIFF in BNG covering the box.")],
-    bbox: EvalBboxOption,
+    nw: NorthWestOption,
+    se: SouthEastOption,
     zoom: Annotated[int, typer.Option(help="Esri zoom level to compare.")],
     cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
 ) -> None:
     """Displacement of Esri imagery from an EA aerial over the box."""
-    box = bng_box(bbox)
+    box = corners_to_bng_inside(nw, se)
     with reported_errors(), new_client() as http:
         typer.echo(offset_report(aerial, box, zoom, EsriClient(http, cache_dir)))
 
@@ -265,12 +299,13 @@ def eval_offset(
 @eval_app.command("texture")
 def eval_texture(
     aerial: Annotated[Path, typer.Option(help="EA aerial RGB GeoTIFF in BNG covering the box.")],
-    bbox: EvalBboxOption,
+    nw: NorthWestOption,
+    se: SouthEastOption,
     zoom: Annotated[int, typer.Option(help="Esri zoom level to compare.")],
     cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
 ) -> None:
     """Esri detail power against an EA aerial by frequency band, away from raised objects."""
-    box = bng_box(bbox)
+    box = corners_to_bng_inside(nw, se)
     with reported_errors(), new_client() as http:
         site = load_site(box, cache_dir, http)
         typer.echo(texture_report(aerial, box, zoom, EsriClient(http, cache_dir), site))

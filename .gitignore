@@ -9,7 +9,8 @@ build/
 *.egg-info/
 
 .ipynb_checkpoints/
-uncommitted/
+uncommitted/*
+!uncommitted/.gitkeep
 
 # fetched tiles and DEMs, exported models and generated meshes are build outputs
 *.onnx

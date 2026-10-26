@@ -30,7 +30,7 @@ comparing the stores with `diff -r`: identical bytes in every run.
 | Window matching on threads | 8.7 s to 3.4 s per km2 (with BLAS limited) | identical |
 | Lidar reference and Esri resampling concurrently in one cell | 24 s to 17 s per km2 | identical |
 | Cells measured in up to 8 worker processes (`spawn`); Esri tiles fetched in the main process | scales across cells | identical |
-| `OPENBLAS_NUM_THREADS` and `OMP_NUM_THREADS` default to 1 in `satmesh_cli` | 12 cells: 206 s to 75.5 s | identical |
+| BLAS limited to one thread around the window matching (`threadpoolctl`) | 12 cells: 206 s to 79 s | identical |
 
 ## Profile of one 1 km2 cell, before
 
@@ -48,8 +48,9 @@ are the floor of one cell; cells run in parallel.
 - `LinearNDInterpolator` builds its barycentric transforms on the first call; threads that race
   there each repeat the 7 s. Evaluate one point first.
 - BLAS pools inside threads inside processes oversubscribe the cores: window matching went from
-  4.7 s to 38 s per cell with 4 workers. `OPENBLAS_NUM_THREADS=1` fixes it. `threadpoolctl` would
-  set this at run time instead of through the environment; it is not a dependency yet.
+  4.7 s to 38 s per cell with 4 workers. `threadpool_limits(1, user_api="blas")` around the
+  matching fixes it
+  (first done through `OPENBLAS_NUM_THREADS`, replaced by `threadpoolctl`).
 - laspy's scaled views (`chunk.x[mask]`) return empty coordinates for a mask with few hits;
   convert with `np.asarray` first (unit test `test_lidar_reference.py`).
 - `pkill -f "sleep 3"` matches the calling shell's own command line.

@@ -5,7 +5,7 @@ from typer.testing import CliRunner
 from satmesh_cli.main import app
 
 runner = CliRunner()
-PARIS = ["--bbox", "2.29", "48.85", "2.30", "48.86"]
+PARIS = ["--nw", "48.86, 2.29", "--se", "48.85, 2.30"]
 
 
 def test_help_lists_build_and_the_export_group() -> None:
@@ -23,15 +23,19 @@ def test_build_outside_great_britain_fails_before_any_request(tmp_path: Path) ->
 
 def test_build_with_an_empty_box_reports_it(tmp_path: Path) -> None:
     result = runner.invoke(
-        app, ["build", "--bbox", "2.30", "48.85", "2.29", "48.86", "--store", str(tmp_path)]
+        app,
+        ["build", "--nw", "48.86, 2.30", "--se", "48.85, 2.29", "--store", str(tmp_path)],
     )
     assert result.exit_code == 1
     assert "empty box" in result.output
 
 
-def test_build_needs_a_four_number_bbox(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["build", "--bbox", "1", "2", "--store", str(tmp_path)])
+def test_build_rejects_a_corner_that_is_not_lat_lon(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app, ["build", "--nw", "48.86", "--se", "48.85, 2.30", "--store", str(tmp_path)]
+    )
     assert result.exit_code == 2
+    assert "lat, lon" in result.output
 
 
 def test_cache_dir_comes_from_the_environment_variable() -> None:

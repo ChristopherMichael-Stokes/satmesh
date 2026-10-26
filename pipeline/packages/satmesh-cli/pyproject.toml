@@ -5,7 +5,9 @@ description = "The satmesh command: build a tiled terrain store from imagery and
 requires-python = ">=3.13"
 dependencies = [
   "httpx>=0.28.1",
+  "loguru>=0.7.3",
   "platformdirs>=4.13.5",
+  "rich>=15.0.0",
   "satmesh-core",
   "satmesh-data",
   "satmesh-eval",

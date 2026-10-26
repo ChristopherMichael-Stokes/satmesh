@@ -2,14 +2,6 @@
 
 ## Next
 
-- [ ] Show progress for the build and the position correction: steps done out of total, elapsed
-      time and time remaining, and which step is running (downloading lidar, reading points,
-      matching a cell, updating tiles)
-- [ ] Switch logging to loguru and save a run log in each store folder: settings used, timings,
-      and what each step did (build, correct, exports); the correction step needs this most, it
-      currently prints nothing until it finishes
-- [ ] Change the area input to north-west corner and south-east corner as "lat, lon" pairs (as
-      copied from a map), instead of west south east north; apply to build and the eval commands
 - [ ] Research the best ways to recover fine height detail from coarse elevation data, then try
       the best candidates
 - [ ] Research fixes for stretched texture on steep faces (walls, tree sides, roof peaks),
@@ -55,3 +47,5 @@
 - Imagery position correction (`satmesh correct`) with an error bound on every export; England only
 - Faster build (imagery fetched ahead of the node being built) and faster position correction
   (cells measured in parallel, one read of each lidar file); the results are byte-identical
+- Progress bars for the build and the position correction, loguru logging with a run log in each
+  store folder, and the area given as north-west and south-east "lat, lon" corners

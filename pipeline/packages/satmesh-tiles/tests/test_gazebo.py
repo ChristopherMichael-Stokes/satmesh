@@ -5,7 +5,7 @@ import mercantile
 import numpy as np
 import pygltflib
 import pytest
-from fakes import FakeServices, clients, square_of_four_leaves
+from fakes import FakeServices, clients, ignore_progress, square_of_four_leaves
 from pyproj import Transformer
 
 from satmesh_tiles import build_store, export_gazebo, plan_tiles, read_record
@@ -21,7 +21,9 @@ def store(tmp_path_factory: pytest.TempPathFactory) -> Path:
     root = tmp_path_factory.mktemp("gazebo")
     esri, http = clients(FakeServices(), root / "cache")
     plan = plan_tiles(square_of_four_leaves()[0], esri)
-    build_store(plan, root / "store", esri=esri, http=http, cache_dir=root / "cache")
+    build_store(
+        plan, root / "store", esri=esri, http=http, cache_dir=root / "cache", report=ignore_progress
+    )
     return root / "store"
 
 

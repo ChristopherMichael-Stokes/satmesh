@@ -11,6 +11,7 @@ from satmesh_core.georef import (
     wgs84_to_bng,
 )
 from satmesh_core.gsd import ground_sample_distance_m, zoom_for_resolution
+from satmesh_core.progress import ProgressReport
 from satmesh_core.tiles import covering_tiles
 
 __all__ = [
@@ -19,6 +20,7 @@ __all__ = [
     "Aoi",
     "EnuFrame",
     "GridMissingError",
+    "ProgressReport",
     "bng_odn_to_wgs84",
     "covering_tiles",
     "ecef_to_geodetic",

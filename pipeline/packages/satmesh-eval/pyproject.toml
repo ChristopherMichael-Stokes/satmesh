@@ -16,6 +16,7 @@ dependencies = [
   "satmesh-tiles",
   "scikit-image>=0.26.0",
   "scipy>=1.18.1",
+  "threadpoolctl>=3.7.0",
   "trimesh>=5.2.0",
   "xdem>=0.2.3",
 ]

@@ -31,6 +31,7 @@ from rasterio.transform import from_origin
 from rasterio.warp import Resampling, reproject
 from scipy.ndimage import gaussian_filter, map_coordinates
 from skimage.registration import phase_cross_correlation
+from threadpoolctl import threadpool_limits
 
 from satmesh_core import BRITISH_NATIONAL_GRID, Aoi
 from satmesh_data import Raster
@@ -215,7 +216,8 @@ def window_shifts(  # noqa: PLR0913 (window-grid settings, each a tunable)
         east[i, j] = -shift[1] * grid_m
         north[i, j] = shift[0] * grid_m
 
-    with ThreadPoolExecutor() as pool:
+    # BLAS pools inside the window threads oversubscribe the cores
+    with threadpool_limits(limits=1, user_api="blas"), ThreadPoolExecutor() as pool:
         list(pool.map(measure_window, product(range(len(starts_r)), range(len(starts_c)))))
     return ShiftField(east, north, response)
 

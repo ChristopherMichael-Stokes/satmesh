@@ -1,7 +1,7 @@
 .PHONY: setup check test update-hooks gdal-ecw-image eval-slice
 
 SLICE_STORE ?= $(CURDIR)/uncommitted/eval-slice
-SLICE_BBOX = 399800 447300 399900 447400
+SLICE_AREA = --nw "53.922751, -2.004535" --se "53.921852, -2.003013"
 
 setup:
 	uv sync --project pipeline --all-packages --locked
@@ -23,7 +23,7 @@ gdal-ecw-image:
 
 # 100 m box at Upper Aire: builds a store, then runs every store-based eval check on it
 eval-slice:
-	cd pipeline && uv run --frozen satmesh build --crs EPSG:27700 --bbox $(SLICE_BBOX) --store $(SLICE_STORE)
-	cd pipeline && uv run --frozen satmesh eval heights --bbox $(SLICE_BBOX) --store $(SLICE_STORE)
-	cd pipeline && uv run --frozen satmesh eval smoothness --bbox $(SLICE_BBOX) --store $(SLICE_STORE)
-	cd pipeline && uv run --frozen satmesh eval visibility --cameras 10 --range-m 40 --bbox $(SLICE_BBOX) --store $(SLICE_STORE)
+	cd pipeline && uv run --frozen satmesh build $(SLICE_AREA) --store $(SLICE_STORE)
+	cd pipeline && uv run --frozen satmesh eval heights $(SLICE_AREA) --store $(SLICE_STORE)
+	cd pipeline && uv run --frozen satmesh eval smoothness $(SLICE_AREA) --store $(SLICE_STORE)
+	cd pipeline && uv run --frozen satmesh eval visibility --cameras 10 --range-m 40 $(SLICE_AREA) --store $(SLICE_STORE)

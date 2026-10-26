@@ -40,7 +40,7 @@ from satmesh_tiles import (
 )
 
 DEFAULT_CACHE_DIR = Path(user_cache_dir("satmesh"))
-ESRI_REQUESTS_PER_SECOND = 1.0
+DEFAULT_ESRI_REQUESTS_PER_SECOND = 1.0
 SECONDS_PER_MINUTE = 60
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="Tiled terrain meshes.")
@@ -53,6 +53,13 @@ StoreOption = Annotated[Path, typer.Option(help="Tile store directory.")]
 CacheDirOption = Annotated[
     Path,
     typer.Option(envvar="SATMESH_CACHE_DIR", help="Fetched tiles and DTMs, reused across runs."),
+]
+EsriRateOption = Annotated[
+    float,
+    typer.Option(
+        min=0.1,
+        help="Esri tile requests per second, shared by all fetches. Esri publishes no limit.",
+    ),
 ]
 EvalBboxOption = Annotated[
     tuple[float, float, float, float],
@@ -84,7 +91,7 @@ def reported_errors() -> Generator[None]:
 
 
 @app.command()
-def build(
+def build(  # noqa: PLR0913, PLR0917 (the area, store, CRS and three tuning options)
     bbox: Annotated[
         tuple[float, float, float, float],
         typer.Option(help="West South East North of the area, in --crs units."),
@@ -102,15 +109,16 @@ def build(
     max_error_m: Annotated[
         float, typer.Option(help="Largest height error of a finest-level mesh, in metres.")
     ] = DEFAULT_MAX_ERROR_M,
+    esri_requests_per_second: EsriRateOption = DEFAULT_ESRI_REQUESTS_PER_SECOND,
 ) -> None:
     """Fetch imagery and terrain for an area and write its tiles to the store; resumable."""
     with reported_errors(), new_client() as http:
-        esri = EsriClient(http, cache_dir)
+        esri = EsriClient(http, cache_dir, min_interval_s=1 / esri_requests_per_second)
         plan = plan_tiles(
             Aoi(crs=crs, west=bbox[0], south=bbox[1], east=bbox[2], north=bbox[3]), esri
         )
         tiles = len(plan.leaves) * ESRI_TILES_PER_LEAF_SIDE**2
-        eta_min = math.ceil(tiles / ESRI_REQUESTS_PER_SECOND / SECONDS_PER_MINUTE)
+        eta_min = math.ceil(tiles / esri_requests_per_second / SECONDS_PER_MINUTE)
         typer.echo(
             f"{len(plan.leaves)} leaves at z{plan.leaf_zoom}, {len(plan.children)} parents; "
             f"up to {tiles} Esri tiles, about {eta_min} min if none are cached",
@@ -131,6 +139,7 @@ def correct(
             envvar="SATMESH_CACHE_DIR", help="Fetched tiles and point clouds, reused across runs."
         ),
     ] = DEFAULT_CACHE_DIR,
+    esri_requests_per_second: EsriRateOption = DEFAULT_ESRI_REQUESTS_PER_SECOND,
 ) -> None:
     """Move the store's imagery to its true position using EA lidar intensity; repeatable.
 
@@ -153,7 +162,8 @@ def correct(
             "on first use",
             err=True,
         )
-        field = measure_correction(area, zoom, EsriClient(http, cache_dir), http, cache_dir)
+        esri = EsriClient(http, cache_dir, min_interval_s=1 / esri_requests_per_second)
+        field = measure_correction(area, zoom, esri, http, cache_dir)
         summary = apply_correction(store, field)
     measured = [c for c in field.cells if c.status == "corrected"]
     typer.echo(

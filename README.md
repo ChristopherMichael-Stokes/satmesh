@@ -38,8 +38,9 @@ reliable, and leaves the rest as it was. It downloads lidar point clouds (about 
 objects such as roofs and tree crowns are not corrected. England only.
 
 `build` is resumable and caches fetched tiles under `~/.cache/satmesh` (`--cache-dir` or
-`SATMESH_CACHE_DIR` to change it). Esri tiles are fetched at one request per second, so large areas
-take hours.
+`SATMESH_CACHE_DIR` to change it). Esri tiles are fetched at one request per second by default, so
+large areas take hours; `--esri-requests-per-second 10` on `build` and `correct` raises the rate.
+Esri publishes no limit.
 
 ## Checks
 

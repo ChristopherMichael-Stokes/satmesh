@@ -1,6 +1,7 @@
 """Esri World Imagery: source metadata, zoom choice and cached, throttled tile fetch."""
 
 import hashlib
+import threading
 import time
 from datetime import date, datetime
 from pathlib import Path
@@ -87,7 +88,10 @@ def is_placeholder(data: bytes) -> bool:
 
 
 class EsriClient:
-    """Esri World Imagery access that caches tiles by (z, y, x) and spaces requests apart."""
+    """Esri World Imagery access that caches tiles by (z, y, x) and spaces requests apart.
+
+    Safe to call from several threads: they share one request schedule.
+    """
 
     def __init__(
         self,
@@ -101,7 +105,8 @@ class EsriClient:
         self._tile_dir = cache_dir / CACHE_SUBDIR
         self._min_interval_s = min_interval_s
         self._initial_backoff_s = initial_backoff_s
-        self._last_request = -float("inf")
+        self._next_request = -float("inf")
+        self._schedule_lock = threading.Lock()
 
     def sources_at(self, lon: float, lat: float) -> list[EsriSource]:
         """Return every imagery source polygon under a WGS84 point."""
@@ -146,8 +151,12 @@ class EsriClient:
         return with_retry(lambda: self._throttled_get(url, params), self._initial_backoff_s)
 
     def _throttled_get(self, url: str, params: dict[str, str | int]) -> httpx.Response:
-        wait_s = self._last_request + self._min_interval_s - time.monotonic()
+        # each request reserves the next free slot under the lock and then waits for it outside
+        # it, so any number of threads share one request rate
+        with self._schedule_lock:
+            slot = max(time.monotonic(), self._next_request)
+            self._next_request = slot + self._min_interval_s
+        wait_s = slot - time.monotonic()
         if wait_s > 0:
             time.sleep(wait_s)
-        self._last_request = time.monotonic()
         return checked(self._http.get(url, params=params))

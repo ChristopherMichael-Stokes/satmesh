@@ -2,6 +2,7 @@ import json
 import math
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from pathlib import Path
 
@@ -185,3 +186,20 @@ def test_requests_are_spaced_by_the_minimum_interval(tmp_path: Path) -> None:
             mercantile.Tile(UPPER_AIRE_TILE.x + x_offset, UPPER_AIRE_TILE.y, 19), max_zoom=19
         )
     assert time.monotonic() - start >= 2 * min_interval_s
+
+
+def test_threads_share_one_request_schedule(tmp_path: Path) -> None:
+    min_interval_s = 0.05
+    stamps: list[float] = []
+
+    def handle(_: httpx.Request) -> httpx.Response:
+        stamps.append(time.monotonic())
+        return httpx.Response(200, content=REAL_TILE)
+
+    client = client_for(Server(handle), tmp_path, min_interval_s=min_interval_s)
+    tiles = [mercantile.Tile(UPPER_AIRE_TILE.x + dx, UPPER_AIRE_TILE.y, 19) for dx in range(12)]
+    with ThreadPoolExecutor(6) as pool:
+        list(pool.map(lambda tile: client.tile(tile, max_zoom=19), tiles))
+    # a request is never sent before its reserved slot, so twelve requests from six threads span at
+    # least eleven intervals; the 5 % allows for the clock read inside the handler
+    assert max(stamps) - min(stamps) >= 11 * min_interval_s * 0.95

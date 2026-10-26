@@ -2,6 +2,7 @@
 
 import math
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import NamedTuple
 
@@ -19,6 +20,8 @@ WEB_MERCATOR = "EPSG:3857"
 TILE_PX = 256
 RGB_BANDS = 3
 RASTER_AXES = 3  # band, row, col
+# requests in flight at once; the client's own schedule sets the rate, so this only hides latency
+FETCH_WORKERS = 8
 
 
 @dataclass(frozen=True)
@@ -49,11 +52,11 @@ def mosaic_tiles(client: EsriClient, tiles: list[mercantile.Tile], max_zoom: int
     """
     xs, ys = _tile_rectangle(tiles)
     pixels = np.empty((RGB_BANDS, len(ys) * TILE_PX, len(xs) * TILE_PX), np.uint8)
-    for tile in tiles:
+    with ThreadPoolExecutor(FETCH_WORKERS) as pool:
+        jpegs = list(pool.map(lambda tile: client.tile(tile, max_zoom), tiles))
+    for tile, jpeg in zip(tiles, jpegs, strict=True):
         row, col = (tile.y - ys[0]) * TILE_PX, (tile.x - xs[0]) * TILE_PX
-        pixels[:, row : row + TILE_PX, col : col + TILE_PX] = decode_tile(
-            client.tile(tile, max_zoom)
-        )
+        pixels[:, row : row + TILE_PX, col : col + TILE_PX] = decode_tile(jpeg)
     zoom = tiles[0].z
     upper_left = mercantile.xy_bounds(mercantile.Tile(xs[0], ys[0], zoom))
     lower_right = mercantile.xy_bounds(mercantile.Tile(xs[-1], ys[-1], zoom))

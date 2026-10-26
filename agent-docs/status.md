@@ -35,7 +35,7 @@ with their reasons, open risks. Detail per feature lives in the plan and results
 | --- | --- |
 | Height-detail recovery research, then trials | E4 (survey first, owner instruction) |
 | Stretched texture on steep faces | E9 |
-| Ship the imagery position correction | E2 |
+| Ship the imagery position correction (done 2026-10-26) | E2 |
 | Combine several captures | E6 |
 | Source registry | F2a, F2b |
 | Terrain past about 6 km | F5c |

@@ -64,6 +64,34 @@ def with_clamped_textures(glb: bytes) -> bytes:
     return b"".join(gltf.save_to_bytes())
 
 
+def shift_texture_coordinates(glb: bytes, east_fraction: float, north_fraction: float) -> bytes:
+    """Return `glb` with every texture coordinate moved by fractions of the texture's size.
+
+    `east_fraction` is added to u and `north_fraction` to v measured up from the texture's bottom
+    edge, so the glTF file's top-left v changes by minus `north_fraction`. The texture pixels are
+    untouched; only where each vertex samples them moves.
+    """
+    gltf = pygltflib.GLTF2.load_from_bytes(glb)
+    blob = bytearray(gltf.binary_blob())
+    accessors = {
+        primitive.attributes.TEXCOORD_0 for mesh in gltf.meshes for primitive in mesh.primitives
+    }
+    for index in accessors:
+        accessor = gltf.accessors[index]
+        view = gltf.bufferViews[accessor.bufferView]
+        if view.byteStride is not None:
+            msg = "interleaved texture coordinates are not supported"
+            raise ValueError(msg)
+        start = (view.byteOffset or 0) + (accessor.byteOffset or 0)
+        uv = np.frombuffer(blob, np.float32, accessor.count * 2, start).reshape(-1, 2)
+        moved = uv + np.array([east_fraction, -north_fraction], np.float32)
+        blob[start : start + moved.nbytes] = moved.tobytes()
+        accessor.min = moved.min(axis=0).tolist()
+        accessor.max = moved.max(axis=0).tolist()
+    gltf.set_binary_blob(bytes(blob))
+    return b"".join(gltf.save_to_bytes())
+
+
 def upward(vertices: np.ndarray, triangles: np.ndarray) -> np.ndarray:
     """Return `triangles` wound counter-clockwise seen from above (+y), as glTF front faces need."""
     a, b, c = (vertices[triangles[:, i]] for i in range(3))

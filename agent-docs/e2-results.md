@@ -84,9 +84,34 @@ inverted, nonlinear contrast. Errors are against the truth column of the table a
   is not a window-count problem. Cause not found; a lean of the satellite image at the edges of
   buildings and trees against lidar surface features is a candidate (untested).
 
-## Next
+## Shipped: `satmesh correct` (2026-10-26)
 
-Neither registration passes B2 (5 of 8). Options for the owner: accept the 4 of 8 that pass with
-gradient correlation and apply the lidar-referenced shift only where enough windows survive;
-drop design B for a different reference; or stop E2 correction and record the offset as a known
-limit.
+Owner chose gradient correlation applied where enough windows survive, with an error bound.
+
+- Code: `satmesh-data` `ea_lidar_points.py` (5 km point-cloud tiles, 404 fallthrough),
+  `satmesh-eval` `lidar_reference.py` and `registration.py`, `satmesh-tiles` `correction.py`
+  (schema, in-place UV shift, `positional_error.json`), `satmesh-mesh` `shift_texture_coordinates`,
+  CLI `satmesh correct`; exports write `positional_error.json`.
+- Cells: the store's BNG footprint is cut into near-equal cells with sides of 0.5 to 1.5 km; fixed
+  1 km cells left slivers at the area's edge whose nodes would have been wrongly uncorrected.
+- Rule: a cell is corrected if reliable windows are at least 5 % of its windows and at least 20.
+  Eight survey cells split at 3.4 % or less (failed) and 6.7 % or more (passed). Tuned on the same
+  sites it was scored on.
+- Bound: quadrature sum of the bootstrap half-widths and 0.4 m (the largest error of a corrected
+  cell at the survey sites, Snettisham, 0.38 m). Uncorrected cells carry 2.8 m, the largest
+  displacement seen.
+- Applied by shifting texture coordinates in the node GLBs and recording the shift in the node
+  record, so a repeat or a revised field moves nodes by the difference only.
+
+End-to-end on the 500 m survey stores, top-down render against the EA aerial (before, after):
+
+| Site | Before E, N m | After E, N m | Bound m |
+| --- | --- | --- | --- |
+| Belford | -0.41, +0.77 | +0.15, -0.04 | 0.42 |
+| Snettisham | -0.08, +2.47 | +0.21, -0.09 | 0.77 |
+| Southend | +0.48, +1.44 | unchanged (uncorrected) | 2.8 |
+
+Limits: England only; shift is constant per cell, so adjacent cells can differ by a few tenths of
+a metre at their edge; the texture clamps at a node's edge, so a shift of metres leaves a strip as
+wide as the shift at one side of each tile; capture-date polygons are not used (Neston and Upper
+Aire straddle two); lean on raised objects is not corrected; Wales has no point-cloud source.

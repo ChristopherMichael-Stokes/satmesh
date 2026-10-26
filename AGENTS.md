@@ -56,6 +56,7 @@ Run from the repo root unless a workspace is named.
 | Build the GDAL ECW image     | `make gdal-ecw-image` (about 3 min, 552 MB)             |
 | Build a tile store           | `uv run satmesh build --bbox W S E N [--crs EPSG:27700] --store DIR` from `pipeline/` |
 | Export a store               | `uv run satmesh export {3dtiles,gazebo,glb} --store DIR ...` from `pipeline/` |
+| Correct imagery position     | `uv run satmesh correct --store DIR` from `pipeline/` (downloads EA point clouds) |
 | Score a store                | `uv run satmesh eval {heights,smoothness,visibility} --store DIR --bbox W S E N` (BNG metres) from `pipeline/` |
 | Esri-to-EA imagery offset    | `uv run satmesh eval offset --aerial EA.tif --bbox W S E N --zoom 19` from `pipeline/` |
 | Texture detail vs EA aerial  | `uv run satmesh eval texture --aerial EA.tif --bbox W S E N --zoom 19` from `pipeline/` |

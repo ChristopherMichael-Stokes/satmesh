@@ -8,11 +8,13 @@ from pathlib import Path
 from typing import Annotated
 
 import httpx
+import mercantile
 import typer
 from platformdirs import user_cache_dir
 
-from satmesh_core import WGS84, Aoi, GridMissingError
+from satmesh_core import BRITISH_NATIONAL_GRID, WGS84, Aoi, GridMissingError
 from satmesh_data import EsriClient, LidarCheckError, PlaceholderTileError, new_client
+from satmesh_eval.registration import measure_correction
 from satmesh_eval.report import (
     bng_box,
     heights_report,
@@ -25,11 +27,16 @@ from satmesh_eval.report import (
 from satmesh_mesh import DEFAULT_MAX_ERROR_M
 from satmesh_tiles import (
     ESRI_TILES_PER_LEAF_SIDE,
+    POSITIONAL_ERROR_FILE,
+    apply_correction,
     build_store,
     export_3dtiles,
     export_area_glb,
     export_gazebo,
     plan_tiles,
+    read_record,
+    stored_tiles,
+    write_positional_error,
 )
 
 DEFAULT_CACHE_DIR = Path(user_cache_dir("satmesh"))
@@ -115,11 +122,54 @@ def build(
     typer.echo(f"built {summary.built} nodes, skipped {summary.skipped} already in {store}")
 
 
+@app.command()
+def correct(
+    store: StoreOption,
+    cache_dir: Annotated[
+        Path,
+        typer.Option(
+            envvar="SATMESH_CACHE_DIR", help="Fetched tiles and point clouds, reused across runs."
+        ),
+    ] = DEFAULT_CACHE_DIR,
+) -> None:
+    """Move the store's imagery to its true position using EA lidar intensity; repeatable.
+
+    Esri imagery sits 0.2 to 2.8 m from true position in England, by a different amount in
+    different places. The shift is measured per 1 km cell where lidar and imagery agree well
+    enough, applied to every node, and the remaining error bound is recorded for each node.
+    Cells that cannot be measured keep the imagery as it is and carry the survey's largest
+    displacement as their bound. Downloads EA point clouds (about 100 to 500 MB per 5 km square).
+    """
+    with reported_errors(), new_client() as http:
+        tiles = stored_tiles(store)
+        if not tiles:
+            msg = f"no nodes in store {store}"
+            raise ValueError(msg)
+        finest = max(tile.z for tile in tiles)
+        zoom = read_record(store, next(t for t in sorted(tiles) if t.z == finest)).imagery.zoom
+        area = _store_area([t for t in tiles if t.z == finest])
+        typer.echo(
+            f"measuring over {len(tiles)} nodes at Esri z{zoom}; point clouds are downloaded "
+            "on first use",
+            err=True,
+        )
+        field = measure_correction(area, zoom, EsriClient(http, cache_dir), http, cache_dir)
+        summary = apply_correction(store, field)
+    measured = [c for c in field.cells if c.status == "corrected"]
+    typer.echo(
+        f"{len(measured)} of {len(field.cells)} cells corrected; "
+        f"{summary.corrected} nodes corrected, {summary.uncorrected} left as they were "
+        f"(bound {field.uncorrected_error_bound_m} m), {summary.rewritten} rewritten"
+    )
+
+
 @export_app.command("3dtiles")
 def export_tileset(store: StoreOption) -> None:
     """Write tileset.json into the store: serve the store directory to open it in CesiumJS."""
     with reported_errors():
-        typer.echo(export_3dtiles(store))
+        tileset = export_3dtiles(store)
+        write_positional_error(store, store / POSITIONAL_ERROR_FILE)
+        typer.echo(tileset)
 
 
 @export_app.command("gazebo")
@@ -133,7 +183,9 @@ def export_world(
 ) -> None:
     """Write a Gazebo world with one static model per finest-level tile."""
     with reported_errors():
-        typer.echo(export_gazebo(store, out, performer))
+        world = export_gazebo(store, out, performer)
+        write_positional_error(store, out / POSITIONAL_ERROR_FILE)
+        typer.echo(world)
 
 
 @export_app.command("glb")
@@ -144,6 +196,7 @@ def export_glb(
     """Write every finest-level tile as one GLB in a single local frame, for renderers."""
     with reported_errors():
         export_area_glb(store, out)
+        write_positional_error(store, out.with_suffix(f".{POSITIONAL_ERROR_FILE}"))
         typer.echo(out)
 
 
@@ -211,3 +264,27 @@ def eval_texture(
     with reported_errors(), new_client() as http:
         site = load_site(box, cache_dir, http)
         typer.echo(texture_report(aerial, box, zoom, EsriClient(http, cache_dir), site))
+
+
+def _store_area(finest: list[mercantile.Tile]) -> Aoi:
+    """Return the whole-metre BNG box around the finest-level footprint of a store.
+
+    Web Mercator and BNG axes differ by up to a few degrees, so the box also takes in strips just
+    outside the store; Esri tiles there are fetched and cached once.
+    """
+    bounds = [mercantile.xy_bounds(tile) for tile in finest]
+    footprint = Aoi(
+        crs="EPSG:3857",
+        west=min(b.left for b in bounds),
+        south=min(b.bottom for b in bounds),
+        east=max(b.right for b in bounds),
+        north=max(b.top for b in bounds),
+    )
+    west, south, east, north = footprint.bounds_in(BRITISH_NATIONAL_GRID)
+    return Aoi(
+        crs=BRITISH_NATIONAL_GRID,
+        west=math.floor(west),
+        south=math.floor(south),
+        east=math.ceil(east),
+        north=math.ceil(north),
+    )

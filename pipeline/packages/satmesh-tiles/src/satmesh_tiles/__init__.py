@@ -1,6 +1,16 @@
 """Tiled terrain store: georeferenced, textured node meshes on the Esri tile grid."""
 
 from satmesh_tiles.area import export_area_glb
+from satmesh_tiles.correction import (
+    CORRECTION_FILE,
+    POSITIONAL_ERROR_FILE,
+    CellCorrection,
+    CellStatus,
+    CorrectionField,
+    CorrectionSummary,
+    apply_correction,
+    write_positional_error,
+)
 from satmesh_tiles.gazebo import export_gazebo
 from satmesh_tiles.node import (
     ESRI_TILES_PER_LEAF_SIDE,
@@ -8,6 +18,7 @@ from satmesh_tiles.node import (
     MeshSettings,
     Node,
     NodeRecord,
+    PositionRecord,
     SurfacePaths,
     build_node,
     esri_tiles,
@@ -24,18 +35,27 @@ from satmesh_tiles.tiler import (
     plan_tiles,
     read_record,
     snap_outward,
+    write_atomically,
 )
-from satmesh_tiles.tileset import export_3dtiles
+from satmesh_tiles.tileset import export_3dtiles, stored_tiles
 
 __all__ = [
+    "CORRECTION_FILE",
     "ESRI_TILES_PER_LEAF_SIDE",
+    "POSITIONAL_ERROR_FILE",
     "BuildSummary",
+    "CellCorrection",
+    "CellStatus",
+    "CorrectionField",
+    "CorrectionSummary",
     "ImageryRecord",
     "MeshSettings",
     "Node",
     "NodeRecord",
+    "PositionRecord",
     "SurfacePaths",
     "TilePlan",
+    "apply_correction",
     "build_node",
     "build_store",
     "complete_tree",
@@ -50,4 +70,7 @@ __all__ = [
     "plan_tiles",
     "read_record",
     "snap_outward",
+    "stored_tiles",
+    "write_atomically",
+    "write_positional_error",
 ]

@@ -4,6 +4,7 @@ import math
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from typing import Literal
 
 import mercantile
 import numpy as np
@@ -68,6 +69,22 @@ class ImageryRecord(BaseModel):
     zoom: int
 
 
+class PositionRecord(BaseModel):
+    """The imagery position correction applied to a node's texture, and its error bound.
+
+    `east_m` and `north_m` are the displacement of the Esri imagery from true ground position that
+    was removed (zero when `status` is "uncorrected"). `error_bound_m` is a 95 % radial bound on
+    the remaining position error of the imagery on open ground.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    status: Literal["corrected", "uncorrected"]
+    east_m: float
+    north_m: float
+    error_bound_m: float
+
+
 class NodeRecord(BaseModel):
     """Georeference and provenance of one node; the node's GLB holds the geometry.
 
@@ -101,6 +118,7 @@ class NodeRecord(BaseModel):
     imagery: ImageryRecord
     dsm: str
     dtm: str
+    position: PositionRecord | None = None
 
 
 @dataclass(frozen=True)

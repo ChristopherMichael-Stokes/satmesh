@@ -10,6 +10,13 @@ from satmesh_data.ea_lidar import (
     check_lidar,
     fetch_ea_lidar,
 )
+from satmesh_data.ea_lidar_points import (
+    PointCloudTile,
+    fetch_point_cloud,
+    find_point_cloud_tiles,
+    os_tile_id,
+    tile_ids_covering,
+)
 from satmesh_data.esri import (
     EsriClient,
     EsriSource,
@@ -32,6 +39,7 @@ __all__ = [
     "EsriSource",
     "LidarCheckError",
     "PlaceholderTileError",
+    "PointCloudTile",
     "Raster",
     "RetryableStatusError",
     "ZoomBeyondSourceError",
@@ -43,8 +51,12 @@ __all__ = [
     "decode_tile",
     "fetch_aerial_ecws",
     "fetch_ea_lidar",
+    "fetch_point_cloud",
     "find_aerial_tiles",
+    "find_point_cloud_tiles",
     "is_placeholder",
     "mosaic_tiles",
     "new_client",
+    "os_tile_id",
+    "tile_ids_covering",
 ]

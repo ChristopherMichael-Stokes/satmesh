@@ -229,9 +229,9 @@ def _write_node(  # noqa: PLR0913, PLR0917 (one node's inputs)
     node = build_node(tile, texture, surfaces, imagery, settings)
     glb_path, record_path = node_paths(store_dir, tile)
     glb_path.parent.mkdir(parents=True, exist_ok=True)
-    _write_atomically(glb_path, node.glb)
-    _write_atomically(ground_path(store_dir, tile), node.ground_tif)
-    _write_atomically(record_path, node.record.model_dump_json(indent=1).encode())
+    write_atomically(glb_path, node.glb)
+    write_atomically(ground_path(store_dir, tile), node.ground_tif)
+    write_atomically(record_path, node.record.model_dump_json(indent=1).encode())
     logger.info("built node z%d x%d y%d: %d vertices", tile.z, tile.x, tile.y, node.record.vertices)
 
 
@@ -255,7 +255,8 @@ def _fetch_surfaces(http: httpx.Client, tile: mercantile.Tile, cache_dir: Path) 
     return SurfacePaths(dsm=fetch(EA_DSM), dtm=fetch(EA_DTM))
 
 
-def _write_atomically(path: Path, data: bytes) -> None:
+def write_atomically(path: Path, data: bytes) -> None:
+    """Write `data` to `path` through a sibling `.part` file, so a reader never sees half of it."""
     partial = path.with_suffix(path.suffix + ".part")
     partial.write_bytes(data)
     partial.replace(path)

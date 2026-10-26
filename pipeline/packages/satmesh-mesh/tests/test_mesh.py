@@ -5,7 +5,13 @@ from matplotlib.tri import LinearTriInterpolator, Triangulation
 from rasterio.transform import from_origin
 
 from satmesh_data import Raster
-from satmesh_mesh import add_skirts, glb_bytes, triangulate_heights, upward
+from satmesh_mesh import (
+    add_skirts,
+    glb_bytes,
+    shift_texture_coordinates,
+    triangulate_heights,
+    upward,
+)
 
 # glTF 2.0 spec constant for wrapS and wrapT: CLAMP_TO_EDGE
 CLAMP_TO_EDGE = 33071
@@ -119,3 +125,36 @@ def test_glb_reads_back_with_texture_and_uv_contract() -> None:
     (sampler,) = gltf.samplers
     assert (sampler.wrapS, sampler.wrapT) == (CLAMP_TO_EDGE, CLAMP_TO_EDGE)
     assert all(texture.sampler == 0 for texture in gltf.textures)
+
+
+def test_shifting_texture_coordinates_moves_uv_and_leaves_the_rest() -> None:
+    vertices = np.array([[0, 0, 0], [1, 0, 0], [0, 0, 1]], float)
+    uv = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    triangles = np.array([[0, 2, 1]])
+    pixels = np.zeros((3, 4, 8), np.uint8)
+    texture = Raster(pixels, from_origin(0, 4, 1, 1), "EPSG:3857")
+    original = glb_bytes(vertices, uv, triangles, texture)
+    shifted = pygltflib.GLTF2.load_from_bytes(shift_texture_coordinates(original, 0.25, 0.125))
+    before = pygltflib.GLTF2.load_from_bytes(original)
+
+    def read(gltf: pygltflib.GLTF2, name: str) -> np.ndarray:
+        accessor = gltf.accessors[getattr(gltf.meshes[0].primitives[0].attributes, name)]
+        view = gltf.bufferViews[accessor.bufferView]
+        raw = np.frombuffer(
+            gltf.binary_blob(),
+            np.float32,
+            accessor.count * (3 if name == "POSITION" else 2),
+            view.byteOffset,
+        )
+        return raw.reshape(accessor.count, -1)
+
+    # u grows east; v up grows north, which lowers the file's top-left v
+    np.testing.assert_allclose(
+        read(shifted, "TEXCOORD_0")[:, 0], read(before, "TEXCOORD_0")[:, 0] + 0.25, atol=1e-6
+    )
+    np.testing.assert_allclose(
+        read(shifted, "TEXCOORD_0")[:, 1], read(before, "TEXCOORD_0")[:, 1] - 0.125, atol=1e-6
+    )
+    np.testing.assert_array_equal(read(shifted, "POSITION"), read(before, "POSITION"))
+    assert shifted.images[0].mimeType == "image/jpeg"
+    assert shifted.samplers == before.samplers

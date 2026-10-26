@@ -51,3 +51,26 @@ Consequence for the plan: borrowing across a polygon (T3) cannot be validated on
 cells straddle polygons, so a polygon-keyed borrow would need polygon-split cells. T1 (ground-only
 windows) and the S0b lean finding (see `e9-results.md`) are the better next steps; a
 lean model (T2) now has evidence behind it at the S0b cross-check site.
+
+## T1: ground-only windows (2026-10-26)
+
+Verdict: no-go. Scratch experiment, repo untouched. The nDSM (first-return maximum minus lowest
+ground-class point, 1 m grid) above 2 m, grown by 0.3 m per metre of height up to 8 m, was set to
+the median gradient in both the lidar and the Esri gradient images before the unchanged window
+matching. Declared before any result: windows with at least 50 % unmasked pixels (A). A second
+setting, at least 95 % (B), was added after the artefact below appeared.
+
+- A reaches the 5 % window rule at Dunster, Loughborough and Snettisham, but returns exactly
+  0.00, 0.00 m shift (interval about 0.01 m) in 8 boxes: both images carry the same mask-edge
+  steps, which correlate at zero shift. Those windows say nothing about the ground.
+- B removes the artefact and leaves 0 to 10 reliable windows at the roof-heavy boxes (Dunster,
+  Southend, Loughborough, town); only 347, 0 and 127 of 900 windows at the first three are even
+  eligible.
+- Snettisham (0.3 % of pixels masked) goes from 0.38 to 0.25 m north error: marginal, not
+  evidence the mask works. Belford and Neston are unchanged. Ferrybridge and Upper Aire could not
+  be compared: their 1 km corners were inferred and Upper Aire's baseline does not reproduce.
+- Roof-heavy boxes have too little open ground for a window to be mostly ground, so masking
+  cannot raise coverage there.
+
+Untried: a ground-class-only lidar reference with windows that are fully ground, without mask
+edges. It faces the same shortage of ground windows.

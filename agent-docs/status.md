@@ -60,7 +60,9 @@ Owner order (2026-10-26):
 1. E9 steep faces: closed by the owner after S0 and S0b (`e9-results.md`); no fill was built.
 2. E2b towns and woodland: `e2b-plan.md`, approved 2026-10-26 with its proposals (Ferrybridge,
    0.3 m, T2 returns to the owner, `borrowed` status). T0 done (`e2b-results.md`): H4 not
-   supported or refuted; next T1 (ground-only windows) on the T0 store.
+   supported or refuted. T1 (ground-only windows) is a no-go: masking creates edge artefacts or
+   leaves too few windows. Next: prior-art check for the lean model (T2), which returns to the
+   owner before any implementation.
 3. E4 trial: `e4-research.md` recommends PixTransform per tile, scored on the degraded EA DSM
    (x2, x5, x30) with an edge-leakage check; judge by eye as well.
 4. Yemen as the different-region test (F2a source registry, UTM, geoid, coarse elevation). The

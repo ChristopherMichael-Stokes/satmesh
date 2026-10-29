@@ -45,10 +45,9 @@ Run from the repo root unless a workspace is named.
 
 | What                         | Command                                                 |
 | ---------------------------- | ------------------------------------------------------- |
-| Install prek (once)          | `uv tool install prek@0.5.7`                            |
-| Sync workspace, hooks        | `make setup`                                            |
+| Sync workspace, hooks        | `make setup` (prek runs through `uvx prek@0.5.7`)       |
 | All checks                   | `make check`                                            |
-| Checks for one workspace     | `prek run --all-files pipeline/`                        |
+| Checks for one workspace     | `uvx prek@0.5.7 run --all-files pipeline/`              |
 | Update hook revisions        | `make update-hooks` (skips releases under 7 days old)   |
 | Types in one workspace       | `uv run --frozen ty check` from `pipeline/`             |
 | Add a dependency to a member | `uv add --package <dist-name> <dep>` from the workspace |

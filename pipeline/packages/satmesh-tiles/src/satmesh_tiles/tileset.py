@@ -9,7 +9,12 @@ import mercantile
 import numpy as np
 
 from satmesh_tiles.node import NodeRecord
-from satmesh_tiles.tiler import STORE_NODE_DIR, node_paths, read_record
+from satmesh_tiles.tiler import (
+    STORE_NODE_DIR,
+    node_paths,
+    read_record,
+    require_current_correction,
+)
 
 TILESET_FILE = "tileset.json"
 TILESET_VERSION = "1.1"
@@ -21,8 +26,10 @@ def export_3dtiles(store_dir: Path) -> Path:
 
     Content URIs are the store's own GLBs, so the store directory served as static files is a
     tileset. The tree is rebuilt from the nodes present: a node's children are its four Web Mercator
-    children when all four exist, and roots are nodes whose parent is absent.
+    children when all four exist, and roots are nodes whose parent is absent. Raises
+    `StaleCorrectionError` for a store corrected under an older correction schema.
     """
+    require_current_correction(store_dir)
     tiles = stored_tiles(store_dir)
     if not tiles:
         msg = f"no nodes in store {store_dir}"

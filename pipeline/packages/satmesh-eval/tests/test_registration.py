@@ -38,16 +38,18 @@ def displaced(image: np.ndarray, east_m: float, north_m: float) -> np.ndarray:
 
 def test_a_displaced_image_is_measured_and_bounded_above_the_method_residual() -> None:
     reference = texture(0)
-    cell = cell_correction(BOX, reference, displaced(reference, EAST_M, NORTH_M))
+    cell, windows = cell_correction(BOX, reference, displaced(reference, EAST_M, NORTH_M))
     assert cell.status == "corrected"
     assert abs(cell.displacement_east_m - EAST_M) < SHIFT_TOLERANCE_M
     assert abs(cell.displacement_north_m - NORTH_M) < SHIFT_TOLERANCE_M
     assert METHOD_RESIDUAL_M <= cell.error_bound_m < 2 * METHOD_RESIDUAL_M
     assert cell.windows_used / cell.windows_total > 0.9
+    assert windows is not None
+    assert int(np.isfinite(windows.east_m).sum()) == cell.windows_used
 
 
 def test_unrelated_images_leave_the_cell_uncorrected_with_the_survey_bound() -> None:
-    cell = cell_correction(BOX, texture(1), texture(2))
+    cell, _ = cell_correction(BOX, texture(1), texture(2))
     assert cell.status == "uncorrected"
     assert (cell.displacement_east_m, cell.displacement_north_m) == (0.0, 0.0)
     assert cell.error_bound_m == UNCORRECTED_ERROR_BOUND_M
@@ -55,7 +57,9 @@ def test_unrelated_images_leave_the_cell_uncorrected_with_the_survey_bound() -> 
 
 def test_flat_images_leave_the_cell_uncorrected() -> None:
     flat = np.zeros((SIDE_PX, SIDE_PX), np.float32)
-    assert cell_correction(BOX, flat, flat).status == "uncorrected"
+    cell, windows = cell_correction(BOX, flat, flat)
+    assert cell.status == "uncorrected"
+    assert windows is None
 
 
 def test_intensity_step_gives_a_gradient_ridge_on_the_edge() -> None:
@@ -89,7 +93,13 @@ def area(width_m: float, height_m: float) -> Aoi:
 
 @pytest.mark.parametrize(
     ("width_m", "height_m", "columns", "rows"),
-    [(500, 500, 1, 1), (1000, 1000, 1, 1), (1700, 600, 2, 1), (2400, 3600, 2, 4)],
+    [
+        (500, 500, 1, 1),
+        (1000, 1000, 1, 1),
+        (1700, 600, 2, 1),
+        (2400, 3600, 2, 4),
+        (2501, 1003, 3, 1),
+    ],
 )
 def test_cells_split_the_area_evenly_with_sides_near_the_target(
     width_m: float, height_m: float, columns: int, rows: int
@@ -102,3 +112,5 @@ def test_cells_split_the_area_evenly_with_sides_near_the_target(
     for cell in cells:
         for side in (cell.east - cell.west, cell.north - cell.south):
             assert 0.5 * TARGET_CELL_SIDE_M <= side <= 1.5 * TARGET_CELL_SIDE_M
+        # on the 1 m lidar grid, so roofs can be matched over the cell itself
+        assert all(edge.is_integer() for edge in (cell.west, cell.south, cell.east, cell.north))

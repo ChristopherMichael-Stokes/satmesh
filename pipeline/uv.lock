@@ -1298,6 +1298,7 @@ dependencies = [
     { name = "httpx" },
     { name = "rasterio" },
     { name = "satmesh-core" },
+    { name = "shapely" },
     { name = "tenacity" },
 ]
 
@@ -1307,6 +1308,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "rasterio", specifier = ">=1.5.2" },
     { name = "satmesh-core", editable = "packages/satmesh-core" },
+    { name = "shapely", specifier = ">=2.2.0" },
     { name = "tenacity", specifier = ">=9.2.1" },
 ]
 

@@ -2,12 +2,14 @@
 
 from satmesh_tiles.area import export_area_glb
 from satmesh_tiles.correction import (
-    CORRECTION_FILE,
+    MAX_LEAN,
     POSITIONAL_ERROR_FILE,
     CellCorrection,
     CellStatus,
     CorrectionField,
     CorrectionSummary,
+    LeanFit,
+    SceneLean,
     apply_correction,
     write_positional_error,
 )
@@ -24,7 +26,10 @@ from satmesh_tiles.node import (
     esri_tiles,
 )
 from satmesh_tiles.tiler import (
+    CORRECTION_FILE,
+    CORRECTION_SCHEMA_VERSION,
     BuildSummary,
+    StaleCorrectionError,
     TilePlan,
     build_store,
     complete_tree,
@@ -34,6 +39,7 @@ from satmesh_tiles.tiler import (
     parent_texture,
     plan_tiles,
     read_record,
+    require_current_correction,
     snap_outward,
     write_atomically,
 )
@@ -41,7 +47,9 @@ from satmesh_tiles.tileset import export_3dtiles, stored_tiles
 
 __all__ = [
     "CORRECTION_FILE",
+    "CORRECTION_SCHEMA_VERSION",
     "ESRI_TILES_PER_LEAF_SIDE",
+    "MAX_LEAN",
     "POSITIONAL_ERROR_FILE",
     "BuildSummary",
     "CellCorrection",
@@ -49,10 +57,13 @@ __all__ = [
     "CorrectionField",
     "CorrectionSummary",
     "ImageryRecord",
+    "LeanFit",
     "MeshSettings",
     "Node",
     "NodeRecord",
     "PositionRecord",
+    "SceneLean",
+    "StaleCorrectionError",
     "SurfacePaths",
     "TilePlan",
     "apply_correction",
@@ -69,6 +80,7 @@ __all__ = [
     "parent_texture",
     "plan_tiles",
     "read_record",
+    "require_current_correction",
     "snap_outward",
     "stored_tiles",
     "write_atomically",

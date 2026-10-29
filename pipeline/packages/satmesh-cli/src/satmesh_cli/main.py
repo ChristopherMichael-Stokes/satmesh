@@ -15,7 +15,14 @@ from platformdirs import user_cache_dir
 from satmesh_cli.corners import LatLon, corners_to_bng_inside, corners_to_wgs84, parse_lat_lon
 from satmesh_cli.reporting import file_log, run_log
 from satmesh_core import BRITISH_NATIONAL_GRID, Aoi, GridMissingError
-from satmesh_data import EsriClient, LidarCheckError, PlaceholderTileError, new_client
+from satmesh_data import (
+    EsriClient,
+    EsriQueryError,
+    LidarCheckError,
+    PlaceholderTileError,
+    fetch_scene_map,
+    new_client,
+)
 from satmesh_eval.registration import measure_correction
 from satmesh_eval.report import (
     heights_report,
@@ -25,10 +32,13 @@ from satmesh_eval.report import (
     texture_report,
     visibility_report,
 )
+from satmesh_eval.scene_lean import correction_field
 from satmesh_mesh import DEFAULT_MAX_ERROR_M
 from satmesh_tiles import (
     ESRI_TILES_PER_LEAF_SIDE,
     POSITIONAL_ERROR_FILE,
+    CorrectionField,
+    CorrectionSummary,
     apply_correction,
     build_store,
     export_3dtiles,
@@ -36,6 +46,7 @@ from satmesh_tiles import (
     export_gazebo,
     plan_tiles,
     read_record,
+    require_current_correction,
     stored_tiles,
     write_positional_error,
 )
@@ -86,6 +97,7 @@ def reported_errors() -> Generator[None]:
         GridMissingError,
         PlaceholderTileError,
         LidarCheckError,
+        EsriQueryError,
         httpx.HTTPError,
     ) as e:
         typer.echo(f"error: {e}", err=True)
@@ -152,17 +164,33 @@ def correct(
         ),
     ] = DEFAULT_CACHE_DIR,
     esri_requests_per_second: EsriRateOption = DEFAULT_ESRI_REQUESTS_PER_SECOND,
+    *,
+    lean: Annotated[
+        bool,
+        typer.Option(
+            "--lean/--no-lean",
+            help="Also measure and remove each Esri scene's lean of roofs and tree crowns.",
+        ),
+    ] = True,
 ) -> None:
-    """Move the store's imagery to its true position using EA lidar intensity; repeatable.
+    """Move the store's imagery to its true position using EA lidar; repeatable.
 
     Esri imagery sits 0.2 to 2.8 m from true position in England, by a different amount in
-    different places. The shift is measured per 1 km cell where lidar and imagery agree well
-    enough, applied to every node, and the remaining error bound is recorded for each node.
-    Cells that cannot be measured keep the imagery as it is and carry the survey's largest
-    displacement as their bound. Downloads EA point clouds (about 100 to 500 MB per 5 km square).
+    different places, and roofs and tree crowns lean further, by an amount that grows with their
+    height. The ground shift is measured per 1 km cell from lidar intensity. With the lean (the
+    default), each Esri capture's ground shift and lean are also fitted from roofs matched against
+    the lidar surface across the whole store, and applied wherever the fit is good enough; other
+    places keep the cell's ground shift. Cells that cannot be measured keep the imagery as it is
+    and carry the survey's largest displacement as their bound. Downloads EA point clouds (about
+    100 to 500 MB per 5 km square) and, with the lean, EA DSM and DTM per cell.
     """
-    settings = {"cache_dir": cache_dir, "esri_requests_per_second": esri_requests_per_second}
+    settings = {
+        "cache_dir": cache_dir,
+        "esri_requests_per_second": esri_requests_per_second,
+        "lean": lean,
+    }
     with reported_errors(), run_log(store, "correct", settings) as report, new_client() as http:
+        require_current_correction(store)
         tiles = stored_tiles(store)
         if not tiles:
             msg = f"no nodes in store {store}"
@@ -176,16 +204,36 @@ def correct(
             zoom,
         )
         esri = EsriClient(http, cache_dir, min_interval_s=1 / esri_requests_per_second)
-        field = measure_correction(area, zoom, esri, http, cache_dir, report)
-        summary = apply_correction(store, field, report)
-        measured = [c for c in field.cells if c.status == "corrected"]
-        result = (
-            f"{len(measured)} of {len(field.cells)} cells corrected; "
-            f"{summary.corrected} nodes corrected, {summary.uncorrected} left as they were "
-            f"(bound {field.uncorrected_error_bound_m} m), {summary.rewritten} rewritten"
+        scene_map = (
+            fetch_scene_map(esri, area, zoom, cache_dir).in_crs(BRITISH_NATIONAL_GRID)
+            if lean
+            else None
         )
-        file_log.info(result)
-    typer.echo(result)
+        if scene_map is not None:
+            logger.info("Esri {}: {} scenes at z{}", scene_map.release, len(scene_map.scenes), zoom)
+        measurement = measure_correction(area, zoom, esri, http, cache_dir, report, with_roofs=lean)
+        field = correction_field(measurement, scene_map, report)
+        summary = apply_correction(store, field, scene_map, report)
+        typer.echo(_correction_result(field, summary))
+
+
+def _correction_result(field: CorrectionField, summary: CorrectionSummary) -> str:
+    measured = sum(c.status == "corrected" for c in field.cells)
+    lines = [f"{measured} of {len(field.cells)} cells corrected"]
+    lines += [
+        f"scene {s.scene}: lean {s.status}, {s.roof_count} roofs, {s.window_count} windows"
+        + ("" if s.reason is None else f" ({s.reason}; keeps the cell shift)")
+        for s in field.scenes
+    ]
+    lines.append(
+        f"nodes: {summary.lean} lean, {summary.corrected} ground shift only, "
+        f"{summary.uncorrected} left as they were (bound {field.uncorrected_error_bound_m} m); "
+        f"{summary.lean_vertices} of {summary.vertices} vertices lean-corrected, "
+        f"{summary.past_texture_edge} sample more than a pixel past their texture's edge"
+    )
+    result = "\n".join(lines)
+    file_log.info(result)
+    return result
 
 
 @export_app.command("3dtiles")

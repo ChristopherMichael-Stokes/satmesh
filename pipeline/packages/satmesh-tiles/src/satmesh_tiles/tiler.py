@@ -1,5 +1,6 @@
 """Quadtree of nodes over an area and the resumable build that fills the store."""
 
+import json
 import logging
 import math
 from collections.abc import Iterable, Sequence
@@ -51,6 +52,10 @@ DTM_BOX_MARGIN_M = 2
 # lists them in another order
 CHILD_ORDER = ((0, 0), (1, 0), (0, 1), (1, 1))
 STORE_NODE_DIR = Path("nodes")
+CORRECTION_FILE = "correction.json"
+# 2: per-vertex correction with one ground shift and lean per Esri scene; 1 (no version key) moved
+# every vertex of a node by the ground shift at its centre
+CORRECTION_SCHEMA_VERSION = 2
 # one thread fetching a leaf's Esri tiles and one its DSM and DTM, so the Esri request schedule
 # never idles while a node is meshed or the EA WCS answers
 PREFETCH_WORKERS = 2
@@ -167,6 +172,29 @@ def node_paths(store_dir: Path, tile: mercantile.Tile) -> tuple[Path, Path]:
 def ground_path(store_dir: Path, tile: mercantile.Tile) -> Path:
     """Return the path of a node's ground (DTM) height grid, a Web Mercator GeoTIFF."""
     return node_paths(store_dir, tile)[0].with_suffix(".ground.tif")
+
+
+class StaleCorrectionError(ValueError):
+    """The store was corrected by an older `satmesh correct` whose records cannot be read."""
+
+
+def require_current_correction(store_dir: Path) -> None:
+    """Raise `StaleCorrectionError` if the store's correction predates the current schema.
+
+    A store that was never corrected passes. Its node records and texture coordinates follow the
+    correction file, so there is no reading an older one: the store is rebuilt and corrected again.
+    """
+    path = store_dir / CORRECTION_FILE
+    if not path.exists():
+        return
+    version = json.loads(path.read_text()).get("schema_version")
+    if version != CORRECTION_SCHEMA_VERSION:
+        msg = (
+            f"{store_dir} was corrected by an older satmesh (correction schema {version or 1}, "
+            f"this one writes {CORRECTION_SCHEMA_VERSION}); rebuild it with `satmesh build` "
+            "into a fresh store and re-run `satmesh correct`"
+        )
+        raise StaleCorrectionError(msg)
 
 
 def read_record(store_dir: Path, tile: mercantile.Tile) -> NodeRecord:

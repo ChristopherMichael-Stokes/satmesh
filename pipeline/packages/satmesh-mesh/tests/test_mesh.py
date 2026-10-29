@@ -8,9 +8,10 @@ from satmesh_data import Raster
 from satmesh_mesh import (
     add_skirts,
     glb_bytes,
-    shift_texture_coordinates,
+    read_vertices,
     triangulate_heights,
     upward,
+    with_texture_coordinates,
 )
 
 # glTF 2.0 spec constant for wrapS and wrapT: CLAMP_TO_EDGE
@@ -127,34 +128,35 @@ def test_glb_reads_back_with_texture_and_uv_contract() -> None:
     assert all(texture.sampler == 0 for texture in gltf.textures)
 
 
-def test_shifting_texture_coordinates_moves_uv_and_leaves_the_rest() -> None:
+def test_replaced_texture_coordinates_read_back_and_leave_the_rest() -> None:
     vertices = np.array([[0, 0, 0], [1, 0, 0], [0, 0, 1]], float)
     uv = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
     triangles = np.array([[0, 2, 1]])
     pixels = np.zeros((3, 4, 8), np.uint8)
     texture = Raster(pixels, from_origin(0, 4, 1, 1), "EPSG:3857")
     original = glb_bytes(vertices, uv, triangles, texture)
-    shifted = pygltflib.GLTF2.load_from_bytes(shift_texture_coordinates(original, 0.25, 0.125))
-    before = pygltflib.GLTF2.load_from_bytes(original)
+    moved_uv = uv + np.array([[0.25, 0.125], [-0.5, 0.0], [1.5, -0.25]])
 
-    def read(gltf: pygltflib.GLTF2, name: str) -> np.ndarray:
-        accessor = gltf.accessors[getattr(gltf.meshes[0].primitives[0].attributes, name)]
-        view = gltf.bufferViews[accessor.bufferView]
-        raw = np.frombuffer(
-            gltf.binary_blob(),
-            np.float32,
-            accessor.count * (3 if name == "POSITION" else 2),
-            view.byteOffset,
-        )
-        return raw.reshape(accessor.count, -1)
+    replaced = with_texture_coordinates(original, moved_uv)
 
-    # u grows east; v up grows north, which lowers the file's top-left v
-    np.testing.assert_allclose(
-        read(shifted, "TEXCOORD_0")[:, 0], read(before, "TEXCOORD_0")[:, 0] + 0.25, atol=1e-6
-    )
-    np.testing.assert_allclose(
-        read(shifted, "TEXCOORD_0")[:, 1], read(before, "TEXCOORD_0")[:, 1] - 0.125, atol=1e-6
-    )
-    np.testing.assert_array_equal(read(shifted, "POSITION"), read(before, "POSITION"))
-    assert shifted.images[0].mimeType == "image/jpeg"
-    assert shifted.samplers == before.samplers
+    positions, read_uv = read_vertices(replaced)
+    np.testing.assert_allclose(read_uv, moved_uv, atol=1e-6)
+    np.testing.assert_array_equal(positions, read_vertices(original)[0])
+    gltf = pygltflib.GLTF2.load_from_bytes(replaced)
+    accessor = gltf.accessors[gltf.meshes[0].primitives[0].attributes.TEXCOORD_0]
+    view = gltf.bufferViews[accessor.bufferView]
+    raw = np.frombuffer(gltf.binary_blob(), np.float32, 6, view.byteOffset).reshape(-1, 2)
+    # the file's v runs down from the top-left corner
+    np.testing.assert_allclose(raw[:, 1], 1 - moved_uv[:, 1], atol=1e-6)
+    assert accessor.min == raw.min(axis=0).tolist()
+    assert gltf.images[0].mimeType == "image/jpeg"
+    assert gltf.samplers == pygltflib.GLTF2.load_from_bytes(original).samplers
+
+
+def test_texture_coordinates_must_match_the_vertex_count() -> None:
+    vertices = np.array([[0, 0, 0], [1, 0, 0], [0, 0, 1]], float)
+    uv = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    texture = Raster(np.zeros((3, 4, 8), np.uint8), from_origin(0, 4, 1, 1), "EPSG:3857")
+    original = glb_bytes(vertices, uv, np.array([[0, 2, 1]]), texture)
+    with pytest.raises(ValueError, match="2 texture coordinates for 3 vertices"):
+        with_texture_coordinates(original, uv[:2])

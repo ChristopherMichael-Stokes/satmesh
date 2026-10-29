@@ -3,6 +3,7 @@
 import hashlib
 import threading
 import time
+from collections.abc import Mapping
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -147,10 +148,14 @@ class EsriClient:
         partial.replace(path)
         return data
 
-    def _get(self, url: str, params: dict[str, str | int]) -> httpx.Response:
+    def query_citations(self, params: Mapping[str, str | int | float]) -> bytes:
+        """Return the raw JSON of one layer 4 (Citations) `query` request with `params`."""
+        return self._get(f"{BASE_URL}/{CITATIONS_LAYER}/query", params).content
+
+    def _get(self, url: str, params: Mapping[str, str | int | float]) -> httpx.Response:
         return with_retry(lambda: self._throttled_get(url, params), self._initial_backoff_s)
 
-    def _throttled_get(self, url: str, params: dict[str, str | int]) -> httpx.Response:
+    def _throttled_get(self, url: str, params: Mapping[str, str | int | float]) -> httpx.Response:
         # each request reserves the next free slot under the lock and then waits for it outside
         # it, so any number of threads share one request rate
         with self._schedule_lock:

@@ -22,7 +22,7 @@ from satmesh_core import (
     geodetic_to_ecef,
     wgs84_to_bng,
 )
-from satmesh_data import WEB_MERCATOR, EsriSource, Raster
+from satmesh_data import WEB_MERCATOR, EsriSource, Raster, SceneId
 from satmesh_mesh import (
     add_skirts,
     glb_bytes,
@@ -72,17 +72,26 @@ class ImageryRecord(BaseModel):
 class PositionRecord(BaseModel):
     """The imagery position correction applied to a node's texture, and its error bound.
 
-    `east_m` and `north_m` are the displacement of the Esri imagery from true ground position that
-    was removed (zero when `status` is "uncorrected"). `error_bound_m` is a 95 % radial bound on
-    the remaining position error of the imagery on open ground.
+    `status`, `scene` and the displacement are those at the node's centre; vertices elsewhere in
+    the node can lie in another Esri scene and take that scene's correction. A vertex at height h
+    above the ground (DSM minus DTM) had the Esri displacement (`east_m` + `lean_east` h,
+    `north_m` + `lean_north` h) removed: positive when the imagery lay east and north of the
+    ground. "lean" is its scene's fitted ground shift and lean, "corrected" the ground shift of its
+    measurement cell with no lean, "uncorrected" nothing. The 95 % radial bound on the remaining
+    error at height h is `error_bound_m` + `error_bound_per_height` h, each the largest over the
+    node's vertices.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    status: Literal["corrected", "uncorrected"]
+    status: Literal["lean", "corrected", "uncorrected"]
+    scene: SceneId | None
     east_m: float
     north_m: float
+    lean_east: float
+    lean_north: float
     error_bound_m: float
+    error_bound_per_height: float
 
 
 class NodeRecord(BaseModel):

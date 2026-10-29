@@ -8,6 +8,7 @@ dependencies = [
   "httpx>=0.28.1",
   "rasterio>=1.5.2",
   "satmesh-core",
+  "shapely>=2.2.0",
   "tenacity>=9.2.1",
 ]
 

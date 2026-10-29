@@ -9,7 +9,7 @@ import trimesh
 from satmesh_core import EnuFrame
 from satmesh_mesh import with_clamped_textures
 from satmesh_tiles.node import NodeRecord
-from satmesh_tiles.tiler import node_paths, read_record
+from satmesh_tiles.tiler import node_paths, read_record, require_current_correction
 from satmesh_tiles.tileset import stored_tiles
 
 EXTRAS_KEY = "satmesh"
@@ -47,7 +47,11 @@ def export_area_glb(store_dir: Path, out_path: Path) -> EnuFrame:
 
 
 def leaf_records(store_dir: Path) -> dict[mercantile.Tile, NodeRecord]:
-    """Return the record of every finest-level node: those with no children in the store."""
+    """Return the record of every finest-level node: those with no children in the store.
+
+    Raises `StaleCorrectionError` for a store corrected under an older correction schema.
+    """
+    require_current_correction(store_dir)
     tiles = stored_tiles(store_dir)
     leaves = sorted(
         tile for tile in tiles if not any(kid in tiles for kid in mercantile.children(tile))

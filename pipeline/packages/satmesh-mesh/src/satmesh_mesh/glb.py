@@ -64,32 +64,65 @@ def with_clamped_textures(glb: bytes) -> bytes:
     return b"".join(gltf.save_to_bytes())
 
 
-def shift_texture_coordinates(glb: bytes, east_fraction: float, north_fraction: float) -> bytes:
-    """Return `glb` with every texture coordinate moved by fractions of the texture's size.
+def read_vertices(glb: bytes) -> tuple[np.ndarray, np.ndarray]:
+    """Return the positions (glTF frame) and texture coordinates of a single-primitive GLB.
 
-    `east_fraction` is added to u and `north_fraction` to v measured up from the texture's bottom
-    edge, so the glTF file's top-left v changes by minus `north_fraction`. The texture pixels are
-    untouched; only where each vertex samples them moves.
+    The coordinates have v up from the texture's bottom edge, as `glb_bytes` takes them.
+    """
+    gltf = pygltflib.GLTF2.load_from_bytes(glb)
+    blob = gltf.binary_blob()
+    attributes = _only_primitive(gltf).attributes
+    positions = np.frombuffer(blob, np.float32, *_float_span(gltf, attributes.POSITION, 3))
+    uv = np.frombuffer(blob, np.float32, *_float_span(gltf, attributes.TEXCOORD_0, 2))
+    flipped = uv.reshape(-1, 2).astype(np.float64)
+    flipped[:, 1] = 1 - flipped[:, 1]
+    return positions.reshape(-1, 3).astype(np.float64), flipped
+
+
+def with_texture_coordinates(glb: bytes, uv: np.ndarray) -> bytes:
+    """Return `glb` with its texture coordinates replaced by `uv` (v up from the bottom edge).
+
+    The texture pixels and every other attribute are untouched; only where each vertex samples
+    the texture moves. `uv` has one row per vertex of the single primitive.
     """
     gltf = pygltflib.GLTF2.load_from_bytes(glb)
     blob = bytearray(gltf.binary_blob())
-    accessors = {
-        primitive.attributes.TEXCOORD_0 for mesh in gltf.meshes for primitive in mesh.primitives
-    }
-    for index in accessors:
-        accessor = gltf.accessors[index]
-        view = gltf.bufferViews[accessor.bufferView]
-        if view.byteStride is not None:
-            msg = "interleaved texture coordinates are not supported"
-            raise ValueError(msg)
-        start = (view.byteOffset or 0) + (accessor.byteOffset or 0)
-        uv = np.frombuffer(blob, np.float32, accessor.count * 2, start).reshape(-1, 2)
-        moved = uv + np.array([east_fraction, -north_fraction], np.float32)
-        blob[start : start + moved.nbytes] = moved.tobytes()
-        accessor.min = moved.min(axis=0).tolist()
-        accessor.max = moved.max(axis=0).tolist()
+    index = _only_primitive(gltf).attributes.TEXCOORD_0
+    count, start = _float_span(gltf, index, 2)
+    if uv.shape != (count // 2, 2):
+        msg = f"{uv.shape[0]} texture coordinates for {count // 2} vertices"
+        raise ValueError(msg)
+    in_file = np.column_stack([uv[:, 0], 1 - uv[:, 1]]).astype(np.float32)
+    blob[start : start + in_file.nbytes] = in_file.tobytes()
+    accessor = gltf.accessors[index]
+    accessor.min = in_file.min(axis=0).tolist()
+    accessor.max = in_file.max(axis=0).tolist()
     gltf.set_binary_blob(bytes(blob))
     return b"".join(gltf.save_to_bytes())
+
+
+def _only_primitive(gltf: pygltflib.GLTF2) -> pygltflib.Primitive:
+    primitives = [primitive for mesh in gltf.meshes for primitive in mesh.primitives]
+    if len(primitives) != 1:
+        msg = f"expected one mesh primitive, found {len(primitives)}"
+        raise ValueError(msg)
+    return primitives[0]
+
+
+def _float_span(gltf: pygltflib.GLTF2, index: int | None, components: int) -> tuple[int, int]:
+    """Return (float count, byte offset) of a tightly packed float accessor in the binary blob."""
+    if index is None:
+        msg = "the primitive lacks a required attribute"
+        raise ValueError(msg)
+    accessor = gltf.accessors[index]
+    if accessor.bufferView is None:
+        msg = "sparse or empty accessors are not supported"
+        raise ValueError(msg)
+    view = gltf.bufferViews[accessor.bufferView]
+    if view.byteStride not in {None, components * np.dtype(np.float32).itemsize}:
+        msg = "interleaved vertex attributes are not supported"
+        raise ValueError(msg)
+    return accessor.count * components, (view.byteOffset or 0) + (accessor.byteOffset or 0)
 
 
 def upward(vertices: np.ndarray, triangles: np.ndarray) -> np.ndarray:

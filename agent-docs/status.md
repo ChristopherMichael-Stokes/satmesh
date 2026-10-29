@@ -58,11 +58,46 @@ with their reasons, open risks. Detail per feature lives in the plan and results
 Owner order (2026-10-26):
 
 1. E9 steep faces: closed by the owner after S0 and S0b (`e9-results.md`); no fill was built.
-2. E2b towns and woodland: `e2b-plan.md`, approved 2026-10-26 with its proposals (Ferrybridge,
-   0.3 m, T2 returns to the owner, `borrowed` status). T0 done (`e2b-results.md`): H4 not
-   supported or refuted. T1 (ground-only windows) is a no-go: masking creates edge artefacts or
-   leaves too few windows. T2 prior-art check done (`e2b-results.md`): Parmehr-style
-   four-parameter shift-plus-lean fit per Esri scene; returns to the owner before implementation.
+2. E2b towns and woodland, paused 2026-10-26 (usage). Lean correction in `correct` is approved by
+   the owner ("C all day"; the lean-corrected strips beat as-published at most sites). Design from
+   the strong-tier consult: per-vertex UV rewrite `uv_base + J (t + l h)` in node GLBs (JPEG
+   untouched), one lean per Esri scene (date plus sensor) over the whole store, scene polygons from
+   one layer-4 envelope query cached by release (`e2b-results.md`), schema `SceneLean`
+   (applied or rejected), lean on by default, old corrected stores rejected with a rebuild message,
+   stages C1 polygons, C2 library and tests, C3 measurement in `correct`, C4 application, C5 real
+   flow with before/after strips and blink on an artifact page, C6 de-leaned ground registration.
+   Open fork: owner prefers B (joint fit of ground shift and lean from roofs, as in the strips)
+   over A (ground shift from ground registration, lean only from roofs) and asked to keep B
+   "smartly". Research brief was running and was stopped unfinished: make the joint fit
+   better conditioned (all registration windows regressed on mean height with ground windows
+   anchoring t, tall objects, priors from neighbouring cells and k <= tan 30, roads and kerbs, de-leaned
+   re-registration, centred regression with honest extrapolated bound). Resume: relaunch that
+   research (scratch in `uncommitted/scratch-archive/lean2`), test offline on saved offsets with
+   Southend truth (+0.23, +1.57), then decide the fit and build C1 onward.
+   Lean2 result (2026-10-29, `uncommitted/scratch-archive/lean2/results.md`): ground error at
+   Southend / Ferrybridge truth, F0 roofs only 0.91 / 5.19 m, F1 roofs+windows 1.08 / 0.16,
+   F2 F0 + ground-registration prior 0.73 / 0.36, F4 alternation 0.30 / 0.69 (does not converge),
+   F5 whole-image 0.57 / 0.98. F0 fails where roofs span only 3 to 7 m (extrapolation to h = 0).
+   Owner chose F2 (2026-10-29), with k clamped to tan 30. Only two truth boxes; F2's 95 % k
+   interval reaches 0.67 to 0.71 at two sites (cap 0.58).
+   C1 and C2 built 2026-10-29, staged, not committed (`e2b-results.md`, "C1/C2 build"):
+   `satmesh_data.esri_scenes` (scene footprints per release, labels per point or grid, shares)
+   and `satmesh_eval.roofs` plus `satmesh_eval.scene_lean` (`SceneLean`, capped F2 fit). The
+   production fit reproduces lean2 F2 exactly (Southend 0.73 m, Ferrybridge 0.36 m from truth).
+   Ferrybridge's lean is rejected (95 % lean radius 0.62 m per m); whether a rejected-lean scene
+   takes its F2 t with l = 0 or the per-cell shift (uncorrected there) is open for the owner.
+   C3 and C4 built 2026-10-29, staged, not committed (`e2b-results.md`, "C3/C4 build"):
+   `correct` pools roofs and reliable windows per Esri scene over the store, fits each scene and
+   rewrites node UVs per vertex as base + J (t + l h) (exact BNG-to-texture map); schema 2, old
+   corrected stores refused with a rebuild message; `--no-lean`; a rejected scene keeps the cell
+   shift (lead's call). Bound B(h) = B_t + r_l h. Southend 0.79 km store: GE01 applied (13 roofs,
+   11 windows, t +0.07 +2.13 m, k 0.34 toward 198, bound 1.16 m + 0.15 h), WV02 rejected (3 roofs);
+   corrected UVs reproduce t and l exactly against independent DSM-DTM heights. Risks: tile-edge
+   clamp smear (0.5 % of vertices) and seam stretch inside mixed nodes.
+   Next: C5 before/after strips with blink from `uncommitted/scratch-archive/c3c4/` stores.
+   C6 (one de-leaned re-registration pass, then one F2 refit) failed its declared gate on
+   2026-10-29 and was not built (`e2b-results.md`, "C6 result"): ground error vs truth Southend
+   0.73 to 0.95 m, Ferrybridge 0.36 to 0.42 m. The Southend over-correction seen in C5 stays open.
 3. E4 trial: `e4-research.md` recommends PixTransform per tile, scored on the degraded EA DSM
    (x2, x5, x30) with an edge-leakage check; judge by eye as well.
 4. Yemen as the different-region test (F2a source registry, UTM, geoid, coarse elevation). The
@@ -81,6 +116,8 @@ decision log). Show textured renders from fixed camera views before proposing a 
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-10-29 | A scene's lean is rejected when the 95 % bootstrap radius of l exceeds tan 30 / 2, not on the width of the k interval | The k interval is clipped by the cap and misses a small lean with an undetermined azimuth; the radius bounds the lean error at any height (radius times h) |
+| 2026-10-29 | Cap k <= tan 30 by fitting on the circle k = tan 30 when the free fit exceeds it | The soft-L1 cost is convex in (t, l), so this is the exact constrained optimum; no clipping |
 | 2026-10-25 | PyTorch constraint dropped from README, AGENTS.md and plans | Came from the scaffold copied from xfeat-rt, not from the owner; `ml/` workspace remains an option |
 | 2026-10-25 | Typer for the CLI | Owner choice; typed signatures, `CliRunner` for tests |
 | 2026-10-25 | platformdirs cache, `--cache-dir` and `SATMESH_CACHE_DIR` | Owner choice; `~/.cache/satmesh` |

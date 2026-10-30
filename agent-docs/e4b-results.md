@@ -48,6 +48,13 @@ mean with two bases <https://claude.ai/artifact/9hW3why4guocCyLyVjkbQy>, DINOv3-
   0.60 for RGB; across boxes R2 about 0, AUC 0.65 to 0.85. Upsampling the best cross-box prediction
   to 1 m beats predicting zero by 0.15 to 0.33 m; token means of the lidar alone floor at RMSE 1.35
   to 1.84 m.
+- Land-cover head (`uncommitted/e4b/seg/`): classes from EA point-cloud classes (ground, vegetation
+  by codes 3 to 5, building by code 6; the lidar holds no water class, so water is untestable), 8 m
+  tokens of frozen DINOv3-Sat features, a two-layer MLP, leave-one-area-out over the three 5.4 km
+  areas. Building F1 0.725 (Ferrybridge), 0.789 (Upper Aire), 0.818 (Southend) against 0.32, 0.23,
+  0.16 for gradient boosting on token RGB; vegetation F1 0.31, 0.14, 0.22 (recall 0.08 to 0.31); on
+  grey tokens building F1 0.71 to 0.87 against 0.39 to 0.50 for RGB. Overall accuracy 0.87 to 0.95
+  hides this because ground is 70 to 89 % of tokens.
 
 ## Traps
 
@@ -63,6 +70,10 @@ mean with two bases <https://claude.ai/artifact/9hW3why4guocCyLyVjkbQy>, DINOv3-
 - Scripts that start worker processes need a `__main__` guard (spawn re-imports the main module).
 - The kriging is exactly coherent only up to x10; at x30 the cell residual is up to 1 cm, and a
   540 m box takes about 7 min.
+- The majority label biases vegetation: ground returns under canopy outvote vegetation returns,
+  so cells under trees label as ground and vegetation recall drops.
+- The 1,008 px feature window with stride 504 does not land on the 16 px token grid (31.5 tokens);
+  a stride of 31 tokens with a clamped final window fixes it.
 
 ## Not checked
 

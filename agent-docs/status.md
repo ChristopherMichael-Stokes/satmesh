@@ -32,7 +32,7 @@ checkpoint; keep it to current state only.
 | Position correction (`correct`) | Shipped with ground shift and per-capture lean; stores for three 5.4 km areas corrected | Re-check on open-ground truth; Southend north overshoot; Wales and Scotland lidar | `e2b-results.md`, `metric-bias-audit.md` |
 | Height refinement | M-A on the mean of Geopose and RS3DAda with a kriging base chosen; CHMv2 for trees; land-cover head built; E0 run and held; successor proposal written | E0 and E1 of the proposal, after the owner's go | `e4b-results.md`, `pixtransform-proposal.md` |
 | ML workspace | `ml/` with `satmesh-height` (PixTransform port, kriging, cell adjustments, GeoTIFF contract) committed; PixTransform paused | Reopen only through the proposal | `e4b-results.md` |
-| Knowledge store | Restructure in progress: index, headers, decisions, risks; scratch audited, extraction done | Owner checks no information is lost, then scratch is cleaned | `scratch-audit.md`, `INDEX.md` |
+| Knowledge store | Restructured: `INDEX.md` generated from doc headers, decisions, risks and plan codes split out, `agent-docs` hook enforces headers; scratch audited and its facts extracted | Owner decides the scratch cleanup | `scratch-audit.md`, `INDEX.md` |
 
 ## Held or awaiting the owner
 
@@ -41,6 +41,12 @@ checkpoint; keep it to current state only.
 - Whether GPL-3 tools (roofer, CGAL, lidR) are acceptable if satmesh is distributed
   (`semantic-height-research.md`).
 - Policy call: keep or drop vehicles lifted from the photo that the older lidar lacks.
+- Leftovers of the private test area removal (`decisions.md`): derived arrays under
+  `uncommitted/scratch-archive/s0b/` (delete or keep), Claude Code session transcripts in
+  `~/.claude/projects/-home-chris-xfeat-dev-satmesh/*.jsonl` (five files hold the name), and version
+  1 of the published "Steep Face Stretch" page (only deletable by deleting the artifact).
+- Pushing: `main` is 19 commits ahead of `origin/main` (local only; history was rewritten for
+  the removal above); the owner pushes.
 
 ## Running
 

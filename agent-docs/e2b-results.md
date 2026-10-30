@@ -44,6 +44,37 @@ ground only; truth E, N m with 95 % interval):
   a 2007 infrared tile only, not used. No truth in the southern, mostly uncorrected part and in
   the 2025-04 polygon.
 
+Per-cell result of the 213 s run (`uncommitted/t0/ferrybridge-5km/run.log`, `correction.json`;
+polygon cover shares per cell in `uncommitted/scratch-archive/t0/cells_cover.json`). Each entry is
+the shift E, N in m and the windows used of 783; "-" is an uncorrected cell (bound 2.80 m). Row
+label is the cell's south edge, column label its west edge (BNG m):
+
+| N \ E | 444713 | 445630 | 446546 | 447463 | 448380 | 449296 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 424437 | - (19) | -0.21 +0.74 (41) | -0.28 +0.63 (76) | -0.55 +0.47 (57) | - (39) | - (13) |
+| 423463 | - (30) | - (39) | -0.28 +0.93 (50) | - (35) | - (33) | -0.54 +0.79 (44) |
+| 422488 | +0.01 +0.48 (48) | -0.24 +0.96 (55) | -0.19 +0.29 (40) | -0.41 +0.91 (45) | - (30) | -0.75 +1.00 (41) |
+| 421514 | +0.63 +0.76 (50) | -1.04 +1.72 (52) | - (34) | - (16) | - (19) | - (28) |
+| 420540 | - (24) | - (26) | - (14) | - (11) | - (30) | - (22) |
+| 419566 | -0.03 +0.78 (60) | - (30) | - (22) | - (23) | - (24) | - (19) |
+
+Bounds of the 13 corrected cells: 0.76, 1.54, 1.49, 1.20, 1.07, 1.03, 0.81, 0.93, 1.03, 2.73,
+1.39, 1.04, 1.47 m (log order). Run time: lidar download 107.5 s, point reading 34.5 s, matching
+213.0 s, tile update 16.9 s, 372.9 s in all; 110 of 310 nodes corrected, 200 left as they were.
+
+Truth intervals and windows of the four aerial boxes (`uncommitted/scratch-archive/t0/offset-*.txt`;
+the three 1 km boxes are the 445050, 446100 and 447200 rows of the table above, 423950 south
+edge; interval 95 %, NMAD E / N in m):
+
+| Box | Aerial | Truth E (interval) | Truth N (interval) | NMAD E / N | Reliable windows |
+| --- | --- | --- | --- | --- | --- |
+| T-town 448500, 423500 | 2020-02 | -0.31 (-0.38, -0.23) | +0.71 (+0.37, +0.97) | 0.56 / 1.10 | 113 of 870 |
+| B2 446100, 423950 (WV02 2022 cells) | 2020-02 | -0.09 (-0.43, +0.72) | +0.14 (-0.31, +1.01) | 1.33 / 2.04 | 98 of 870 |
+| D2 445050, 423950 (LG02 cells) | 2020-02 | +0.05 (-0.07, +0.29) | +0.50 (+0.44, +0.65) | 0.85 / 0.76 | 166 of 870 |
+| E2 447200, 423950 (LG01 cells) | 2020-02 | -0.25 (-0.34, -0.14) | +1.07 (+0.81, +1.49) | 0.47 / 1.42 | 140 of 870 |
+
+The B2 interval spans zero on both axes; D2 and E2 north intervals exclude zero.
+
 Traps: `c_crop.py` ran first with boxes outside coverage and left empty crops
 `t0-B/C/D-*.tif` in `~/.cache/satmesh/ea-aerial/` (delete refused; remove by hand).
 
@@ -74,6 +105,34 @@ setting, at least 95 % (B), was added after the artefact below appeared.
 
 Untried: a ground-class-only lidar reference with windows that are fully ground, without mask
 edges. It faces the same shortage of ground windows.
+
+Per-box counts (`uncommitted/scratch-archive/t1/progress.log`, `results_main.json`,
+`results_b95.json`): reliable windows of 900 (196 at Belford and Neston), with the windows eligible
+under the mask rule in brackets. Raised share is the share of pixels with nDSM above 2 m; masked
+share is that after growing.
+
+| Box | Raised / masked share | Baseline | A, at least 50 % unmasked | B, at least 95 % unmasked |
+| --- | --- | --- | --- | --- |
+| Dunster | 0.222 / 0.280 | 31 | 50 (666) | 4 (347) |
+| Southend | 0.371 / 0.482 | 21 | 7 (340) | 0 (69) |
+| Loughborough | 0.304 / 0.381 | 23 | 93 (551) | 10 (127) |
+| Snettisham | 0.003 / 0.003 | 155 | 163 (900) | 161 (886) |
+| Town 448500, 423500 | 0.228 / 0.300 | 50 | 178 (813) | 0 (117) |
+| 445050, 423950 | 0.190 / 0.236 | 60 | 380 (882) | 0 (244) |
+| 446100, 423950 | 0.075 / 0.114 | 33 | 94 (881) | 3 (427) |
+| 447200, 423950 | 0.186 / 0.238 | 42 | 127 (823) | 2 (176) |
+| Ferrybridge | 0.144 / 0.190 | 57 | 105 (848) | 5 (306) |
+| Upper Aire | 0.066 / 0.085 | 13 | 52 (865) | 25 (587) |
+| Belford | 0.000 / 0.000 | 82 | 82 (196) | 82 (196) |
+| Neston | 0.016 / 0.018 | 48 | 52 (196) | 45 (176) |
+
+- Setting A raises the window count at 10 of 12 boxes, lowers it at Southend (21 to 7) and leaves
+  Belford unchanged; the extra windows include the zero-shift artefact above.
+- Setting B at Southend has 69 eligible windows and none reliable. The eligible counts at the
+  first three boxes are therefore 347, 69 and 127; the 0 above is Southend's reliable count.
+- Ferrybridge and Upper Aire were measured (105 and 52 windows under A, 5 and 25 under B), but
+  their 1 km corners were inferred and Upper Aire's baseline of 13 does not reproduce, so the
+  comparison with the other boxes stands as not made.
 
 ## T2 prior-art check: lean model (2026-10-26)
 
@@ -144,13 +203,50 @@ z19: Worcester (west, BNG 385500 254600), Southend (east, 588300 186400), Newcas
   with stepped edges from the 1 m height grid; facades hidden from the lidar are not recovered.
 - The owner judges the images (artifact page of 24 building strips and three overviews).
 
+Details from `uncommitted/scratch-archive/lean/progress.log`, with `h_p10` the declared eave
+height and `h_med` the median roof height as a check. Box search: Worcester 385500, 254600 (223
+buildings of 5 m or more among 267), Southend 588300, 186400 (136 of 187), Newcastle first 425500,
+564500 (63 of 78) then 426700, 564500 (129 of 158), Brighton 531500, 106300 (112 of 130), Brighton2
+532000, 104600 (50 of 5 m or more).
+
+| Box | Components over 3 m and 40 m2 | Passed building tests | Accepted by the matcher |
+| --- | --- | --- | --- |
+| Worcester | 833 | 264 | 32 |
+| Southend | 1110 | 184 | 23 |
+| Newcastle | 567 | 149 | 25 |
+| Brighton | 644 | 127 | 5 |
+| Brighton2 | 734 | 64 | 2 |
+
+| Scene (n roofs) | t E, N, `h_p10` | l E, N | k (95 %), az | `h_med`: t E, N, k (95 %) | Closure, matcher offset: raw, shift only, lean |
+| --- | --- | --- | --- | --- | --- |
+| Worcester WV03 (21) | -1.16, +1.04 | +0.138, -0.341 | 0.368 (0.146 to 1.137), 158 | -1.77, +1.23, 0.419 (0.160 to 0.999) | 1.80, 2.32, 1.54 |
+| Worcester LG02 (11) | +2.13, +1.86 | -0.492, -0.261 | 0.557 (0.202 to 1.607), 242 | +2.60, +2.98, 0.590 (0.259 to 1.370) | 0.81, 3.18, 0.55 |
+| Southend GE01 (23) | +0.25, +3.54 | -0.124, -0.524 | 0.538 (0.265 to 0.830), 193 | +0.30, +3.08, 0.387 (0.183 to 0.696) | 1.68, 2.46, 1.22 |
+| Newcastle WV03 (17) | +1.76, -1.32 | +0.053, -0.105 | 0.118 (0.070 to 0.582), 153 | +1.93, -1.27, 0.098 (0.082 to 0.490) | 2.79, 0.87, 0.67 |
+
+- Shift-only closure (ground shift t alone, no lean) is worse than the published image at
+  three of four scenes, by 0.5 to 2.4 m at the two Worcester scenes and 0.8 m at Southend;
+  Newcastle improves from 2.79 to 0.87 with t alone and to 0.67 with the lean.
+- Logged fitted share of the box: Worcester 1.000, Southend 0.997, Newcastle 0.717.
+- S0b cross-check (`s0b_xcheck.py` on the S0b per-building offsets, 300 bootstrap draws,
+  one lean shared by all boxes and a ground shift per box): 83 buildings in 7 boxes, k 0.654
+  (0.509 to 0.796) with `h_p10`, 0.555 (0.433 to 0.681) with plain height, azimuth 209.5 degrees;
+  the "about 0.55" quoted above is the plain-height value.
+- Unresolved: `e9-results.md` attributes the S0b building set to Worcester (86 buildings in 8
+  boxes). The 83 buildings of this cross-check are its seven `x35*` boxes, whose grid corners
+  (BNG E 351892 to 354925, N 237291 to 238828) lie about 33 km west of the Worcester box above
+  (E 385500, N 254600) and in a different area; the 86 are those 83 plus 3 at Ferrybridge.
+  Which place name the S0b records carry has not been checked against a gazetteer, so the
+  Worcester label in `e9-results.md` and in `status.md` stays unconfirmed.
+
 ## Esri scene polygons by one query (2026-10-26)
 
 - `World_Imagery/MapServer/4/query` with an envelope (`geometryType=esriGeometryEnvelope`,
   `inSR=4326`, `outFields=*`, `returnGeometry=true`, `outSR=4326`, `geometryPrecision=6`,
   `maxAllowableOffset` 1e-4 to 5e-4 degrees to keep the response small, `where` URL-encoded as
   `MinMapLevel<=Z AND MaxMapLevel>=Z`) returns every scene footprint of a 5 km area in one request
-  (15 polygons, below the 100-record page; `resultOffset` paging works for dense areas). VERIFIED live.
+  (15 polygons, below the 100-record page; `resultOffset` paging works for dense areas). VERIFIED
+  live.
 - It is more complete than T0's 13 x 13 identify grid: 5 small slivers the grid missed.
 - Fields: `OBJECTID`, `SRC_DATE` (YYYYMMDD), `SRC_RES`, `SRC_ACC`, `SRC_DESC` (sensor),
   `MinMapLevel`, `MaxMapLevel`, `DrawOrder`, `BlockName`, `ReleaseName`.
@@ -161,6 +257,92 @@ z19: Worcester (west, BNG 385500 254600), Southend (east, 588300 186400), Newcas
 - MultiPolygons with holes occur; test points with even-odd fill. Cache footprints with the
   release name, which changes (here `DYNAMIC_ESRI_Leeds_25Q3`).
 
+## Lean2: conditioning of the joint fit (2026-10-29)
+
+Scratch: `uncommitted/scratch-archive/lean2/` (`results.md`, `results_tables.md`, `progress.log`,
+`*_results.json`, `*_obs.pkl`, `fits.py`, `prep2.py`; `southend_t.npz` and `ferry_t.npz` are inputs
+of the open-ground re-check in `metric-bias-audit.md`). Declared 2026-10-26, run 2026-10-29. Every
+fit is soft-L1, `f_scale` 1 m, per dominant Esri scene; k = |l| in m per m, the Maxar cap is
+tan 30 = 0.577. Bootstrap: 300 draws over roofs and 4 x 4 window blocks, F0 to F2 only.
+
+| Fit | Definition |
+| --- | --- |
+| F0 | roofs only, joint (t, l), the lean-fit baseline |
+| F1 | roofs plus all reliable registration windows, equal weight per observation |
+| F2 | F0 plus the ground-registration median as a pseudo-observation of t: (t - t0) / sd, sd the block-bootstrap interval / 3.92 in quadrature with 0.4 m |
+| F3 | F0 centred on the mean roof height (the same fit, t reported at h-bar instead of h = 0) |
+| F4 | alternation of 5 iterations from l = 0, t starting at the raw-image window median; window threshold fixed from the raw image |
+| F5 | whole-image Powell fit of (t, l) on the gradient NCC; l in units of 0.1 m per m |
+
+Boxes: southend_t (BNG 587000, 185000; EA aerial 2024-06; truth +0.23, +1.57), ferry_t (448500,
+423500; aerial 2020; truth -0.31, +0.71) and southend_l (588300, 186400; the lean box of the
+four-site fit, no truth). Scenes are grouped by date plus sensor: southend_t is 20250712 GE01
+(polygons 3297692 and 3298659 fitted as one), ferry_t 20250716 LG01 (polygon 4146033).
+
+| Box | Components over 3 m | Passed building tests | Roofs in scene (h, mean) | Reliable windows (threshold) | Ground prior t0 (sd) |
+| --- | --- | --- | --- | --- | --- |
+| southend_t | 714 | 52 | 13 (3.2 to 16.1 m, 5.0) | 13 of 900 (0.0955) | +0.45, +2.12 (0.61, 0.48) |
+| ferry_t | 667 | 162 | 20 (3.4 to 6.7 m, 4.3) | 63 of 900 (0.0880) | -0.46, +0.26 (0.41, 0.51) |
+| southend_l | 1110 | 184 | 23 (3.0 to 8.4 m, 5.1) | 17 of 900 (0.0826) | +0.23, +0.75 (0.82, 0.88) |
+
+Per fit (t E, N in m; |err| is the distance of t from truth; k 95 % and t sd from the bootstrap;
+roof residual is the median |offset - t - l h| of the accepted roofs; closure is the median
+|offset| of roofs re-matched on the corrected image, n the roofs accepted then):
+
+| Box | Fit | t E, N | \|err\| | az | k (95 %) | t sd E, N | Roof residual | Closure (n) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| southend_t | F0 | +0.60, +2.40 | 0.91 | 210 | 0.424 (0.37 to 1.09) | 0.28, 1.13 | 0.64 | 0.89 (16) |
+| | F1 | +0.49, +2.62 | 1.08 | 207 | 0.438 (0.39 to 0.75) | 0.44, 0.43 | 0.72 | 0.83 (15) |
+| | F2 | +0.54, +2.23 | 0.73 | 210 | 0.403 (0.30 to 0.55) | 0.24, 0.32 | 0.59 | 0.80 (14) |
+| | F4 | +0.46, +1.77 | 0.30 | 212 | 0.448 | | 0.77 | 1.04 (13) |
+| | F5 | +0.38, +2.12 | 0.57 | 208 | 0.326 | | 0.88 | 0.70 (16) |
+| ferry_t | F0 | -1.37, +5.79 | 5.19 | 172 | 1.128 (0.21 to 2.32) | 0.95, 3.83 | 1.99 | 0.52 (51) |
+| | F1 | -0.46, +0.65 | 0.16 | 192 | 0.148 (0.05 to 0.53) | 0.29, 0.55 | 2.93 | 2.84 (29) |
+| | F2 | -0.57, +0.46 | 0.36 | 354 | 0.146 (0.04 to 0.71) | 0.11, 0.91 | 2.45 | 3.15 (23) |
+| | F4 | -0.01, +0.09 | 0.69 | 327 | 0.286 | | 2.41 | 3.55 (21) |
+| | F5 | -0.60, +1.65 | 0.98 | 180 | 0.477 | | 3.06 | 2.18 (37) |
+| southend_l | F0 | +0.25, +3.54 | no truth | 193 | 0.538 (0.25 to 0.85) | 0.30, 1.01 | 0.98 | 0.94 (24) |
+| | F1 | +0.76, +1.52 | no truth | 227 | 0.288 (0.20 to 0.51) | 0.47, 0.57 | 0.74 | 1.92 (23) |
+| | F2 | +0.24, +2.44 | no truth | 200 | 0.364 (0.20 to 0.67) | 0.33, 0.85 | 0.86 | 1.24 (30) |
+| | F4 | +0.01, +1.20 | no truth | 232 | 0.256 | | 1.02 | 1.75 (24) |
+| | F5 | +0.17, +1.90 | no truth | 204 | 0.324 | | 0.58 | 1.36 (27) |
+
+- Ground error |err| (southend_t / ferry_t / mean): F0 0.91 / 5.19 / 3.05; F1 1.08 / 0.16 / 0.62;
+  F2 0.73 / 0.36 / 0.55; F4 0.30 / 0.69 / 0.50; F5 0.57 / 0.98 / 0.78. F2 is the only fit under
+  0.8 m at both truth boxes; the owner chose it. The southend_l F0 t reproduces the four-site fit
+  (+0.25, +3.54); F1, F2, F4 and F5 there give tN 1.52, 2.44, 1.20, 1.90, nearer the southend_t
+  truth tN of +1.57 for the same scene, which is consistent with a biased F0 tN and is not truth.
+- F0 fails at ferry_t: k 1.128 is above the cap, the roof residual is 1.99 m and the tN bootstrap
+  sd 3.83 m, with roofs spanning only 3.4 to 6.7 m. The same fit at southend_t has tN sd 1.13 m.
+- F3: the bootstrap sd of t at the mean roof height is 0.12 / 0.40 (southend_t), 0.22 / 0.89
+  (ferry_t) and 0.13 / 0.30 (southend_l) against 0.28 / 1.13, 0.95 / 3.83 and 0.30 / 1.01 at
+  h = 0. The t at mean roof height: southend_t (-0.46, +0.58), ferry_t (-0.66, +1.02), southend_l
+  (-0.38, +0.85). The extrapolation to the ground is the poorly conditioned quantity.
+- F4 does not converge. southend_t, dt per iteration 0.24, 0.27, 0.18, 0.23, 0.80 m with 20, 18,
+  22, 22, 21 windows; ferry_t 0.19, 1.29, 1.25, 0.20, 0.05 m with 45, 43, 53, 39, 48; southend_l
+  1.03, 0.20, 0.18, 0.31, 0.71 m with 25, 22, 29, 18, 23. The window set changes with the warp, so
+  the answer depends on the stopping iteration.
+- F5 gradient NCC before to after: southend_t 0.1514 to 0.1583 (262 Powell evaluations), ferry_t
+  0.1454 to 0.2131 (231), southend_l 0.1444 to 0.1836 (220).
+- Bootstrap k intervals that reach above the cap 0.577: F0 southend_t (to 1.09), F0 ferry_t (to
+  2.32), F0 southend_l (to 0.85), F1 southend_t (0.39 to 0.75), F2 ferry_t (to 0.71), F2
+  southend_l (to 0.67). No point estimate except F0 at ferry_t exceeds the cap.
+- Windows are scarce under the declared null threshold: 13, 63 and 17 of 900. F1 is mostly roofs
+  at southend and windows-dominated at ferry_t (63 windows against 20 roofs), which is why F1 is
+  excellent at ferry_t (0.16 m) and weak at southend_t (1.08 m).
+- Uncorrected closure (median |offset| of re-matched roofs on the raw image): southend_t 1.15,
+  ferry_t 2.84, southend_l 1.07 m. Closure values are not comparable across fits because n changes
+  with the correction.
+- Truth sensitivity (Esri against the EA aerial, windows): southend_t all 233 windows (+0.28,
+  +1.42), within 0.15 m of the published truth; raised fraction under 5 % (nDSM above 2.5 m over
+  each 256 px window) n = 12, (+0.92, +2.67). ferry_t all 67 windows (-0.26, +0.53); raised
+  fraction under 5 % n = 2, (-0.31, +1.19). The truth is reliable to about 0.2 m for the
+  all-window estimate; the lean-free subset at southend_t is 1.1 m north of it on 12 windows.
+- `southend_l.npz` (no truth) is regenerated by `prep2.py` in about 12 minutes with cached Esri
+  tiles; `southend_t.npz` and `ferry_t.npz` are the saved inputs of the open-ground re-check.
+- The ground prior t0 is itself 0.55 m (southend_t) and 0.45 m (ferry_t) from truth in N, which
+  bounds F2's accuracy.
+
 ## C1/C2 build (2026-10-29)
 
 Code, staged and not committed: `satmesh_data/esri_scenes.py` (C1), `satmesh_eval/roofs.py` and
@@ -170,9 +352,9 @@ fit; 219 pass in all.
 
 C1, scene footprints:
 
-- One geometry-free query (`outFields=OBJECTID,ReleaseName`) names the release, then the
-  footprints come from `~/.cache/satmesh/esri-world-imagery/scenes/<release>/<WGS84 bounds>-z<zoom>.json`
-  or one geometry query (`maxAllowableOffset` 1e-5 degrees, `orderByFields=OBJECTID`, paged by
+- One geometry-free query (`outFields=OBJECTID,ReleaseName`) names the release, then the footprints
+  come from `~/.cache/satmesh/esri-world-imagery/scenes/<release>/<WGS84 bounds>-z<zoom>.json` or
+  one geometry query (`maxAllowableOffset` 1e-5 degrees, `orderByFields=OBJECTID`, paged by
   `resultOffset` while `exceededTransferLimit`). The cache holds the features as served.
 - Live, Southend 1 km box at z19: 1.4 s, release `Raster Basemaps 2026.R01`, one scene 20250712
   GE01 from polygons 3297692 and 3298659, share 1.0; cached call 0.9 s (probe plus throttle).
@@ -254,9 +436,9 @@ Design as built:
   the 1 m lidar grid. A cell whose DSM or DTM fails the gap check gives no roofs (logged).
 - Decision (owner-side lead): a rejected scene keeps the per-cell ground shift, no lean, no new t.
 - C4 (`apply_correction`): a vertex's build-grid node comes from its glTF position (ENU to ECEF to
-  geodetic, rounded to the grid, 0.01-step tolerance), its h from that position's ODN height (OSGM15)
-  minus the node's ground GeoTIFF at the node; skirts take the h of the vertex above. New UV =
-  base grid UV + uv(p + d) - uv(p), p the vertex's BNG position and uv() the exact BNG to Web
+  geodetic, rounded to the grid, 0.01-step tolerance), its h from that position's ODN height
+  (OSGM15) minus the node's ground GeoTIFF at the node; skirts take the h of the vertex above. New
+  UV = base grid UV + uv(p + d) - uv(p), p the vertex's BNG position and uv() the exact BNG to Web
   Mercator to texture map: J d with no linearisation. UVs are absolute, so a repeat or a revised
   field equals a single application (repeat at Southend: max UV change 0.0).
 - Error bound: B(h) = B_t + r_l h, B_t = sqrt(w_E^2 + w_N^2 + r_m^2) (w the larger half of the
@@ -312,6 +494,45 @@ For C5: `uncommitted/scratch-archive/c3c4/` holds three copies of one build, `l5
 store. Before/after strips can be rendered from `l500-uncorrected` against `l500` on the same
 crop; a store with a corrected cell is needed to show ground-only against lean.
 
+## C5: lean-corrected render review (2026-10-29)
+
+Scratch: `uncommitted/scratch-archive/c5/` (scripts, `progress.log`, `work/consistency.json`,
+`work/ground_store.json`, page `index.html`, 2.7 MB; the artifact URL was not recorded). Inputs:
+the `c3c4` Southend 0.79 km stores. The page was built in about 10 minutes (19:54 to 20:04) and
+holds 19 roof strips and 3 ground crops. Render: 1,415,348 triangles, coverage 0.9289, 3164 x 3156
+px at 0.25 m. Renders A (ground shift only) and B (lean-corrected) are compared with Esri-direct.
+
+Subject rule, fixed before any result: the 8 tallest accepted GE01 roofs by eave height (tall); the
+4 GE01 roofs with the largest matcher offset on render B, a roof the matcher rejects on B ranking
+worst (worst); buildings the matcher rejects on the Esri-direct luma at positions 1, 11, 21, ... in
+footprint id order, up to 6 (unfiltered); the 3 accepted roofs in the WV02 area (not corrected).
+Store ids: tall 35, 25, 59, 38, 42, 13, 53, 36; worst 35, 25, 40, 45; unfiltered 0, 10, 21, 33, 50,
+66; WV02 62, 63, 64. The store has 80 buildings; the production matcher on the Esri-direct luma
+accepts 16 (13 GE01, 3 WV02), as in production.
+
+- Ground-window rule, 3 amendments recorded in the log: the absolute thresholds (nDSM variance at
+  most 0.0225 m2, 90 % of pixels under 0.5 m) gave no candidate, since the lowest window variance
+  in the store is 0.023 m2; 40 m windows had variance 2.4 to 3.3 m2 and were a third to half roofs
+  or trees, so display windows became 20 m; single 64 m windows then gave phase-correlation shifts
+  of up to 18 m on dense roofs, so the ground check became the production store-wide measurement
+  and the three crops are for the eye only.
+- Render check: the best-fit shift of render B's ground pixels against the shifted-by-t render A is
+  (+0.05, +2.10) against the stored t (+0.07, +2.13), 0.03 m apart (limit 0.25); luma RMS 36.5
+  unshifted to 5.6 shifted (2,899,346 ground pixels).
+- Store-wide ground registration, windows reliable on Esri-direct (11 of 529); median E, N in m:
+  Esri-direct (-0.01, +2.10) from 11 windows; A, ground shift only (-0.09, +2.92) from 10; B,
+  lean-corrected (+0.10, +1.25) from 7. Taking every window reliable on each image separately gave
+  direct (-0.01, +2.10) n 11, A (-0.52, +2.47) n 8, B (+0.50, -0.71) n 11 (GE01 only: A (-0.00,
+  +3.45) n 7, B (+0.63, -0.76) n 10).
+- The 11 per-window north shifts on Esri-direct are +4.00, +1.49, +2.10, +1.99, +3.02, +2.56,
+  +2.54, +1.22, +1.26, -9.27, +6.40 m; east shifts run from -3.97 to +5.24 m. The median is
+  stable but nine windows span 1.2 to 4.0 m and two are far outliers, so the check is noise, as
+  `metric-bias-audit.md` says. B's median N is 0.85 m below direct's and A's 0.82 m above. The
+  "Southend over-correction" rests on these 11 of 529 windows with north from -9.27 to +6.4 m, not
+  on a documented eye judgement.
+- Consistency blocks (n = 31): B(p) = A(p + d) gives median N +1.93 m, sd 0.74 m (E +0.05, sd
+  0.03); A(p) = direct(p + d) gives median (-0.06, +0.06) m, sd about 0.02 m.
+
 ## C6 result (2026-10-29)
 
 Verdict: fails the gate, no production code. Scratch: `uncommitted/scratch-archive/c6/gate.py`,
@@ -337,7 +558,13 @@ loss at the other, and at least `MIN_GROUND_WINDOWS` (10) in-scene windows after
 - At Ferrybridge the de-leaned window median alone is 0.12 m from truth, but the roofs pull the
   refit to +1.13 N; the de-leaned windows halve (63 to 30), widening the prior.
 - Info, not gated: keeping the raw-image threshold gives 19 and 43 windows and refit errors 0.97
-  and 0.70 m.
+  and 0.70 m (window medians t0 (+0.84, +2.46) at Southend and (-0.33, +1.02) at Ferrybridge,
+  refit t (+0.72, +2.41) and (-0.46, +1.39)).
+- Null-response thresholds: de-leaned 0.0761 against raw 0.0955 at Southend (13 to 38 windows),
+  0.0979 against 0.0880 at Ferrybridge (63 to 30). Refit l at Southend (-0.206, -0.374) against
+  F2 (-0.204, -0.347); at Ferrybridge (-0.060, -0.023) against (-0.016, +0.145). Logged times
+  after baseline, de-leaned registration, refit and info variant: 1, 5, 7, 10 s at Southend; 2,
+  6, 8, 12 s at Ferrybridge.
 - The window count rises at Southend (13 to 38) and halves at Ferrybridge after de-leaning, as
   lean2 F4 saw 18 to 25 windows change per iteration: the reliable set is sensitive to the warp,
   so a de-leaned prior averages over different windows than the raw one.

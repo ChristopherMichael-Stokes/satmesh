@@ -23,6 +23,23 @@ except box 1 (full 1 km, see below). Stores and GLBs are in `uncommitted/offset-
 | 5 | Neston | 2024-07, 20 cm | 18 | 0.46 (0.34, 0.59) | 1.40 (1.34, 1.49) | 97 of 196 |
 | 6 | Belford | 2023-09, 25 cm | 18 | -0.59 (-0.74, -0.55) | 0.94 (0.77, 1.08) | 71 of 196 |
 
+## Box corners
+
+BNG corners (E, N). The store of each box is the 500 m slice from its slice corner, built with
+`satmesh build --bbox E N E+500 N+500 --crs EPSG:27700` and exported with `export glb` (1 to 3 min
+each); the 1 km candidate box is the slice corner minus 250 m on both axes (recorded for boxes 1 and
+2, assumed for 3 to 6). Scripts in `uncommitted/scratch-archive/e2-survey/` (`build_all.sh` reads
+`box1.txt` and `rest.txt`, whose lines are `name E N`).
+
+| Box | Place | Slice corner E, N | 1 km box SW corner | OS square | EA aerial year |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Dunster | 299250, 143250 | 299000, 143000 | | 2020 |
+| 2 | Southend | 587250, 185250 | 587000, 185000 | TQ8585 | 2024 |
+| 3 | Snettisham | 562250, 328250 | 562000, 328000 | TF6025 | 2023 |
+| 4 | Loughborough | 454250, 319250 | 454000, 319000 | SK5015 | 2025 |
+| 5 | Neston | 328250, 376250 | 328000, 376000 | SJ2575 | 2024 |
+| 6 | Belford | 408250, 641250 | 408000, 641000 | NU0540 | 2023 |
+
 ## Traps
 
 - The box 1 500 m slice produced no usable window (wooded, leaf-off against leaf-on, 5.4 years

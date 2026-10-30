@@ -74,7 +74,8 @@ Owner order (2026-10-26):
    re-registration, centred regression with honest extrapolated bound). Resume: relaunch that
    research (scratch in `uncommitted/scratch-archive/lean2`), test offline on saved offsets with
    Southend truth (+0.23, +1.57), then decide the fit and build C1 onward.
-   Lean2 result (2026-10-29, `uncommitted/scratch-archive/lean2/results.md`): ground error at
+   Lean2 result (2026-10-29, per-fit tables in `e2b-results.md` "Lean2: conditioning of the joint
+   fit", source `uncommitted/scratch-archive/lean2/results.md`): ground error at
    Southend / Ferrybridge truth, F0 roofs only 0.91 / 5.19 m, F1 roofs+windows 1.08 / 0.16,
    F2 F0 + ground-registration prior 0.73 / 0.36, F4 alternation 0.30 / 0.69 (does not converge),
    F5 whole-image 0.57 / 0.98. F0 fails where roofs span only 3 to 7 m (extrapolation to h = 0).
@@ -94,7 +95,9 @@ Owner order (2026-10-26):
    11 windows, t +0.07 +2.13 m, k 0.34 toward 198, bound 1.16 m + 0.15 h), WV02 rejected (3 roofs);
    corrected UVs reproduce t and l exactly against independent DSM-DTM heights. Risks: tile-edge
    clamp smear (0.5 % of vertices) and seam stretch inside mixed nodes.
-   Next: C5 before/after strips with blink from `uncommitted/scratch-archive/c3c4/` stores.
+   C5 ran 2026-10-29 (`e2b-results.md`, "C5: lean-corrected render review"; page
+   `uncommitted/scratch-archive/c5/index.html`, 19 strips): its lidar-ground check rests on 11 of
+   529 windows with north from -9.27 to +6.4 m and is noise.
    C6 (one de-leaned re-registration pass, then one F2 refit) failed its declared gate on
    2026-10-29 and was not built (`e2b-results.md`, "C6 result"): ground error vs truth Southend
    0.73 to 0.95 m, Ferrybridge 0.36 to 0.42 m. The Southend over-correction seen in C5 stays open.
@@ -109,7 +112,10 @@ Owner order (2026-10-26):
    run (Part 1: combinations A, B, C over 5.4 km areas; Part 2: metric-bias re-checks;
    Part 3: learned-height models); survey
    `e4-research-2.md` done (first trial RS3DAda nDSM plus mass-preserving composition; runner-up
-   Geopose). GLBs of every surface in `uncommitted/scratch-archive/e4/glb/`.
+   Geopose). GLBs of every surface in `uncommitted/scratch-archive/e4/glb/`. Every e4b script reads
+   `scratch-archive/e4/` (`{ferry,aire}-inputs.npz`, `-texture.npz`, `out/`, `scores.json`,
+   `score.py`, `render.py`, `make_page.py`, `glbs.py`, `vendor/`): do not clean it up. Kriging
+   variograms, scorer strata and the degenerate Upper Aire fits are in `e4-results.md`.
 4. Yemen as the different-region test (F2a source registry, UTM, geoid, coarse elevation). The
    source survey is `region-research.md`; its plan follows from that report.
 5. F5b Gazebo collision, then F7 real-photo localisation (needs owner-supplied photographs with
@@ -141,6 +147,7 @@ Next: S2 (vendored-port check against the original on a 270 m tile, per-training
 | --- | --- | --- |
 | 2026-10-30 | M1 phase 1 done (scratch `uncommitted/e4b/m1/`, tables in `m1/tables.txt`, review page <https://claude.ai/artifact/GBTiu16cvHBpbgkxC1GDL5>): RS3DAda (TTA and not), Geopose (folds 5 and 6, 4-flip TTA), CHMv2 (model, gated access granted, and global tiles), Depth Anything 3 Mono and Metric, V2 Small, zero-shot on the 540 m boxes at x5 and x30. By RMSE (secondary) only Geopose M-C and RS3DAda M-C beat kriging, at Ferrybridge x30 (1.68, 1.92 against 2.08); Upper Aire x30 ties (2.11 against 2.17); M-A equals kriging; M-B is much worse. Flat-ground edge slope stays above lidar for every height model (RS3DAda 0.27, Geopose 0.37 raw at Ferrybridge against 0.017). Depth models, fitted to height above ground (the first fit regressed on terrain elevation and gave negative scales), add nothing: M-A within 0.03 m of kriging, M-C worse. CHMv2 on the 0.25 m texture overpredicts canopy (open-ground RMSE 7 m); at 0.5 m better; global tiles best; all underpredict Ferrybridge trees by 3 to 4.5 m. M-C uses two tunables, gain floor 0.1 m and gain cap 3 (no source) | Zero-shot sweep; owner judges the renders |
 | 2026-10-30 | Land-cover head built (`uncommitted/e4b/seg/`, results in `e4b-results.md`): leave-one-area-out building F1 0.73 to 0.82 against 0.16 to 0.32 for RGB, vegetation F1 0.14 to 0.31, no water class in the lidar. Next per the proposal (`pixtransform-proposal.md`, approved by the owner): E0 masked anomaly surface, then E1 per-image correction | Owner approved merging the PixTransform and height-model tracks and E0, E1 |
+| 2026-10-30 | E0 ran early (before the owner's go; the tidy was to come first) and is held: results are in `e4b-results.md`, nothing rendered, no next stage started. Masks help at Ferrybridge x30 (RMSE 2.29 to 1.72) and little elsewhere; per-class gains unusable; Upper Aire has no mask signal | Owner paused the plan until the tidy completes |
 | 2026-10-30 | Coarse-to-fine choice: heights = coarse DEM + anomaly of the mean of Geopose and RS3DAda height-above-ground predictions, with a kriging base (M-A, `avg_ma`) as the general case; bilinear base dropped. Kriging base leaves no slope creases (second-difference ratio at cell-centre lines 1.0 to 1.2) where the bilinear base does at x5 (Ferrybridge 1.5 to 1.6, Upper Aire 2 to 6); at x30 both are about 1.0 to 1.1, but kriging at x30 is slow (about 7 min per 540 m box, so per-block runs are needed over 5.4 km) and coherent only to about 1 cm. CHMv2 is accepted as the tree layer despite a 3 to 4.5 m underestimate (any lift beats flat). Review page <https://claude.ai/artifact/9hW3why4guocCyLyVjkbQy> | Owner choice after own visual review; CHMv2 plus building models merge and per-class sourcing wait on segmentation |
 | 2026-10-30 | Segmentation work approved: (1) class labels from EA point-cloud classes (ground, vegetation, building, water) for the three 5.4 km areas and a small head on frozen DINOv3-Sat features, tested leave-one-area-out; (2) per-class height sources and post-processing (flat roofs, steeper walls, tree-crown caps, ground held to the DEM) after a prior-art survey. The PixTransform proposal must include supplementary data (class masks, DINOv3 features, other lidar-derived layers) as extra guide input | Owner: the segmentation can constrain height extraction and clean artefacts; extra data steers PixTransform |
 | 2026-10-30 | M1 verdict by eye: owner judges both M-A surfaces (RS3DAda TTA, Geopose) the most faithful to the lidar, with a preference for Geopose M-A; kriging looks bad to the owner, bilinear better. Own review of the renders agrees: M-A has no cell-edge steps (30 m edge step 1.0 times the step elsewhere); M-C has 3.9 to 4.2 times (rejected); the trial kriging panels carry 270 m tile-edge tears (12 to 22 times at x30) because the trial ran kriging per 270 m tile, so the kriging baseline was unfair, and bilinear is the baseline from here. M-A gives footprint, position and rough height of grey buildings beside grey pavement and keeps road verges flat, but rounds walls, roof ridges and tree crowns, underestimates raised heights (raw means 1.4 to 8 m low) and lifts a red vehicle into an oversized dome (cars absent from the older lidar are real objects: keep or drop is a policy call). Candidate next steps: average Geopose and RS3DAda N, fine-tune on England lidar (M3), bilinear base in place of kriging | Owner decision plus own visual review; two boxes and views at the tallest windows |
@@ -193,7 +200,9 @@ Next: S2 (vendored-port check against the original on a 270 m tile, per-training
 - Lean-biased truth (`metric-bias-audit.md`, 2026-10-30): the Esri-to-EA-aerial truth used for every
   position and lean fit is a median over all windows, roofs included, so lean pulls it south;
   against a 12-window open-ground truth at Southend the C6 refit would pass and the north
-  overshoot shrinks. Unverified until an open-ground truth with more windows is measured.
+  overshoot shrinks. Unverified until an open-ground truth with more windows is measured. The
+  re-check reads `uncommitted/scratch-archive/lean2/{southend_t,ferry_t}.npz`, `*_obs.pkl` and
+  `fits.py`, `c6/gate.py` and `s0b/lean.py`; keep them.
 - `correct` memory: about 2 GB per worker, 8 workers at most, all cells' lidar points held at
   once; a many-km area needs a bounded reader.
 - Crown and roof-edge fidelity against the lidar is traded for a smooth look (see the 0.5 m sampling
@@ -204,7 +213,8 @@ Next: S2 (vendored-port check against the original on a 270 m tile, per-training
   `offset-survey.md`; S6's 2.4 m was a Helmert-reprojection artifact), and raised objects are
   displaced differently from open ground, so a rigid correction will not do; matching pipelines
   will see it.
-- Esri imagery is not a true orthophoto at Worcester (roofs displaced about 0.3 to 0.6 m per m of
+- Esri imagery is not a true orthophoto at Worcester (the location of the S0b boxes is unverified, see
+  `e2b-results.md` "Lean fit at four sites"; roofs displaced about 0.3 to 0.6 m per m of
   height toward south-west; S0b, `e9-results.md`); undetermined at the survey sites, so buildings
   can lean in the texture and the position correction does not remove it.
 - No ground-truth scoring yet: DEM, texture and geoid chain are untested against raw lidar and
@@ -228,6 +238,9 @@ Next: S2 (vendored-port check against the original on a 270 m tile, per-training
 | E8 survey, results | `e8-research.md`, `e8-results.md`, `lidar-pointcloud-spike.md` |
 | E2 survey, results | `e2-research.md`, `offset-survey.md`, `e2-results.md` |
 | Metric bias audit | `metric-bias-audit.md` |
+| E2b results (T0 per-cell table, T1 counts, four-site lean fit, lean2 tables, C1 to C6 including C5 numbers) | `e2b-results.md` |
+| E9 results (S0 stretch bins, S0b matcher counts and synthetic checks) | `e9-results.md` |
+| Scratch audit, scripts copied out of /tmp (`scratch-archive/c1c2`, `scratch-archive/e2-survey`) | `scratch-audit.md` |
 | E4, E9, region surveys | `e4-research.md`, `e4-results.md`, `e4-research-2.md`, `e4b-plan.md`, `e9-research.md`, `region-research.md` |
 | E4b: results, recipes, surveys, proposal | `e4b-results.md`, `m1-model-recipes.md`, `dinov3-landcover-results.md`, `pixtransform-survey.md`, `semantic-height-research.md`, `pixtransform-proposal.md`, `pixtransform-external-note.md` |
 | Speed-up record | `speedup-results.md` |

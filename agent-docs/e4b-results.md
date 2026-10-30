@@ -110,6 +110,42 @@ in the older lidar are real objects: keep or drop is a policy call). The mean of
 tempers Geopose's oversized tree domes. Texture streaking on steep sides is the Esri image draped
 on new slopes. The views sit on the tallest windows, where these models do best.
 
+## E0 results (masked anomaly surface, held for the owner)
+
+Run 2026-10-30 on the two 540 m boxes (scratch `uncommitted/e4b/e0/`, surfaces
+`e0m|e0g|e0h-{site}-guide-x{5,30}.npz` in `scratch-archive/e4/out/`); specification in
+`pixtransform-proposal.md`. Not rendered; the owner has not seen it. Scores are secondary.
+
+- Held-out head on the boxes: Ferrybridge box accuracy 0.882, building F1 0.773 (500 building
+  tokens); Upper Aire box accuracy 0.954, only 12 building tokens (700 pixels), so its building F1
+  of 0.154 means nothing. The head under-predicts vegetation at Upper Aire: 3 % of pixels carry any
+  raised mask against 40 % at Ferrybridge, so e0 equals the unmasked surface there.
+- The guided filter did not improve agreement with the lidar: Ferrybridge 1 m building F1 0.666
+  for plain bilinear, 0.665 at radius 1 to 2, 0.635 at 4, 0.467 at 8, 0.27 at 16. Radius 4 and eps
+  0.01 were used (tuned on that one box; registration and lean confound it).
+- Masking removes 56 % of the false raised heights in N (lidar-ground pixels with N above 1 m: 39.9
+  to 17.5 % at Ferrybridge, 10.0 to 0.06 % at Upper Aire), but the final surface barely changes at
+  x5 (ground lift 14.7 to 13.9 %) and rises at x30 (28.7 to 30.2 %); the coarse base and mask
+  leakage dominate. The head's vegetation class includes low vegetation: of its predicted
+  vegetation pixels at Ferrybridge, 59 % have lidar height under 1 m and 44 % sit on lidar ground.
+- RMSE, `avg_ma` to `e0m` (e0g, e0h): Ferrybridge x5 0.869 to 0.838 (0.829, 0.910); Ferrybridge
+  x30 2.294 to 1.723 (1.825, 1.764), open-ground RMSE 2.21 to 1.34, edge slope 0.330 to 0.133;
+  Upper Aire x5 1.663 to 1.664; Upper Aire x30 2.105 to 2.152 (2.138, 2.152). Buildings and trees
+  get slightly worse (Ferrybridge x30 building bias -1.50 to -1.89 for e0m, -2.65 for e0g; tree
+  RMSE 2.68 to 2.91). Cell-edge step ratios stay 1.0 to 1.2.
+- Per-class gains (e0g, ground-smoothness fit) are not usable: all four fits sit at a grid edge or
+  on a flat curve (Ferrybridge x5 building 1.9, vegetation 0.5; x30 both 0.5; Upper Aire x5
+  building 0.5, vegetation 1.2; x30 2.8 and 3.0); the lidar-regression oracle gain at Ferrybridge
+  is 1.25 to 1.38 for buildings and 0.33 to 1.11 for vegetation. The signal fails at x30 and at
+  Upper Aire.
+- Footprint extrusion (e0h): Ferrybridge 111 components (median 88 px, max 5,373; 15 under 16 px),
+  median building height 5.06 m; best on x30 ground lift (26.4 %) and NMAD, worst at x5 (RMSE
+  0.910, building RMSE 1.01 against 0.82); Upper Aire has no components.
+- Traps: `seg/work/*-labels.npz` stores a `box` that does not match the area corners, so use
+  `AREA_SW`; the lidar ground class has 4 to 7 % of pixels where DSM is over 1 m above DTM, so
+  report false lift as well; `compose2.py` took 415 s (x5) and 669 s (x30) against 157 s for all
+  16 fields with `OMP_NUM_THREADS=1` (thread oversubscription suspected).
+
 ## Traps
 
 - The first depth-model fit regressed the coarse DSM elevation, not height above ground; the scale

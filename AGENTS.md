@@ -42,6 +42,20 @@ finest ground sample distance the sources support, enhanced by classical process
 - **Python:** 3.13 is the baseline (`.python-version`). `requires-python` stays open-ended
   (`>=3.13`) with no upper bound.
 
+## Research stance
+
+The project works where no published method covers the whole job (coarse elevation refined with
+satellite imagery, buildings and trees included). This overrides the user-level rule that nothing
+algorithmic is invented, within these bounds:
+
+- An unproven idea may be tried, in algorithms and in modelling (architectures, losses, training
+  procedures, conditioning data), when it builds on work already in the repo: the stores and
+  corrections, the scoring and review pages, the models already run, the lidar-derived labels.
+- Established parts are still cited with a verified source. The unproven part is named as such
+  in the plan, the results doc and the review page.
+- Try it cheaply first (one slice, one box), judge it by eye on the fixed views, and bring the
+  result to the owner before any long run or any change to what `build` ships.
+
 ## Commands
 
 Run from the repo root unless a workspace is named.

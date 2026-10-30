@@ -7,3 +7,5 @@ nd = "nd"
 LOD = "LOD"
 # texture-synthesis method name (Richardson et al. 2023)
 Ture = "Ture"
+# author surname (Nasir, Liu, Mian; NAIMA, WAVE)
+Mian = "Mian"

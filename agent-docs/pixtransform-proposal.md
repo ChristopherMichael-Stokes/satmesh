@@ -116,3 +116,24 @@ SRTM).
 
 Thin evidence: MMSR's gain over PixTransform rests on one dataset at x4 and x8; the feature evidence
 is supervised and indoor; GPU-hour figures are estimates.
+
+## E0 as specified for the first run
+
+CPU only, on the two 540 m boxes at x5 and x30, with N the mean of Geopose and RS3DAda and a
+kriging base; scratch in `uncommitted/e4b/e0/`.
+
+1. Class probabilities per token from the land-cover head trained on the other two areas
+   (leave-one-area-out), bilinearly upsampled to 1 m and refined with a per-class guided filter on
+   the 1 m Esri guide (He et al. 2013), renormalised.
+2. `e0m`: height masked by `p_building + p_vegetation`; heights under 0.5 m set to 0 (the UMEP
+   vegetation threshold); then the anomaly recipe. The head's vegetation class includes low
+   vegetation, so grass verges are partly vegetation.
+3. `e0g`: `e0m` plus one global gain per class, chosen on a grid from 0.5 to 3.0 (step 0.1) to
+   minimise the squared second differences of the coarse residual `s - B(N_masked)` over cells
+   that are mostly ground and their neighbours (unproven); the oracle gain from regressing lidar
+   nDSM on the masked N is diagnostic only.
+4. `e0h`: `e0m` with each connected building component (`p_building > 0.5`) replaced by its median
+   height, giving flat roofs and vertical walls (the cheapest first test of
+   `semantic-height-research.md`).
+5. Scored against the lidar classes (ground, building, tree), with edge slope, cell residuals,
+   cell-edge step ratio, and the fraction of lidar-ground pixels more than 1 m above ground.

@@ -56,6 +56,60 @@ mean with two bases <https://claude.ai/artifact/9hW3why4guocCyLyVjkbQy>, DINOv3-
   grey tokens building F1 0.71 to 0.87 against 0.39 to 0.50 for RGB. Overall accuracy 0.87 to 0.95
   hides this because ground is 70 to 89 % of tokens.
 
+## Recipes as run
+
+Notation: s coarse cell means, B block mean, K area-to-point kriging (`satmesh_height`), N height
+above ground at 1 m (negatives clipped to 0), d = B(dtm). Scripts `uncommitted/e4b/m1/compose*.py`.
+
+- M-A: `K(s) + (N - K(B(N)))`; reproduces s. M-B: `K(d) + N`. M-C: M-B with a gain per coarse cell
+  `g_c = (s_c - B(K(d))_c) / B(N)_c` where `B(N)_c >= 0.1 m`, else 1, clipped to `[0, 3]` (both
+  constants tunable, no source); the per-cell gain causes the cell-edge steps.
+- Bilinear baseline `bil` = `U(s)`, U = cv2 `INTER_LINEAR` of cell centres to 1 m pixel centres,
+  edges held, over the whole box (the trial's bilinear ran per 270 m tile). `{m}_mu` =
+  `U(s) + (N - U(B(N)))`; cell means match only approximately (median residual 0.02 to 0.26 m,
+  largest 1.8 to 3.5 m). `avg` = mean of the Geopose and RS3DAda (TTA) N.
+- Depth models: fit `s_c - B(dtm)_c = a * B(D)_c + b` per box and factor, `N = max(a * D + b, 0)`.
+- Kriging fit: `fit_point_covariance` per call on its own input, so K(s) and K(B(N)) each get
+  their own exponential covariance.
+
+## Metrics defined this session
+
+- Cell-edge step ratio: mean `|h[i+1] - h[i]|` across pixel pairs straddling lines at multiples
+  of the factor, over the same elsewhere (1.0 = no seam). Same at 270 m for the trial tile edges.
+- Crease ratio: mean `|second difference|` along rows and columns on the cell-centre lines
+  (offset factor/2) over elsewhere; piecewise-linear bases score high by construction.
+- Flat-ground edge slope: Canny (sigma 1) edges of the 1 m guide luma where the lidar slope is
+  under 0.1, mean `|grad h|` of the surface there (lidar 0.033 Ferrybridge, 0.041 Upper Aire).
+  It counts lean, registration and date offsets as leakage.
+
+## The 5.4 km stores (`uncommitted/e4b/{ferry,aire,southend}-store`)
+
+SW corners in BNG: Ferrybridge (445000, 421500), Upper Aire (397000, 444500), Southend (584500,
+185600); 5,400 m boxes; EA DSM and DTM cover all three with no nodata (Southend minimum -1.38 m).
+Ferrybridge and Upper Aire: 961 leaves at z17 and 284 parents (1,245 nodes, up to 15,376 Esri
+tiles); Southend: 289 leaves at z16 and 84 parents (373 nodes, 17 min). Built at 30 Esri
+requests/s. `correct` results:
+
+| Area | Cells corrected | Scenes (all lean applied unless noted) |
+| --- | --- | --- |
+| Ferrybridge | 13 of 36 | WV02 2025-04-29 76 roofs t -0.33 E +1.07 N lean 0.34 toward 108; LG01 2025-07-16 187 roofs t -0.53 E +2.24 N lean 0.40 toward 182; WV02 2022-07-16 347 roofs t -0.06 E +1.09 N lean 0.09 toward 307; LG02 2025-06-30 163 roofs t -1.73 E +2.15 N lean 0.36 toward 131 |
+| Upper Aire | 28 of 36 | LG01 2025-03-18 87 roofs t -0.32 E +1.33 N lean 0.44 toward 185; WV02 2023-05-27 97 roofs t -0.46 E +2.13 N lean 0.58 toward 189 |
+| Southend | 7 of 49 | GE01 2025-07-12 469 roofs t +0.01 E +2.74 N lean 0.40 toward 195; WV02 2025-04-11 rejected (27 roofs, radius 0.35 above 0.29), keeps the cell shift |
+
+Lean in m per m, azimuth in degrees. All 1,245 Ferrybridge and Upper Aire nodes are lean-corrected;
+Southend has 359 lean, 2 ground shift only and 12 uncorrected nodes (bound 2.8 m). The EA WCS 403s
+need a resume loop: `uncommitted/e4b/areas.sh` retries `build` and `correct` (up to 6, then 30,
+attempts, 120 s apart); each attempt gained 100 to 200 nodes.
+
+## Own visual review of the M1 renders
+
+M-A surfaces give footprint, position and rough height of large grey buildings beside grey
+pavement and keep verges flat; they round walls, ridges and crowns, underestimate raised heights,
+and lift a red vehicle on the Ferrybridge road into an oversized dome (cars in the photo but not
+in the older lidar are real objects: keep or drop is a policy call). The mean of the two models
+tempers Geopose's oversized tree domes. Texture streaking on steep sides is the Esri image draped
+on new slopes. The views sit on the tallest windows, where these models do best.
+
 ## Traps
 
 - The first depth-model fit regressed the coarse DSM elevation, not height above ground; the scale

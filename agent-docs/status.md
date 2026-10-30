@@ -229,5 +229,6 @@ Next: S2 (vendored-port check against the original on a 270 m tile, per-training
 | E2 survey, results | `e2-research.md`, `offset-survey.md`, `e2-results.md` |
 | Metric bias audit | `metric-bias-audit.md` |
 | E4, E9, region surveys | `e4-research.md`, `e4-results.md`, `e4-research-2.md`, `e4b-plan.md`, `e9-research.md`, `region-research.md` |
+| E4b: results, recipes, surveys, proposal | `e4b-results.md`, `m1-model-recipes.md`, `dinov3-landcover-results.md`, `pixtransform-survey.md`, `semantic-height-research.md`, `pixtransform-proposal.md`, `pixtransform-external-note.md` |
 | Speed-up record | `speedup-results.md` |
 | Task list | `TODO.md` at the repo root |

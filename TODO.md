@@ -3,7 +3,11 @@
 ## Next
 
 - [ ] Try the best candidate for recovering fine height detail from coarse elevation data (Yemen
-      has no lidar, so this is where it matters); score it first on degraded England lidar
+      has no lidar, so this is where it matters); score it first on degraded England lidar,
+      in a separate ML environment that holds the code we keep
+- [ ] Re-check earlier rejections whose reference was biased by roof lean: measure the imagery
+      position truth on open ground only, then re-score the lean fits, the rejected
+      re-registration step, the correction rule and the Southend overshoot
 - [ ] Test a completely different region, Yemen: find open elevation data and imagery coverage
       there (surveyed: GLO-30 is open and 0.31 to 0.46 m imagery exists, but no open reference
       height data), make the build work outside Great Britain (UTM, geoid, coarse
@@ -26,7 +30,6 @@
       site has
 - [ ] Check elevation coverage at the UK test sites
 - [ ] Choose more England test sites with lidar and 10 cm aerial imagery
-- [ ] Split out a separate environment for ML tools if their dependencies clash with the pipeline
 
 ## Last
 

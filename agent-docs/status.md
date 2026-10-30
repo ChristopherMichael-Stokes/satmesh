@@ -100,6 +100,16 @@ Owner order (2026-10-26):
    0.73 to 0.95 m, Ferrybridge 0.36 to 0.42 m. The Southend over-correction seen in C5 stays open.
 3. E4 trial: `e4-research.md` recommends PixTransform per tile, scored on the degraded EA DSM
    (x2, x5, x30) with an edge-leakage check; judge by eye as well.
+   E4 trial run 2026-10-29 (`e4-results.md`, review page
+   <https://claude.ai/artifact/6v1CiNcDK3SGErJ6jvixce>): PixTransform has the highest RMSE at x2
+   and x5 on both sites and copies photo texture into relief (edge slope 0.30 to 0.74 against
+   lidar 0.033 at Ferrybridge); area-to-point kriging is lowest everywhere (Ferrybridge x2 0.48 m
+   against bilinear 0.57). Owner by eye (2026-10-29): PixTransform at x30 is visually closest to
+   the lidar; at x2 and x5 bilinear and kriging trade blows. Next: `e4b-plan.md`, drafted, not
+   run (Part 1: combinations A, B, C over 5.4 km areas; Part 2: metric-bias re-checks;
+   Part 3: learned-height models); survey
+   `e4-research-2.md` done (first trial RS3DAda nDSM plus mass-preserving composition; runner-up
+   Geopose). GLBs of every surface in `uncommitted/scratch-archive/e4/glb/`.
 4. Yemen as the different-region test (F2a source registry, UTM, geoid, coarse elevation). The
    source survey is `region-research.md`; its plan follows from that report.
 5. F5b Gazebo collision, then F7 real-photo localisation (needs owner-supplied photographs with
@@ -109,13 +119,23 @@ Done since the last record: `build` and `correct` speed-up with byte-identical o
 (`speedup-results.md`), progress bars, `run.log` and `--nw`/`--se` corner input
 (`progress-logging-input-plan.md`).
 
-Judge meshes by eye: scores against the DSM did not predict the owner's ranking in E8 (see the
-decision log). Show textured renders from fixed camera views before proposing a geometry change.
+Judge meshes by eye: scores against the DSM did not predict the owner's ranking in E8, and in E4
+RMSE ranked PixTransform last while the owner judged it by far the closest at x30. The lidar and
+the Esri image differ in lean, registration, capture date and edge smearing, so height scores
+cannot be trusted as a verdict on any method that takes shape from the image. Show textured
+renders from fixed camera views before proposing a geometry change.
 
 ## Decisions
 
 | Date | Decision | Reason |
 | --- | --- | --- |
+| 2026-10-30 | `ml/` uv workspace created at the start of E4b with member `satmesh-height` (PixTransform port, variants, kriging) and PyTorch; meets `pipeline/` through GeoTIFF files with a contract test | Owner: PixTransform is in the product for certain; permanent code from the height experiments lives in `ml/` |
+| 2026-10-30 | Height scores against lidar are a secondary check, never the verdict, for methods that take shape from the image; every results doc says so | E4: RMSE ranked PixTransform last; the owner judged it by far the closest at x30. Lean, registration, capture date and edge smearing differ between lidar and Esri image |
+| 2026-10-30 | Esri imagery may be used for scientific work including model fine-tuning; the DINOv3 licence's military clause does not apply | Owner checked both |
+| 2026-10-30 | E4b areas at least 5 km (5.4 km boxes); Esri fetched at `--esri-requests-per-second 30` | Owner: a 5 km area fetches in minutes at up to 30 requests/s with no rate limit hit; 1 to 2 km is too small |
+| 2026-10-29 | E4: photo-shift sensitivity (1 and 3 m) measured at x2 and x5 only, not x30 | PixTransform at x30 runs 12,945 tiny epochs per tile (81 coarse cells), about 8 to 20 min per tile, so the two shifted x30 runs per site cost about 2.5 h. Owner choice |
+| 2026-10-29 | E4 kriging baseline is trial-only code after Kyriakidis 2004 (block-averaged variogram as in Goovaerts 2008), checked for coarse-cell mean reproduction, never committed | No Python library implements area-to-point kriging for heights: pyinterpolate has only the Poisson (population-count) variant; gstools, pykrige and scikit-gstat do point kriging; R `atakrig` needs R. Owner choice |
+| 2026-10-29 | E4 trial approved: PixTransform against bilinear, guided filter and area-to-point kriging on the EA DSM degraded x2, x5, x30 at Ferrybridge and Upper Aire; Esri guide lean- and position-corrected by `correct`, shifted 0, 1, 3 m for sensitivity; PyTorch in a throwaway env outside the repo | Owner choice; kriging added for the x30 (Yemen) case; no ml/ workspace until a method earns a place |
 | 2026-10-29 | A scene's lean is rejected when the 95 % bootstrap radius of l exceeds tan 30 / 2, not on the width of the k interval | The k interval is clipped by the cap and misses a small lean with an undetermined azimuth; the radius bounds the lean error at any height (radius times h) |
 | 2026-10-29 | Cap k <= tan 30 by fitting on the circle k = tan 30 when the free fit exceeds it | The soft-L1 cost is convex in (t, l), so this is the exact constrained optimum; no clipping |
 | 2026-10-25 | PyTorch constraint dropped from README, AGENTS.md and plans | Came from the scaffold copied from xfeat-rt, not from the owner; `ml/` workspace remains an option |
@@ -149,6 +169,10 @@ decision log). Show textured renders from fixed camera views before proposing a 
 
 ## Open risks
 
+- Lean-biased truth (`metric-bias-audit.md`, 2026-10-30): the Esri-to-EA-aerial truth used for every
+  position and lean fit is a median over all windows, roofs included, so lean pulls it south;
+  against a 12-window open-ground truth at Southend the C6 refit would pass and the north
+  overshoot shrinks. Unverified until an open-ground truth with more windows is measured.
 - `correct` memory: about 2 GB per worker, 8 workers at most, all cells' lidar points held at
   once; a many-km area needs a bounded reader.
 - Crown and roof-edge fidelity against the lidar is traded for a smooth look (see the 0.5 m sampling
@@ -182,6 +206,7 @@ decision log). Show textured renders from fixed camera views before proposing a 
 | F5 build record | `f5-results.md`, `f5a-results.md` (DSM) |
 | E8 survey, results | `e8-research.md`, `e8-results.md`, `lidar-pointcloud-spike.md` |
 | E2 survey, results | `e2-research.md`, `offset-survey.md`, `e2-results.md` |
-| E4, E9, region surveys | `e4-research.md`, `e9-research.md`, `region-research.md` |
+| Metric bias audit | `metric-bias-audit.md` |
+| E4, E9, region surveys | `e4-research.md`, `e4-results.md`, `e4-research-2.md`, `e4b-plan.md`, `e9-research.md`, `region-research.md` |
 | Speed-up record | `speedup-results.md` |
 | Task list | `TODO.md` at the repo root |

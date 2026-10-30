@@ -1,3 +1,10 @@
+---
+status: current
+topic: sources
+summary: Middle East and Yemen source survey: no open high-resolution lidar or DTM; Yemen has Vantor imagery and GLO-30; scoring needs DEM agreement or ICESat-2
+answers: What elevation data is open for Yemen; Is there lidar or a national DTM in the Middle East; How can height quality be scored without a reference; How do I fetch Copernicus GLO-30 for Yemen; What imagery zoom does Esri have in Yemen
+---
+
 # Region research: Middle East and Yemen sources
 
 Survey by a research subagent, 2026-10-26, research use. VERIFIED means the page was opened or the

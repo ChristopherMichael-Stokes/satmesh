@@ -1,3 +1,10 @@
+---
+status: historical
+topic: baseline-pipeline
+summary: Speed-up of build and correct with byte-identical output: correct 424 s to 75.5 s on 12 cells
+answers: How much faster is satmesh correct now?; What limits build speed on a cold cache?; Why was grid-cell averaging of lidar dropped?; Why not split the Delaunay triangulation?
+---
+
 # Speed-up of `build` and `correct` (2026-10-26)
 
 Owner requirement: output parity, lower latency, higher throughput. Every change below was checked

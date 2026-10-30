@@ -1,3 +1,10 @@
+---
+status: current
+topic: evaluation
+summary: Audit of past rejections: Esri-to-EA truth is biased by roof and canopy lean, which may explain the C6 gate failure and the F0 to F5 ranking; ranks re-checks
+answers: Were past rejections caused by a lean-biased truth; Why did RMSE against EA lidar rank PixTransform last; Does open-ground truth flip the Southend fit ranking; Which re-checks should run first; Which scores are judged safe
+---
+
 # Audit: past rejections that may come from a flawed reference
 
 Audit by a strong-tier research subagent, 2026-10-30, of the project's own docs. Prompted by E4,

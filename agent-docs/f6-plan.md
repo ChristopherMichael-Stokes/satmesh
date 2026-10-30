@@ -1,3 +1,10 @@
+---
+status: historical
+topic: evaluation
+summary: F6 evaluation harness plan: components A to G, what each check can and cannot show; built, see f6-results.md
+answers: What does the evaluation harness check?; Why can the DSM not test lidar accuracy?; How is enhancement scored?; Which forks did the owner approve?
+---
+
 # Plan: F6 evaluation harness
 
 Owner approved forks 1 to 5 on 2026-10-25 (fork 5 as F7, required before v1 release) and chose

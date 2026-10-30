@@ -26,6 +26,10 @@ test-contract:
 	cd ml && SATMESH_CONTRACT_DIR=$(CONTRACT_DIR) uv run --frozen pytest packages/satmesh-height/tests/test_contract_roundtrip.py
 	cd pipeline && SATMESH_CONTRACT_DIR=$(CONTRACT_DIR) uv run --frozen pytest packages/satmesh-cli/tests/test_ml_contract.py -k read
 
+# rewrites agent-docs/INDEX.md from the doc headers
+docs-index:
+	uv run --no-project --python 3.13 python scripts/agent_docs.py index
+
 update-hooks:
 	$(PREK) update --cooldown-days 7
 

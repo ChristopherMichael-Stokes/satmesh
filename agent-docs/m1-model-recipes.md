@@ -1,3 +1,10 @@
+---
+status: current
+topic: height-refinement
+summary: Validated run recipes for RS3DAda, Geopose, Depth Anything 3, CHMv2 and DINOv3-Sat: licences, environments, GPU memory, tiling, weights URLs and traps.
+answers: How do I run RS3DAda on an Esri tile?; How do I run the Geopose first-place model?; What GPU memory does each height model need?; What licences do the pretrained height models carry?; Where do the model weights come from?; What traps affect running these models?
+---
+
 # Pretrained height model recipes
 
 Validated 2026-10-30 by research agents (read in source, smoke-tested on the RTX 4070 Ti) and used

@@ -1,3 +1,10 @@
+---
+status: historical
+topic: process
+summary: Read-only audit of uncommitted/ against agent-docs before cleanup: keep e4b and e4 scratch, about 3.4 G freeable, and a per-doc list of facts missing from the docs.
+answers: Which scratch directories can be freed safely?; Which uncommitted scripts and data must be kept?; Which facts live only in scratch and not in docs?; How large is each scratch directory?; What lives only in /tmp session scratchpads?
+---
+
 # Scratch audit before cleanup
 
 Read-only audit, 2026-10-30, of `uncommitted/` (git-ignored) against `agent-docs/`. Nothing was

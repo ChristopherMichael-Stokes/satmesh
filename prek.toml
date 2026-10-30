@@ -158,3 +158,14 @@ rev = "v3.14.1-1"
 
 [[repos.hooks]]
 id = "shfmt"
+
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "agent-docs"
+name = "agent-docs headers and index"
+entry = "uv run --no-project --python 3.13 python scripts/agent_docs.py check"
+language = "system"
+pass_filenames = false
+files = '^(agent-docs/|scripts/agent_docs\.py$)'

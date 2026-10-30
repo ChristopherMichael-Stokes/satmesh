@@ -1,3 +1,10 @@
+---
+status: historical
+topic: position-correction
+summary: Results of lidar-referenced registration B0 to B2: intensity present at all boxes, but within 0.3 m of EA aerial at only 4 of 8 boxes against 5 planned
+answers: Does EA lidar intensity work as a registration reference for Esri; How accurate was lidar-referenced Esri registration against EA aerial; Why did the correction fail at urban and wooded boxes; Why were MI and nDSM references rejected
+---
+
 # E2 results: lidar-referenced registration (B0 to B2)
 
 Plan: `e2-plan.md`. Truth: Esri against EA aerial from `offset-survey.md`, re-measured at 1 km where

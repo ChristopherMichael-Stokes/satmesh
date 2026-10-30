@@ -1,3 +1,10 @@
+---
+status: historical
+topic: baseline-pipeline
+summary: Executed plan for satmesh-core (AOI, metric CRS, tile cover) and satmesh-data (Esri tiles, EA DTM WCS)
+answers: What do Aoi, metric_crs and covering_tiles do?; How are Esri tiles cached?; What did F1 and F2 leave out?; How is the EA DTM fetched?
+---
+
 # Plan: F1 core geometry and F2 Esri plus EA DTM fetch
 
 Approved and implemented 2026-10-25. Builds the first two packages of the baseline pipeline on

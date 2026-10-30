@@ -1,3 +1,10 @@
+---
+status: current
+topic: height-refinement
+summary: The PixTransform successor: a per-image correction of a masked Geopose and RS3DAda height prior, with ordered experiments E0 to E4; approved by the owner, E0 ran and is held, E1 awaits the go.
+answers: What is the successor to PixTransform and what replaces it in the height pipeline?; How are height models, segmentation masks and coarse cells combined?; Which experiments run first and in what order?; Which parts of the proposal are established and which unproven?; How is E0 specified?; What risks would change the plan?
+---
+
 # PixTransform successor: proposal for the owner
 
 Drafted 2026-10-30 from `pixtransform-survey.md`, `semantic-height-research.md`, `e4-results.md`

@@ -1,3 +1,10 @@
+---
+status: historical
+topic: height-refinement
+summary: Survey of guided elevation super-resolution since 2019; MMSR (ECCV 2022) builds on the PixTransform code and beats it at x4 and x8 but is untested at x30.
+answers: What has improved on PixTransform since 2019?; What is MMSR and how does it differ from PixTransform?; Which supervised guided DEM upsamplers exist and what do they need?; Which successor changes are established in the literature?; Which methods have code available?
+---
+
 # PixTransform successors: survey of guided elevation super-resolution since 2019
 
 Date 2026-10-30. Research report, not a plan. Every source tagged VERIFIED was opened during this

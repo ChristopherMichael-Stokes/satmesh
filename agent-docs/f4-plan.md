@@ -1,3 +1,10 @@
+---
+status: historical
+topic: baseline-pipeline
+summary: F4 plan for grid TIN and GLB writer in satmesh-mesh; BNG frame, drape_texture and single GLB since dropped
+answers: How does satmesh-mesh triangulate a DTM?; What did F4 decide about texture and CRS?; Which F4 parts did F5 drop?; Which GLB traps does it list?
+---
+
 # Plan: F4 `satmesh-mesh`, DTM plus texture to GLB
 
 Superseded in part by `f5-plan.md`: the BNG-metre frame, `drape_texture`, the texture cap and the

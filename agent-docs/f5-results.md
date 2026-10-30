@@ -1,4 +1,14 @@
+---
+status: historical
+topic: baseline-pipeline
+summary: F5 results at Upper Aire: 18 nodes build in 3 s from cache; ENU geometry; 50.8 m geoid trap; store layout
+answers: What is the tile store layout?; How fast is a 500 m build?; Why do heights come out 50.8 m low?; Which bugs did live checks find?; What was not checked?
+---
+
 # F5 results: tiled store, exporters and CLI
+
+> **Status note (2026-10-30).** The DSM (F5a) and the scores (F6) listed here as not built are
+> done: see `f5a-results.md` and `f6-results.md`.
 
 Built 2026-10-25 at Upper Aire, near Skipton. `[live]` marks what was observed against endpoints or
 a renderer; everything else is covered by `make test`. Plan: `f5-plan.md`; evidence behind the

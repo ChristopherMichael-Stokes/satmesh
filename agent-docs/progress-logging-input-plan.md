@@ -1,3 +1,10 @@
+---
+status: historical
+topic: baseline-pipeline
+summary: Built plan: --nw and --se lat/lon corner input, progress display, loguru run.log in the store
+answers: How do I give corners to satmesh build and eval?; Where is the run log written?; Why was the BNG bbox option removed?; How is progress reported?
+---
+
 # Plan: progress display, loguru run log, lat/lon corner input
 
 Approved by the owner on 2026-10-26 with its recommendations (two options `--nw` and `--se`, BNG

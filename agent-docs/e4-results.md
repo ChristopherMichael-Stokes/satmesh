@@ -1,3 +1,10 @@
+---
+status: historical
+topic: height-refinement
+summary: E4 trial of PixTransform, bilinear, guided filter and kriging on Ferrybridge and Upper Aire at x2, x5, x30; kriging scores best, PixTransform copies texture but looks closest at x30 by eye.
+answers: How did PixTransform compare with bilinear and kriging on lidar-truth tests?; Why can the E4 RMSE scores not be trusted as a verdict?; How much slope does PixTransform add on flat ground?; How was the E4 trial set up (sites, factors, guide)?; Does the guided filter beat bilinear?
+---
+
 # E4 results: fine height detail from coarse elevation data
 
 Trial of `e4-research.md`'s first candidate, 2026-10-29. Review page for the owner:

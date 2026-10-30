@@ -1,4 +1,16 @@
+---
+status: current
+topic: process
+summary: Master plan: source findings, registry, stack, stages 0 to 5 (spikes to ML experiments), risks. F1 to F6 are built
+answers: Which stages are done and open?; Which libraries does the stack use?; What risks does the plan list?; Which ML experiments come first?; Why classical SR only?
+---
+
 # Implementation plan: satmesh
+
+> **Status note (2026-10-30).** Stage 3 (F6) is done and the tiled output (F5) is built;
+> `satmesh-eval` is a workspace member not listed in the layout below, and F5 dropped the
+> affine-UV and BNG-drape design described under the earlier stages. Current state is in
+> `status.md`.
 
 Goal: a research tool that builds textured 3D terrain meshes from Esri World Imagery tiles and DEMs,
 with

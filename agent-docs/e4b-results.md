@@ -1,3 +1,10 @@
+---
+status: current
+topic: height-refinement
+summary: E4b results: PixTransform paused; mean of Geopose and RS3DAda anomaly on a kriging base chosen; CHMv2 for trees; DINOv3 features did not transfer; E0 mask results held for the owner.
+answers: Which height model did the owner judge most faithful to the lidar?; Why was PixTransform paused after S1?; How well does CHMv2 estimate tree height?; What are the 5.4 km stores and how were they built?; What did the E0 masked anomaly surface achieve?; What traps were found in the height experiments?
+---
+
 # E4b results: PixTransform to the end, then pretrained height models
 
 2026-10-30. Plan in `e4b-plan.md`; the successor proposal is `pixtransform-proposal.md`. Scratch

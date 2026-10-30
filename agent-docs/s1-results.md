@@ -1,3 +1,10 @@
+---
+status: historical
+topic: sources
+summary: Probe of Esri World Imagery native depth at 38 sites: deepest zoom comes from layer 4 metadata, all UK sites reach z19 with 0.31 to 0.5 m source resolution
+answers: What is the deepest Esri zoom at a given place; How do I detect the Esri no-data placeholder tile; What is Esri's native source resolution in the UK; How much are Esri z19 tiles oversampled
+---
+
 # S1 results: Esri World Imagery native depth
 
 Probe: layer 4 (`Citations`) `identify` at a point, polygon with the highest `TO_CACHE_LEVEL`, then

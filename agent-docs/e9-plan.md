@@ -1,3 +1,10 @@
+---
+status: historical
+topic: surface-refinement
+summary: E9 plan, closed: snap UVs of steep triangles to measured texels and flag them to cure stretched walls
+answers: Why do walls look smeared in the texture?; What fix did E9 propose?; Which stretch threshold was proposed?; Why was E9 closed?
+---
+
 # E9 plan: stretched texture on steep faces
 
 Survey: `e9-research.md`. Closed by the owner after S0 and S0b; results in `e9-results.md`.

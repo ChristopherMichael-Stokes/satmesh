@@ -1,3 +1,10 @@
+---
+status: historical
+topic: position-correction
+summary: Measured results of E2b: T0 to T4 tests, lean fit, lean2 comparison, C1 to C6 build; lean per Esri scene built, C6 de-leaned registration failed its gate
+answers: Is the Esri shift constant within a scene; How was the roof lean fit conditioned and which fit was chosen; How does per-vertex UV lean correction work; Why did C6 de-leaned registration fail; What did the C5 lean-corrected render review show
+---
+
 # E2b results: position correction in towns and woodland
 
 Plan: `e2b-plan.md`.

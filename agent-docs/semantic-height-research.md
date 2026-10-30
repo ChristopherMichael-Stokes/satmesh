@@ -1,3 +1,10 @@
+---
+status: historical
+topic: height-refinement
+summary: Prior art on using land-cover segmentation to constrain a predicted nDSM; the cheapest established step is a ground mask that sets nDSM to zero.
+answers: How is a land-cover mask used to clean a predicted nDSM?; Is there prior art for setting ground height to zero?; What minimum vegetation height thresholds do other tools use?; How are flat roofs or building heights regularised in published work?; Which semantic-constraint steps are verified?
+---
+
 # Semantic constraints on predicted height rasters: prior art
 
 Research date 2026-10-30. Scope: published methods that use a land-cover segmentation (ground,

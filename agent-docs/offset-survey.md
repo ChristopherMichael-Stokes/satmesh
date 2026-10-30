@@ -1,3 +1,10 @@
+---
+status: historical
+topic: position-correction
+summary: Esri-to-EA aerial offset at eight English boxes: Esri is 0.2 to 2.8 m north of EA, east small, so the offset is regional, not one global shift
+answers: How far is Esri imagery offset from EA aerial; Is the Esri offset a constant global shift; Where are the eight survey boxes and their BNG corners; What method measured the offset
+---
+
 # Esri-to-EA offset survey (E2)
 
 Measured with `satmesh eval offset` (phase correlation, 256 px windows at 50 % overlap on a 0.25 m

@@ -1,3 +1,10 @@
+---
+status: historical
+topic: evaluation
+summary: F6 built: height scores, pipeline check, Esri-to-EA offset (0.8 to 1.0 m north), smoothness, visibility
+answers: How far is Esri imagery from EA imagery?; How accurate is the georeference chain?; How is camera visibility scored?; What does satmesh eval offer?; How are heights scored?
+---
+
 # F6 results: evaluation harness
 
 Plan: `f6-plan.md`. `[live]` marks what was observed against the cached Upper Aire data.

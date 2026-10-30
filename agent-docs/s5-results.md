@@ -1,3 +1,10 @@
+---
+status: historical
+topic: baseline-pipeline
+summary: S5 spike: EA DTM plus Esri drape to GLB works; 1 km at 0.1 m error gives 61k vertices; four library traps
+answers: Does the baseline mesh chain work end to end?; Why mesh in BNG instead of Web Mercator?; Is delatin's error bound exact?; What pydelatin and trimesh traps exist?
+---
+
 # S5 results: mesh baseline, EA DTM plus Esri drape to GLB
 
 Run 2026-10-25 at Upper Aire, near Skipton. `[live]` marks what was observed against endpoints.

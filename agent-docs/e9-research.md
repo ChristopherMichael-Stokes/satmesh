@@ -1,3 +1,10 @@
+---
+status: historical
+topic: surface-refinement
+summary: E9 survey: no method recovers wall texture from one nadir image; generative texturing needs GPU and lacks provenance
+answers: Can wall texture be recovered from nadir imagery?; Does inpainted texture hurt feature matching?; Which texturing tools suit city meshes?; What non-generative baseline is suggested?
+---
+
 # E9 research: stretched texture on steep faces
 
 Survey by a research subagent, 2026-10-26. Sources marked VERIFIED were opened and read;

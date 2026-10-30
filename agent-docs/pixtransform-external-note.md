@@ -1,3 +1,10 @@
+---
+status: historical
+topic: height-refinement
+summary: Owner-supplied note of unverified claims on image-guided DSM super-resolution: PixTransform has no spatial receptive field; a supervised dual-encoder residual CNN is the alternative.
+answers: Why does PixTransform have no spatial context?; What supervised alternative does the external note propose?; Where did the note on guided DSM super-resolution come from?; Were the external note's claims verified?
+---
+
 # External note on image-guided DSM super-resolution
 
 Supplied by the owner on 2026-10-30; source and author unknown, claims unverified. Input to the

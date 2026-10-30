@@ -1,3 +1,10 @@
+---
+status: historical
+topic: surface-refinement
+summary: E8 survey of lidar surface refinement: cubic resampling, raw-point Delaunay, roofer roofs, PixTransform
+answers: How can the 1 m DSM mesh be refined?; Why does bilinear scoring flatter fidelity?; Does guided DSM super-resolution work at x2?; Which methods copy image texture into height?
+---
+
 # E8 research: lidar surface refinement
 
 Try four things in order: swap bilinear for an interpolating cubic or PCHIP resampler, triangulate

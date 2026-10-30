@@ -1,3 +1,10 @@
+---
+status: historical
+topic: surface-refinement
+summary: E8 results: node alignment to DSM pixel centres matters more than interpolation; E8 closed, no change
+answers: Does cubic beat bilinear for the mesh?; Why did bilinear seem to flatten crowns?; Do raw lidar points help?; Why was E8 closed without a change?
+---
+
 # E8 results: lidar surface refinement
 
 Survey: `e8-research.md`. Point cloud spike: `lidar-pointcloud-spike.md`. `[live]` marks what was

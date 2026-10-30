@@ -1,3 +1,10 @@
+---
+status: historical
+topic: height-refinement
+summary: Second survey of learned height from one RGB image on a coarse DEM; recommends a pretrained nDSM network (RS3DAda, Geopose, CHMv2) plus a mass-preserving composition onto the coarse DEM.
+answers: Which pretrained models predict height above ground from one RGB image?; Is there released code for a 30 m DSM plus RGB to 1 m DSM method?; What is the licence of RS3DAda, Geopose, CHMv2 and Depth Anything 3?; How do I keep coarse cell means when adding a predicted nDSM?; Was HighResCanopyHeight superseded?
+---
+
 # E4 research 2: learned height detail from one RGB image on a coarse DEM
 
 Survey by a research subagent, 2026-10-29 to 30, building on `e4-research.md` and `e4-results.md`.

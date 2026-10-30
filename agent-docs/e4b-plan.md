@@ -1,4 +1,16 @@
+---
+status: current
+topic: height-refinement
+summary: E4b plan: finish PixTransform with cell adjustments, then pretrained height models; Part 1 was paused after S1 and replaced by the successor proposal, Part 3 was executed as M1.
+answers: What did the E4b plan for PixTransform and learned-height models contain?; Which stages were planned for PixTransform (S1 to S4)?; What decisions were put to the owner for E4b?; What is the Part 3 model sweep plan?; What re-checks from the metric-bias audit were planned?
+---
+
 # E4b plan: PixTransform to the end, then learned-height models
+
+> **Status note (2026-10-30).** S0 and S1 of Part 1 ran; S2 to S5 are paused and PixTransform work
+> continues only through `pixtransform-proposal.md`. Part 2 (metric-bias re-checks) has not run.
+> Part 3 ran as the M1 zero-shot sweep and the DINOv3 probes (`e4b-results.md`). The "nothing has
+> been run" line below is the state at drafting.
 
 Draft for the owner, 2026-10-30. Nothing here has been run. Read `e4-results.md` and
 `e4-research-2.md` first.

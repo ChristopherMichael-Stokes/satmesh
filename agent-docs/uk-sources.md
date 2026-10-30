@@ -1,3 +1,10 @@
+---
+status: historical
+topic: sources
+summary: UK source survey: no open aerial imagery beats Esri z19; finer imagery only locally (EA, NI coast); open 1 m DTM and DSM are the real gain
+answers: What open imagery exists for the UK; Is there anything finer than Esri z19 in England or Wales; Which UK DEMs and DSMs are open and how are they accessed; Can APGB or Bluesky imagery be redistributed
+---
+
 # UK source survey
 
 Research report, 2026-10-25. `[live]` marks claims observed against live endpoints. Everything else

@@ -1,3 +1,10 @@
+---
+status: historical
+topic: sources
+summary: EA aerial against Esri z19: EA covers a fifth of England, is finer where present; the 2.4 m offset was a Helmert artifact (see `f6-results.md`)
+answers: How much of England has EA aerial photography; Is EA aerial finer than Esri z19; How much more fine-scale detail does EA resolve; Why was a 2.4 m offset reported and later retracted
+---
+
 # S6 results: EA vertical aerial photography versus Esri z19
 
 Run 2026-10-25. Part A is the index coverage, part B a pixel comparison on one EA tile. `[live]`

@@ -1,4 +1,14 @@
+---
+status: current
+topic: position-correction
+summary: Plan for position correction in towns and woodland where `correct` leaves four of eight boxes unchanged; hypotheses H1 to H4 and stages T0 to T4
+answers: Why does correct fail in towns and woodland; What causes the one-sided northward leftover bias; What stages T0 to T4 test the hypotheses; Can unmeasured cells borrow the shift of their Esri scene
+---
+
 # E2b plan: position correction in towns and woodland
+
+> **Status note (2026-10-30).** The owner approved E2b on 2026-10-26; the lean correction (C1 to
+> C4) is built and shipped in `correct`, C6 failed its gate. See `e2b-results.md`.
 
 Builds on `e2-plan.md` and `e2-results.md`. Awaiting owner approval.
 

@@ -1,3 +1,10 @@
+---
+status: historical
+topic: height-refinement
+summary: DINOv3-Sat feature probes on two 540 m boxes and the land-cover head over three 5.4 km areas; within-box probes work, leave-one-area-out transfer is limited.
+answers: How well do frozen DINOv3-Sat features predict height and raised pixels?; How accurate is the land-cover head leave-one-area-out?; How were land-cover labels derived from EA point-cloud classes?; Do DINOv3 features separate grey roofs from pavement?; What are the limits of the land-cover head?
+---
+
 # DINOv3-Sat features: probes and the land-cover head
 
 2026-10-30. Summary in `e4b-results.md`; this file holds the tables and the choices behind them.

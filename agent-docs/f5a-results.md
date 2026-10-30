@@ -1,3 +1,10 @@
+---
+status: historical
+topic: baseline-pipeline
+summary: F5a results: EA first-return DSM visual mesh with DTM ground grid; 3.4x vertices, 11 MB for 18 nodes
+answers: Does the EA DSM WCS work unauthenticated?; What does the DSM mesh cost in size?; Why sample the DSM at 0.5 m?; Does Gazebo collision hit tree canopies?
+---
+
 # F5a results: first-return DSM visual mesh, DTM ground grid
 
 Built 2026-10-25 at Upper Aire, near Skipton. `[live]` marks what was observed against endpoints or

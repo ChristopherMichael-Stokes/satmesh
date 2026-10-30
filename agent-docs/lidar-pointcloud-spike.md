@@ -1,3 +1,10 @@
+---
+status: historical
+topic: sources
+summary: Spike: EA National LIDAR Programme raw LAZ downloads with one unauthenticated GET per 5 km tile; LAS 1.2 with intensity and classes
+answers: How do I download EA lidar point clouds; What tile size does the EA point cloud endpoint serve; Does the EA point cloud carry intensity and classification; What CRS and point density do EA LAZ files have
+---
+
 # EA National LIDAR Programme point cloud spike
 
 It works: the raw LAZ downloads with one unauthenticated GET, no portal scraping needed (VERIFIED).

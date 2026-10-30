@@ -1,3 +1,10 @@
+---
+status: historical
+topic: position-correction
+summary: Design B plan for correcting Esri imagery position from EA lidar intensity, stages B0 to B5, 0.3 m threshold; built as `satmesh correct`
+answers: How was the Esri position correction designed; What model of shift and lean per Esri polygon was planned; What were stages B0 to B5 and their go criteria; What accuracy threshold was set for correction
+---
+
 # E2 plan: lidar-referenced correction of the Esri imagery position
 
 Design B of `e2-research.md`. Survey: `offset-survey.md`. Approved and built to `satmesh correct` (`e2-results.md`).

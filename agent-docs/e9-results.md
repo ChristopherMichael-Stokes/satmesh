@@ -1,3 +1,10 @@
+---
+status: historical
+topic: surface-refinement
+summary: E9 results: stretch histograms at three sites (4 to 10 % of ground-camera pixels over 3x); Esri orthorectification
+answers: How much of a ground camera's view is steep faces?; Is Esri imagery a true orthophoto?; Which sites were measured?; Why was E9 closed?
+---
+
 # E9 results: stretched texture on steep faces
 
 Plan: `e9-plan.md`. Stretch of a triangle is `1 / |cos θ|` with θ the angle of its normal from

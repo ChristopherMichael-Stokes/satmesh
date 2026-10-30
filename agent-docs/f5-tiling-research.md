@@ -1,3 +1,10 @@
+---
+status: historical
+topic: baseline-pipeline
+summary: Research behind F5: 3D Tiles 1.1 versus quantized-mesh, PROJ georeference, Gazebo and offline rendering
+answers: Which tile format should the store use?; How do I georeference tiles for Cesium and Gazebo?; How are cracks between tiles handled?; Why is the DSM-versus-DTM choice a risk?
+---
+
 # F5 tiling research: tile formats, georeference, Gazebo and offline rendering
 
 Researched 2026-10-25. `[measured]` is run locally (pyproj 3.8.0, PROJ 9.8.1). `[unverified]` has

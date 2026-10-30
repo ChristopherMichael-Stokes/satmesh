@@ -1,4 +1,14 @@
+---
+status: historical
+topic: baseline-pipeline
+summary: F5 plan, built: tiled ENU store, 3D Tiles, Gazebo and GLB exporters, Typer CLI; replaced the single GLB
+answers: How is the tile store designed?; Why tiles instead of one GLB?; How do parent nodes and tileset.json work?; What gaps did F5 leave?; Which CLI choices did the owner make?
+---
+
 # Plan: F5 tiled terrain store, exporters and `satmesh-cli`
+
+> **Status note (2026-10-30).** The first-return DSM visual mesh listed here as not built was
+> built as F5a (`f5a-results.md`).
 
 Approved and implemented 2026-10-25 except the DSM (decision 2), which is not built: see `TODO.md`
 F5a. Replaces the single-GLB F5 draft. Evidence and sources are in `f5-tiling-research.md`. Owner

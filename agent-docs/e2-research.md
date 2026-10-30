@@ -1,3 +1,10 @@
+---
+status: historical
+topic: position-correction
+summary: Desk research on correcting the Esri-to-ground offset; recommends a per-polygon shift model and lidar reference (design B) over AROSICS-style grids
+answers: How do I register Esri basemap imagery to a ground reference; What does AROSICS or COSI-Corr offer and what are its limits; How is building lean modelled for satellite imagery; Can UV offsets apply a shift without resampling; Which candidate correction designs exist
+---
+
 # E2 research: correcting the Esri-to-ground offset
 
 Desk research, no experiments on project data. `[verified]` means checked against the source named

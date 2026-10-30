@@ -1,3 +1,10 @@
+---
+status: historical
+topic: evaluation
+summary: Prior-art survey for F6: DEM accuracy metrics, Esri-to-EA co-registration, texture fidelity, camera visibility
+answers: Which robust DEM accuracy metrics should I report?; How do I co-register Esri and EA imagery?; Is there a visibility metric for renders?; What accuracy does EA lidar claim?
+---
+
 # F6 evaluation harness: prior-art research
 
 Compiled 2026-10-25. Status tags: VERIFIED = text opened and read in this session. UNOPENED = a

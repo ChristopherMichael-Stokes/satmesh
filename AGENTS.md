@@ -29,9 +29,17 @@ finest ground sample distance the sources support, enhanced by classical process
   wrote it.
 - Plans and reports a session produces land in `agent-docs/` beside the brief that asked for
   them.
+- **Knowledge store rules.** `agent-docs/INDEX.md` is the entry point: find a doc there, read its
+  header, open only the section needed; never scan the folder. Every doc opens with a header
+  (`status`, `topic`, `summary`, `answers`; format in `scripts/agent_docs.py`). A new, renamed or
+  retired doc gets its header and `make docs-index` in the same change; a replaced doc is marked
+  `superseded by FILE.md`. One home per fact: `decisions.md` holds each decision with its reason,
+  results docs hold the numbers, `status.md` holds current state only (about 60 lines), `risks.md`
+  holds open risks. Link the index or one `Related` line; no chains of pointers. The `agent-docs`
+  hook in `prek.toml` fails a missing header, an unknown topic or a stale index.
 - `TODO.md` is the concise task list; `agent-docs/implementation-plan.md` holds the detail.
-- `agent-docs/status.md` is the running log of state, decisions with reasons and open risks; update
-  it at every checkpoint, and write a `<feature>-results.md` with measurements and traps found.
+- At every checkpoint update `agent-docs/status.md` (state), add decisions to
+  `agent-docs/decisions.md`, and write a `<feature>-results.md` with measurements and traps found.
 
 ## Hard constraints
 

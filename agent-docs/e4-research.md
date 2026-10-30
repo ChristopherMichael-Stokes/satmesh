@@ -1,4 +1,14 @@
+---
+status: historical
+topic: height-refinement
+summary: Survey of methods for refining a 5 to 30 m DEM to 1 m with an aerial guide; no evaluation matches our regime and x30 relief recovery is unproven; first trial PixTransform.
+answers: Which methods refine a coarse DEM to 1 m with an aerial image?; Has anyone shown building and tree relief recovered at x30?; Why does PixTransform copy photo texture into relief?; Which guided upsampling methods have code and licences?; What was the first E4 trial and why?
+---
+
 # E4 research: fine height detail from coarse elevation data
+
+> **Correction (2026-10-30).** `e4-research-2.md` supersedes the HighResCanopyHeight entry (CHMv2
+> replaces it) and corrects PromptDA-Small's weight licence to Apache-2.0.
 
 Survey by a research subagent, 2026-10-26. VERIFIED means the page or paper text was opened;
 UNOPENED means a search snippet only.

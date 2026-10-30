@@ -1,6 +1,6 @@
 line-length = 100
 target-version = "py313"
-src = ["pipeline/packages/*/src"]
+src = ["pipeline/packages/*/src", "ml/packages/*/src"]
 
 [lint]
 select = ["ALL"]

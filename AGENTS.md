@@ -8,6 +8,7 @@ finest ground sample distance the sources support, enhanced by classical process
 | Path          | uv workspace | Holds                                                              |
 | ------------- | ------------ | ------------------------------------------------------------------ |
 | `pipeline/`   | yes          | `satmesh-core` (AOI, metric CRS, tile geometry, GSD), `satmesh-data` (Esri tiles, EA DTM and DSM, tile mosaic), `satmesh-mesh` (grid TIN, skirts, GLB), `satmesh-tiles` (georeferenced node store, tiler, 3D Tiles, Gazebo and area GLB exporters), `satmesh-eval` (height and smoothness scores, pipeline check, imagery offset, camera visibility), `satmesh-cli` (`satmesh` command) |
+| `ml/`         | yes          | `satmesh-height` (PixTransform, area-to-point kriging, their compositions, the GeoTIFF contract with `pipeline/`, `satmesh-height` command; PyTorch) |
 | `agent-docs/` | no           | Docs written by and for agents: briefs, plans, research reports    |
 | `docs/`       | no           | Human-facing docs                                                  |
 | `docker/`     | no           | Images for tools no wheel ships: `gdal-ecw` converts ECW to GeoTIFF |
@@ -15,8 +16,10 @@ finest ground sample distance the sources support, enhanced by classical process
 
 - Each workspace has its own `uv.lock` and `.venv`. Members live at
   `<workspace>/packages/<dist-name>/src/<module>/` and are picked up by the `packages/*` glob.
-- An `ml/` workspace is added when a model's dependencies conflict with `pipeline/`. Workspaces meet
-  through exported model files, with a contract test.
+- `ml/` holds models whose dependencies conflict with `pipeline/`. Workspaces meet through files:
+  `pipeline/` writes GeoTIFF inputs with a JSON sidecar, `satmesh-height` writes the refined height
+  GeoTIFF with its own sidecar (`ml/packages/satmesh-height/src/satmesh_height/contract.py` is the
+  spec). `make test-contract` writes with one side and reads with the other.
 
 ## Agent docs
 
@@ -49,9 +52,11 @@ Run from the repo root unless a workspace is named.
 | All checks                   | `make check`                                            |
 | Checks for one workspace     | `uvx prek@0.5.7 run --all-files pipeline/`              |
 | Update hook revisions        | `make update-hooks` (skips releases under 7 days old)   |
-| Types in one workspace       | `uv run --frozen ty check` from `pipeline/`             |
+| Types in one workspace       | `uv run --frozen ty check` from `pipeline/` or `ml/`    |
 | Add a dependency to a member | `uv add --package <dist-name> <dep>` from the workspace |
-| All tests                    | `make test`                                             |
+| All tests                    | `make test` (pipeline and ml)                           |
+| Contract between workspaces  | `make test-contract` (pipeline writes, ml refines, pipeline reads) |
+| Refine a DSM from the contract | `uv run satmesh-height refine INPUT_DIR OUTPUT_DIR --variant {P0,A,B,C,C+B} --training-extent-m M [--seeds N ...] [--steps N]` from `ml/` |
 | Build the GDAL ECW image     | `make gdal-ecw-image` (about 3 min, 552 MB)             |
 | Build a tile store           | `uv run satmesh build --nw "LAT, LON" --se "LAT, LON" --store DIR` from `pipeline/` |
 | Export a store               | `uv run satmesh export {3dtiles,gazebo,glb} --store DIR ...` from `pipeline/` |

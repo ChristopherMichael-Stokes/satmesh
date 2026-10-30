@@ -14,12 +14,12 @@ counted as gaps). "Verified" = I read the file or ran the listing. Sizes are `du
 
 ## Conclusions
 
-- Keep, whatever else happens: `uncommitted/e4b/` (10 G) and `uncommitted/scratch-archive/e4/`
-  (1.5 G, but see the glb/page split below). Every e4b script reads `e4/{ferry,aire}-inputs.npz`,
+- Keep, whatever else happens: `uncommitted/e4b/` (10 G) and `uncommitted/scratch-archive/e4/` (1.5
+  G, but see the glb/page split below). Every e4b script reads `e4/{ferry,aire}-inputs.npz`,
   `-texture.npz`, `out/`, `scores.json`, `score.py`, `render.py`, `make_page.py`, `glbs.py`
   (verified by grep: `m1/common.py`, `e0/common.py`, `dino/common.py`, `m1render.sh`, `s1.sh`,
-  `m2render.sh`, `combine.py`, `s2_check.py`). The stores, `seg/feats` (2.7 G), `seg/work`, `m1/pred`
-  and `e0/` are inputs of the E0 / E1 / PixTransform-successor work in `status.md`.
+  `m2render.sh`, `combine.py`, `s2_check.py`). The stores, `seg/feats` (2.7 G), `seg/work`,
+  `m1/pred` and `e0/` are inputs of the E0 / E1 / PixTransform-successor work in `status.md`.
 - Keep until the open-ground-truth re-check (`metric-bias-audit.md` re-check 1, listed in
   `status.md` "Open risks") is done: `scratch-archive/lean2/{southend_t,ferry_t}.npz` (680 MB) with
   `*_obs.pkl`, `fits.py`, `*_results.json`, plus `scratch-archive/c6/gate.py` and
@@ -81,9 +81,9 @@ All facts are from the scratch files named in brackets; page and line numbers ar
      F0 roofs only; F1 roofs plus windows; F2 F0 plus ground prior as pseudo-observation (sd from
      block bootstrap interval / 3.92 in quadrature with 0.4 m); F3 centred F0; F4 alternation from
      l = 0; F5 whole-image Powell on NCC.
-   - Boxes: southend_t (BNG 587000, 185000, EA aerial 2024-06, truth +0.23, +1.57); ferry_t
-     (448500, 423500, aerial 2020, truth -0.31, +0.71); southend_l (588300, 186400, no truth).
-     Scene 20250712 GE01 (two polygons 3297692 and 3298659 fitted as one); ferry_t scene 20250716 LG01.
+   - Boxes: southend_t (BNG 587000, 185000, EA aerial 2024-06, truth +0.23, +1.57); ferry_t (448500,
+     423500, aerial 2020, truth -0.31, +0.71); southend_l (588300, 186400, no truth). Scene 20250712
+     GE01 (two polygons 3297692 and 3298659 fitted as one); ferry_t scene 20250716 LG01.
    - Roofs and windows: southend_t 13 roofs (h 3.2 to 16.1, mean 5.0) of 52 that passed the building
      tests (714 components), 13 windows of 900 at threshold 0.0955; ferry_t 20 roofs (h 3.4 to
      6.7), 63 windows (0.0880); southend_l 23 roofs (3.0 to 8.4), 17 windows (0.0826). Ground
@@ -105,7 +105,8 @@ All facts are from the scratch files named in brackets; page and line numbers ar
    - Truth sensitivity: southend_t all 233 windows (+0.28, +1.42); raised fraction under 5 % n = 12
      (+0.92, +2.67); ferry_t all 67 (-0.26, +0.53), under 5 % n = 2 (-0.31, +1.19).
 2. New section "C5: lean-corrected render review (2026-10-29)" [`c5/progress.log`,
-   `c5/work/consistency.json`, `ground_store.json`; page `c5/index.html`, artifact URL not recorded]:
+   `c5/work/consistency.json`, `ground_store.json`; page `c5/index.html`, artifact URL not
+   recorded]:
    - Subject rule fixed before results: 8 tallest GE01 roofs, 4 worst after correction, 6
      unfiltered rejected roofs, 3 WV02 roofs; 80 buildings in the store, 16 accepted on Esri-direct
      luma (13 GE01 + 3 WV02), matching production. Ground-window rule needed 3 amendments (absolute
@@ -123,30 +124,32 @@ All facts are from the scratch files named in brackets; page and line numbers ar
    - Page: 19 strips, 3 ground crops, 2.7 MB.
 3. In "Lean fit at four sites" [`lean/progress.log`]: boxes chosen by search (Worcester 385500,
    254600: 223 buildings of 5 m or more, 267 buildings; Southend 588300, 186400: 136 / 187;
-   Newcastle first 425500, 564500: 63 / 78, then 426700, 564500: 129 / 158; Brighton 531500,
-   106300: 112 / 130; Brighton2 532000, 104600: 50). Funnel (components, passed tests, accepted):
-   Worcester 833, 264, 32; Southend 1110, 184, 23; Newcastle 567, 149, 25; Brighton 644, 127, 5;
-   Brighton2 734, 64, 2. Fits (t, l, k with h = p10 of roof height): Worcester WV03 t (-1.16, +1.04)
-   l (+0.138, -0.341); Worcester LG02 t (+2.13, +1.86) l (-0.492, -0.261) k 0.557 (0.202 to 1.607);
-   Southend GE01 t (+0.25, +3.54) l (-0.124, -0.524) k 0.538 (0.265 to 0.830), with median height
-   t (+0.30, +3.08) k 0.387; Newcastle WV03 t (+1.76, -1.32) k 0.118. Shift-only closure (t_only)
-   was worse than as published at three of four scenes: Worcester WV03 1.80 to 2.32 (lean 1.54),
-   LG02 0.81 to 3.18 (lean 0.55), Southend 1.68 to 2.46 (lean 1.22); Newcastle improved 2.79 to 0.87
-   (lean 0.67). S0b cross-check (`s0b_xcheck`): 83 buildings in 7 boxes, k 0.654
-   (0.509 to 0.796) with eave p10 height, 0.555 (0.433 to 0.681) with plain height, azimuth 209.5;
-   the doc quotes only "about 0.55". Note the log's place label for the S0b boxes differs from the Worcester in `e9-results.md` (86 buildings, 8 boxes): same data set or not is unresolved; resolve it in the doc.
+   Newcastle first 425500, 564500: 63 / 78, then 426700, 564500: 129 / 158; Brighton 531500, 106300:
+   112 / 130; Brighton2 532000, 104600: 50). Funnel (components, passed tests, accepted): Worcester
+   833, 264, 32; Southend 1110, 184, 23; Newcastle 567, 149, 25; Brighton 644, 127, 5; Brighton2
+   734, 64, 2. Fits (t, l, k with h = p10 of roof height): Worcester WV03 t (-1.16, +1.04) l
+   (+0.138, -0.341); Worcester LG02 t (+2.13, +1.86) l (-0.492, -0.261) k 0.557 (0.202 to 1.607);
+   Southend GE01 t (+0.25, +3.54) l (-0.124, -0.524) k 0.538 (0.265 to 0.830), with median height t
+   (+0.30, +3.08) k 0.387; Newcastle WV03 t (+1.76, -1.32) k 0.118. Shift-only closure (t_only) was
+   worse than as published at three of four scenes: Worcester WV03 1.80 to 2.32 (lean 1.54), LG02
+   0.81 to 3.18 (lean 0.55), Southend 1.68 to 2.46 (lean 1.22); Newcastle improved 2.79 to 0.87
+   (lean 0.67). S0b cross-check (`s0b_xcheck`): 83 buildings in 7 boxes, k 0.654 (0.509 to 0.796)
+   with eave p10 height, 0.555 (0.433 to 0.681) with plain height, azimuth 209.5; the doc quotes
+   only "about 0.55". Note the log's place label for the S0b boxes differs from the Worcester in
+   `e9-results.md` (86 buildings, 8 boxes): same data set or not is unresolved; resolve it in the
+   doc.
 4. T0 [`t0/ferrybridge-5km/run.log`, `correction.json`, `scratch-archive/t0/cells_cover.json`,
    `offset-*.txt`]: add the 36-cell table or state that it lives in those files; truth intervals
    and windows: T-town E -0.31 (-0.38, -0.23), N +0.71 (+0.37, +0.97), NMAD 0.56 / 1.10, 113 of
    870 windows; B2 WV02-2022 E -0.09, N +0.14 (-0.31, +1.01), NMAD 1.33 / 2.04, 98 of 870; D2 LG02
    E +0.05, N +0.50 (+0.44, +0.65), 166 of 870; E2 LG01 E -0.25, N +1.07 (+0.81, +1.49), 140 of 870.
-5. T1 [`t1/progress.log`]: per-box windows, baseline then masked (setting A, at least 50 %
-   unmasked, eligible in brackets): Dunster 31 to 50 (666), Southend 21 to 7 (340), Loughborough 23
-   to 93 (551), Snettisham 155 to 163 (900), town 50 to 178 (813), 445050 60 to 380 (882), 446100
-   33 to 94, 447200 42 to 127, Ferrybridge 57 to 105, Upper Aire 13 to 52, Belford 82 of 196 both.
-   Raised/masked shares: Dunster 0.222 / 0.280, Southend 0.371 / 0.482, Loughborough 0.304 /
-   0.381, Snettisham 0.003 / 0.003. The text says Ferrybridge and Upper Aire "could not be compared";
-   the log has their masked counts.
+5. T1 [`t1/progress.log`]: per-box windows, baseline then masked (setting A, at least 50 % unmasked,
+   eligible in brackets): Dunster 31 to 50 (666), Southend 21 to 7 (340), Loughborough 23 to 93
+   (551), Snettisham 155 to 163 (900), town 50 to 178 (813), 445050 60 to 380 (882), 446100 33 to
+   94, 447200 42 to 127, Ferrybridge 57 to 105, Upper Aire 13 to 52, Belford 82 of 196 both.
+   Raised/masked shares: Dunster 0.222 / 0.280, Southend 0.371 / 0.482, Loughborough 0.304 / 0.381,
+   Snettisham 0.003 / 0.003. The text says Ferrybridge and Upper Aire "could not be compared"; the
+   log has their masked counts.
 6. C6: add thresholds and runtimes (above) and the "info only" raw-threshold variant: 19 and 43
    windows, errors 0.97 and 0.70 m (text has the errors; windows counts are in the table already).
 
@@ -161,14 +164,15 @@ All facts are from the scratch files named in brackets; page and line numbers ar
 - Ground registration on DTM edges does not work at either site: Ferrybridge 3 of 36 windows ok,
   median (-4.17, +2.81) sd (3.5, 1.2); Upper Aire 14 of 96 ok, median (+0.63, +0.39) sd (2.6, 2.9).
 - Synthetic check table. Null: slope 0.004 (dsm), 0.019 (dsmt), no lean. Forward projection with
-  lean (-0.15, -0.25) (k 0.29): recovered slope (-0.075, -0.122), k 0.143, azimuth 211, i.e. 0.49
-  of truth; dsmt 0.166. Small lean (0.10, 0.05): recovered 0.05 to 0.064. Step-edge variant:
-  0.16 to 0.17. The first synth2 variant (lean added to the DSM before matching) missed the lean at
-  (-0.25, -0.5): dsm 0.024, dsmt 0.047 with `lean_present` False for dsm; why the forward variant was
-  added is not documented.
+  lean (-0.15, -0.25) (k 0.29): recovered slope (-0.075, -0.122), k 0.143, azimuth 211, i.e. 0.49 of
+  truth; dsmt 0.166. Small lean (0.10, 0.05): recovered 0.05 to 0.064. Step-edge variant: 0.16 to
+  0.17. The first synth2 variant (lean added to the DSM before matching) missed the lean at (-0.25,
+  -0.5): dsm 0.024, dsmt 0.047 with `lean_present` False for dsm; why the forward variant was added
+  is not documented.
 - S0 stretch bins (share of terrain 3D area; share of faces): Ferrybridge 69.4 / 25.2 % in [1, 1.1),
-  stretch over 2: 17.7 % of area, 166,317 faces; over 5: 6.3 % of area, 36,058 faces. Snettisham 97.2
-  % in [1, 1.1), over 2: 0.61 % of area, 20,872 faces. Upper Aire histogram file is missing from `s0/`.
+  stretch over 2: 17.7 % of area, 166,317 faces; over 5: 6.3 % of area, 36,058 faces. Snettisham
+  97.2 % in [1, 1.1), over 2: 0.61 % of area, 20,872 faces. Upper Aire histogram file is missing
+  from `s0/`.
 
 ### `e4-results.md`
 
@@ -251,8 +255,8 @@ Listed because the brief asked for anything not recreatable from docs. These liv
 - `07b5e904-.../scratchpad` (this session): `m1-research-a` 8.1 G and `m1-research-b` 2.5 G (venvs
   and weights) are recreatable from `m1-model-recipes.md`; `m1/run.sh` hard-codes these paths.
   `torchenv` (1.7 G) is recreatable from the command in `e4b-plan.md`. Small items: `align.py`,
-  `make_crop.py`, `gf_check.py` (guided-filter check), `chm_find.py`, `chm_tiles.geojson` (57 MB, the
-  CHMv2 global tile index, re-downloadable), `old-ref/` (6 pre-fix M1 npz, 5.7 MB; superseded),
+  `make_crop.py`, `gf_check.py` (guided-filter check), `chm_find.py`, `chm_tiles.geojson` (57 MB,
+  the CHMv2 global tile index, re-downloadable), `old-ref/` (6 pre-fix M1 npz, 5.7 MB; superseded),
   `crop90x5/`. `make_crop.py` reads `e4/ferry-inputs.npz` (another reason to keep e4).
 - `26047419-...` is the original of `scratch-archive/{lean,lean2,leanpage,page,q,s0b,s0_*}`, a
   stale copy (its `lean2/progress.log` is shorter than the archived one): safe to delete.

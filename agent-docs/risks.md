@@ -23,10 +23,10 @@ answers: What can go wrong in the build; what is the Gazebo collision risk; what
   `offset-survey.md`; S6's 2.4 m was a Helmert-reprojection artifact), and raised objects are
   displaced differently from open ground, so a rigid correction will not do; matching pipelines
   will see it.
-- Esri imagery is not a true orthophoto at Worcester (the location of the S0b boxes is unverified, see
-  `e2b-results.md` "Lean fit at four sites"; roofs displaced about 0.3 to 0.6 m per m of
-  height toward south-west; S0b, `e9-results.md`); undetermined at the survey sites, so buildings
-  can lean in the texture and the position correction does not remove it.
+- Esri imagery is not a true orthophoto at Worcester (the location of the S0b boxes is unverified,
+  see `e2b-results.md` "Lean fit at four sites"; roofs displaced about 0.3 to 0.6 m per m of height
+  toward south-west; S0b, `e9-results.md`); undetermined at the survey sites, so buildings can lean
+  in the texture and the position correction does not remove it.
 - No ground-truth scoring yet: DEM, texture and geoid chain are untested against raw lidar and
   EA aerial imagery.
 - Gazebo untested: roll pose for glTF, `elevation` datum (gz-math treats it as ellipsoidal),

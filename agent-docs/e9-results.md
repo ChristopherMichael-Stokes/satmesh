@@ -13,11 +13,11 @@ vertex at or past `terrain_vertices` of the node record).
 
 ## S0: stretch histogram (2026-10-26)
 
-Stores built for this measurement (git-ignored): `uncommitted/s0/{upper-aire,ferrybridge,snettisham}`,
-500 m boxes at Upper Aire (Esri z19) and Ferrybridge (z19), and a 740 m box at Snettisham (z18).
-Script: scratch, `s0_stretch.py`. "Camera view" is the share of pixels from 30 random open-ground
-cameras (320 x 240, 90 degree field of view, 1.7 m high, level, range 40 m, seed 1) whose first hit
-is a triangle above the threshold.
+Stores built for this measurement (git-ignored):
+`uncommitted/s0/{upper-aire,ferrybridge,snettisham}`, 500 m boxes at Upper Aire (Esri z19) and
+Ferrybridge (z19), and a 740 m box at Snettisham (z18). Script: scratch, `s0_stretch.py`. "Camera
+view" is the share of pixels from 30 random open-ground cameras (320 x 240, 90 degree field of view,
+1.7 m high, level, range 40 m, seed 1) whose first hit is a triangle above the threshold.
 
 | Site | Terrain 3D area over 3 | Faces over 3 | Ground-camera pixels over 2 | over 3 | over 5 |
 | --- | --- | --- | --- | --- | --- |

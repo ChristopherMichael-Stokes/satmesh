@@ -83,6 +83,9 @@ UNCORRECTED_ERROR_BOUND_M = 2.8
 REFERENCE_MARGIN_M = 20.0
 # a cell narrower than three windows has too few for a stable median
 MIN_CELL_SIDE_PX = 3 * WINDOW_PX
+# the Delaunay interpolation of the lidar intensity needs at least one triangle; a cell over open
+# water has none
+MIN_POINTS_PER_CELL = 3
 # A worker holds about 2 GB for a 0.8 km2 cell (lidar triangulation, 0.25 m grids): 12 such cells
 # on 8 workers peaked at 17.6 GB in all. The cap keeps a many-core machine within memory (tunable).
 MAX_CELL_WORKERS = 8
@@ -177,10 +180,12 @@ def measure_correction(  # noqa: PLR0913, PLR0917 (area, zoom, clients, director
         report(LIDAR_PHASE, done, len(squares))
     laz_paths = [path for paths in laz.values() for path in paths]
     boxes = cell_boxes(area)
-    measurable = [box for box in boxes if _measurable(box)]
+    measurable = [index for index, box in enumerate(boxes) if _measurable(box)]
     report(READ_PHASE, 0, 1)
     started = time.perf_counter()
-    points = read_first_return_intensity(laz_paths, measurable, REFERENCE_MARGIN_M)
+    points = read_first_return_intensity(
+        laz_paths, [boxes[index] for index in measurable], REFERENCE_MARGIN_M
+    )
     logger.info(
         "read %d lidar files for %d cells in %.1f s",
         len(laz_paths),
@@ -188,15 +193,43 @@ def measure_correction(  # noqa: PLR0913, PLR0917 (area, zoom, clients, director
         time.perf_counter() - started,
     )
     report(READ_PHASE, 1, 1)
+    covered = cells_with_points(measurable, points)
+    for index in set(measurable) - covered.keys():
+        logger.warning(
+            "cell E %.0f N %.0f: fewer than %d lidar points, left uncorrected",
+            boxes[index].west,
+            boxes[index].south,
+            MIN_POINTS_PER_CELL,
+        )
     surfaces = _surface_fetcher(http, cache_dir) if with_roofs else _no_surfaces
-    measured = iter(_measure_cells(measurable, points, zoom, esri, surfaces, report))
+    measured = iter(
+        _measure_cells(
+            [boxes[index] for index in covered],
+            list(covered.values()),
+            zoom,
+            esri,
+            surfaces,
+            report,
+        )
+    )
     cells = [
         next(measured)
-        if _measurable(box)
+        if index in covered
         else CellMeasurement(box, _uncorrected(box, 0, 0), None, ())
-        for box in boxes
+        for index, box in enumerate(boxes)
     ]
     return StoreMeasurement(UNCORRECTED_ERROR_BOUND_M, tuple(cells))
+
+
+def cells_with_points(
+    indices: list[int], points: list[tuple[np.ndarray, np.ndarray]]
+) -> dict[int, tuple[np.ndarray, np.ndarray]]:
+    """Map each cell index to its lidar points, keeping the cells with enough to triangulate."""
+    return {
+        index: cell_points
+        for index, cell_points in zip(indices, points, strict=True)
+        if len(cell_points[0]) >= MIN_POINTS_PER_CELL
+    }
 
 
 def _no_surfaces(_box: Aoi) -> Surfaces | None:

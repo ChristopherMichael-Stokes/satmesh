@@ -11,6 +11,7 @@ from satmesh_eval.registration import (
     UNCORRECTED_ERROR_BOUND_M,
     cell_boxes,
     cell_correction,
+    cells_with_points,
 )
 
 SIDE_PX = 1024
@@ -114,3 +115,14 @@ def test_cells_split_the_area_evenly_with_sides_near_the_target(
             assert 0.5 * TARGET_CELL_SIDE_M <= side <= 1.5 * TARGET_CELL_SIDE_M
         # on the 1 m lidar grid, so roofs can be matched over the cell itself
         assert all(edge.is_integer() for edge in (cell.west, cell.south, cell.east, cell.north))
+
+
+def test_cells_without_enough_lidar_points_are_dropped_and_keep_their_index() -> None:
+    corners = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
+    intensity = np.ones(3)
+    empty = (np.empty((0, 2)), np.empty(0))
+    two_points = (corners[:2], intensity[:2])
+    covered = cells_with_points(
+        [4, 7, 9, 12], [empty, (corners, intensity), two_points, (corners, intensity)]
+    )
+    assert list(covered) == [7, 12]

@@ -135,7 +135,8 @@ Ferrybridge, 1 km window, left to right: image, lidar classes, predicted classes
   land cover keeping ground flat and tidying roofs, walls and tree crowns.
 - Terrain beyond about 6 km, with averaged coarse tiles.
 - A lighter Gazebo collision mesh and a test in a running simulator.
-- A real-photo localisation test, and imagery correction outside England.
+- A real-photo localisation test, camera poses and calibration recovered from photos alone, and
+  imagery correction outside England.
 
 ## Checks
 

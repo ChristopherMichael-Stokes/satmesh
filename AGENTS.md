@@ -86,6 +86,7 @@ Run from the repo root unless a workspace is named.
 | Export a store               | `uv run satmesh export {3dtiles,gazebo,glb} --store DIR ...` from `pipeline/` |
 | Correct imagery position     | `uv run satmesh correct --store DIR` from `pipeline/` (downloads EA point clouds) |
 | Score a store                | `uv run satmesh eval {heights,smoothness,visibility} --store DIR --nw "LAT, LON" --se "LAT, LON"` from `pipeline/` |
+| Localise photos              | `uv run satmesh eval localise PHOTOS --poses FILE.jsonl --store DIR [--reference surface --reference flat ...] [--matcher {xfeat,sift}] [--out DIR]` from `pipeline/` (XFeat needs `XFEAT_MODEL_DIR`); writes `report.json` and `review.html` |
 | Esri-to-EA imagery offset    | `uv run satmesh eval offset --aerial EA.tif --nw "LAT, LON" --se "LAT, LON" --zoom 19` from `pipeline/` |
 | Texture detail vs EA aerial  | `uv run satmesh eval texture --aerial EA.tif --nw "LAT, LON" --se "LAT, LON" --zoom 19` from `pipeline/` |
 | Eval on a 100 m slice        | `make eval-slice` (builds a store, then runs the three store checks; needs network) |

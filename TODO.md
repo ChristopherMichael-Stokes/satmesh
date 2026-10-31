@@ -4,8 +4,10 @@
 
 - [ ] Acceptance harness: render the mesh at a photo's camera pose, match the photo against the
       render and recover the pose, with flat, bare-earth and full-surface references compared;
-      the pose-recovery check works on synthetic photos, a report command and the real photos
-      remain
+      the `satmesh eval localise` command, report and review page work on synthetic photos; the
+      real photos remain
+- [ ] Recover photo poses and camera calibration from the photos alone (known rough area,
+      photos in order): research is done, the first experiments are not run
 - [ ] Add building and tree height to the build from pretrained models (Geopose and RS3DAda for
       buildings, CHMv2 for trees) laid onto the coarse elevation, with a land-cover segmentation
       that keeps ground flat and cleans up roofs, walls and tree crowns; judge it by eye on fixed

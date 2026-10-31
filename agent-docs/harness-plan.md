@@ -136,7 +136,7 @@ Verified by a prior-art survey (2026-10-31):
 | H0 (built 2026-10-31, `camera.py`, `perspective.py`, Embree backend, 94 package tests pass) | Perspective textured RGB and depth render at a pose in the area ENU frame (`satmesh-eval`, camera model with intrinsics and radial distortion, pose as WGS 84 position plus heading, pitch and roll in the local ENU), for any mesh including a flat plane | Flat synthetic mesh: depth equals the analytic ray-plane distance and texture colours equal the source texels, worked out in the test; a store render at a ground-level pose opens as an image |
 | H0b (built 2026-10-31, `gpu.py`, `projection.py`, 111 package tests pass) | `GpuRenderer`: wgpu rasterisation returning the H0 result type, frustum and range culling, leaves resident on the device | 8 to 12 ms p50 at 1280 x 960 on the slice and the 961-leaf store; against Embree hit masks 99.9999 %, range within 0.05 m + 0.005 per metre on 99.999 % |
 | H1 (built 2026-10-31, `matching.py`, `localise.py`, `references.py`, `ground.py`, 117 package tests pass, results in `harness-results.md`) | A1, A2, B and C references, SIFT and XFeat plus LighterGlue, perspective-n-point solve, recovery of a known perturbation | Render at pose A as the "photo", localise from a pose perturbed by a known offset: pose recovered within tolerance; repeat with the photo re-lit (gain, gamma) and blurred as a stand-in for the domain gap |
-| H2 (next; owner approved the harness work and said to complete it, pose-file format still his call, default below) | Metrics, JSON report and a review page (photo, render, matches, depth bands); reject solutions with too few inliers; emit inlier count and reprojection residual per fix so a later EKF can gate measurements | `satmesh eval localise PHOTOS --poses FILE --store DIR` runs end to end on synthetic photos; report fields match this plan |
+| H2 (built 2026-10-31, `poses.py`, `photos.py`, `metrics.py`, `panels.py`, `harness.py`, `localise_report.py`, `review_page.py`, `satmesh eval localise`, 143 package tests pass, results in `harness-results.md`) | Metrics, JSON report and a review page (photo, render, matches, depth bands); reject solutions with too few inliers; emit inlier count and reprojection residual per fix so a later EKF can gate measurements | `satmesh eval localise PHOTOS --poses FILE --store DIR` runs end to end on synthetic photos; report fields match this plan |
 | H3 | Run on the owner's real photos | Run when the owner supplies photos and poses; results into a results doc |
 
 ## Forks for the owner
@@ -145,7 +145,13 @@ Verified by a prior-art survey (2026-10-31):
    (MIT). SuperPoint weights are non-commercial. Decided after H1 results.
 2. `pycolmap` (BSD-3, Python 3.13 wheels) in place of `cv2.solvePnPRansac`: only if the OpenCV
    solver proves too weak.
-3. Pose-file format (default: one JSON line per photo, `lat`, `lon`, ellipsoidal height, heading,
-   pitch, roll, intrinsics; owner to confirm) is defined by the harness (WGS 84 latitude,
-   longitude, ellipsoidal height,
-   heading, pitch, roll, intrinsics, distortion); the photos' own format is converted to it.
+3. Pose-file format: decided 2026-10-31 (owner accepted the default). One JSON line per photo with
+   `photo` (file name in the photo directory), `latitude_deg`, `longitude_deg`,
+   `ellipsoidal_height_m` (WGS 84), `heading_deg` (clockwise from north), `pitch_deg` (up
+   positive), `roll_deg`, and `intrinsics` (`width_px`, `height_px`, `focal_x_px`, `focal_y_px`,
+   `principal_x_px`, `principal_y_px`, `radial_distortion` of at most k1, k2, k3). The pose is the
+   photo's true pose; the harness renders at a prior (true pose displaced by a fixed offset, or an
+   optional per-line `prior` with the same six pose fields) and scores against the true pose. The
+   photos' own format is converted to this.
+4. Photos alone, no pose file: recovering poses and calibration from the photos is the next
+   research question (`photo-only-calibration-research.md`); nothing is built.

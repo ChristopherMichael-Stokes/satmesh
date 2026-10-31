@@ -1,8 +1,8 @@
 ---
 status: current
 topic: evaluation
-summary: H1 of the acceptance harness built and run on the S0b cross-check site slice with the photo a full-surface render at a known pose; XFeat plus LighterGlue recovers 6 of 8 poses within 0.25 m and 2 degrees against the full-surface render and none against the bare-earth, flat or top-down references; SIFT collapses when the photo is re-lit and blurred.
-answers: Does matching a photo against a render recover the camera pose; how do flat, bare-earth and full-surface references compare; does XFeat with LighterGlue beat SIFT; what breaks on coplanar references; how long does a localisation take; which traps were hit in H1
+summary: H1 and H2 of the acceptance harness built and run on the S0b cross-check site slice with the photo a full-surface render at a known pose; XFeat plus LighterGlue recovers 6 of 8 poses within 0.25 m and 2 degrees against the full-surface render and none against the bare-earth, flat or top-down references; SIFT collapses when the photo is re-lit and blurred; H2 adds the pose file, inlier gate, metrics, JSON report, review page and `satmesh eval localise`.
+answers: Does matching a photo against a render recover the camera pose; how do flat, bare-earth and full-surface references compare; does XFeat with LighterGlue beat SIFT; what breaks on coplanar references; how long does a localisation take; which traps were hit in H1 and H2; what does `satmesh eval localise` report; why is the minimum inlier count 30
 ---
 
 # Harness H1 results: pose recovery against the four references
@@ -141,6 +141,58 @@ rendered, poses of 16 within 0.25 m / 2 degrees, 0.5 m / 5, 5 m / 10; median err
 - The top-down route solves the pose by perspective-n-point on plane points like the others, not by
   reading a 2D homography residual back as a pose offset. One solver serves all four references.
 - The solver is SQPnP, not P3P (above).
+
+## H2: command, report, review page
+
+Built 2026-10-31. Plan: `harness-plan.md` (H2 row, fork 3).
+
+| Module (`satmesh_eval`) | Does |
+| --- | --- |
+| `poses.py` | Pose file reader (pydantic, frozen, unknown fields refused); errors name the line |
+| `photos.py` | Reads a photo, removes radial distortion (camera matrix kept), reduces the long side to 1280 px with the intrinsics scaled |
+| `localise.py` | `MINIMUM_INLIERS = 30` gate: a weaker pose is kept in `Localisation.rejected`, not reported as a fix; `PoseEstimate.reprojection_rmse_px` and `inlier_count` |
+| `camera.py` | `pose_from_camera_to_enu`: the estimate back to latitude, longitude, height, heading, pitch, roll |
+| `metrics.py` | Pose recall at the three MeshLoc thresholds; at the known pose: matches, epipolar inliers, median displacement, frame hit fraction, cell coverage overall and by render depth band (under 25 m, 25 to 100 m, over 100 m) |
+| `harness.py` | `ReferenceRenderers` (surface, bare earth, flat plane per ground height), `run_photos`, one `Fix` per photo and reference |
+| `localise_report.py`, `review_page.py`, `panels.py` | `report.json`, the single-file `review.html` (recall table, per photo: known-pose table, match lines, blink, depth) |
+| CLI `satmesh eval localise` | `PHOTOS --poses FILE --store DIR [--reference ...] [--matcher xfeat\|sift] [--xfeat-models DIR] [--minimum-inliers N] [--range-m M] [--out DIR]` |
+
+- Fix status is `solved`, `rejected` (pose found, under the minimum inliers), `unsolved` or `skipped`
+  (reference not buildable there). Each fix carries inlier count, reprojection RMS, the pose with
+  attitude angles, the error against the true pose and the known-pose metrics, which is what a
+  later EKF gate needs. No covariance yet.
+- The prior is the true pose displaced by 2 m east, 2 m south, 0.5 m up, +3 degrees heading, +1
+  pitch unless a line gives `prior`. The flat plane sits at the bare-earth height under the
+  prior camera, not the true one.
+- Minimum inliers 30: of the 227 solved localisations of the H1 sweeps, 41 had under 30 inliers and
+  16 of those were over 5 m wrong (worst 512 m); the 24 with 30 to 100 inliers were all under 3.1
+  m. A tunable, measured from those runs, not derived.
+- Run on the 16 altitude-sweep photos of the slice (10, 25, 50, 100 m, four headings; photos
+  rendered from the store by a scratch script), all four references, XFeat plus LighterGlue,
+  58 s end to end including both match passes per reference:
+
+| Reference | Solved of 16 | 0.25 m / 2 deg | 0.5 m / 5 | 5 m / 10 | Median error | Median residual |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Full surface | 16 | 16 | 16 | 16 | 0.04 m | 2.4 px |
+| Bare earth | 16 | 0 | 1 | 16 | 0.72 m | 4.3 px |
+| Flat ortho | 16 | 0 | 4 | 15 | 1.05 m | 5.2 px |
+| Photo warped top-down | 10 | 1 | 1 | 9 | 1.06 m | 5.6 px |
+
+  These match the H1 sweep. Top-down returns no pose for 6 photos (the 10 and 25 m ones) where
+  H1 returned poses 126 m and 233 m wrong; its worst solved error is 9.0 m. Matched at the true
+  pose, the median displacement is 0 px for the surface and 7.5, 13.2 and 35.5 px for bare earth,
+  flat and top-down; cell coverage 0.90, 0.79, 0.71, 0.37.
+
+- The 20 px RANSAC threshold makes nearly every match an inlier (1004 of 1005 for the surface), so
+  the inlier count gates but the residual is what separates references.
+
+Traps found in H2:
+
+- `cv2.findFundamentalMat` with MAGSAC raises on identical point sets (a perfect render at the true
+  pose); `metrics.py` then keeps matches within 2 px of the median shift.
+- Playwright has no Chromium build for this machine's Ubuntu 20.04, so the review page was parsed
+  (esprima) and its data checked in tests, but not rendered here.
+- `typer` options with `list[Reference]` default to all four references when none is passed.
 
 ## Open
 

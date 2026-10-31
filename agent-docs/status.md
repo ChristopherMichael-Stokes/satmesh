@@ -28,15 +28,38 @@ checkpoint; keep it to current state only.
 
 | Workstream | State | Next | Read |
 | --- | --- | --- | --- |
-| Baseline pipeline (`build`, exports) | Shipped for Great Britain: DSM visual mesh, DTM ground grid, 3D Tiles, Gazebo, GLB | Other regions (Yemen first), terrain past 6 km, Gazebo collision mesh and simulator test, real-photo test | `f5-results.md`, `region-research.md`, `risks.md` |
+| Baseline pipeline (`build`, exports) | Shipped for Great Britain; region registry built (R0: Sana'a, Shibam) and R1 US 3DEP built: Denver, mountain and desert 2 km squares build and export, uncommitted | Exporters to carry provenance and attribution; R2 polish and merge; then terrain past 6 km, Gazebo collision mesh, real-photo test | `regions-plan.md`, `regions-results.md`, `regions-r1-results.md`, `us-sources.md`, `risks.md` |
 | Position correction (`correct`) | Shipped with ground shift and per-capture lean; stores for three 5.4 km areas corrected | Re-check on open-ground truth; Southend north overshoot; Wales and Scotland lidar | `e2b-results.md`, `metric-bias-audit.md` |
-| Height refinement | M-A on the mean of Geopose and RS3DAda with a kriging base chosen; CHMv2 for trees; land-cover head built; E0 run and held; successor proposal written | E0 and E1 of the proposal, after the owner's go | `e4b-results.md`, `pixtransform-proposal.md` |
+| Height refinement | M-A on the mean of Geopose and RS3DAda with a kriging base chosen; CHMv2 for trees; land-cover head built; E0 (masks) judged by the owner: acceptable coarsely, buildings become blobs, a Ferrybridge road is scooped, PixTransform recovers objects best; E1 dropped | E2: a model trained on England lidar (owner approved), slice first; E1c controls offered | `e4b-results.md`, `pixtransform-proposal.md`, `decisions.md` |
 | ML workspace | `ml/` with `satmesh-height` (PixTransform port, kriging, cell adjustments, GeoTIFF contract) committed; PixTransform paused | Reopen only through the proposal | `e4b-results.md` |
 | Knowledge store | Restructured: `INDEX.md` generated from doc headers, decisions, risks and plan codes split out, `agent-docs` hook enforces headers; scratch audited and its facts extracted | Owner decides the scratch cleanup | `scratch-audit.md`, `INDEX.md` |
 
 ## Held or awaiting the owner
 
-- The go for E0 and E1 (the tidy and restructure come first; E0 already ran and is held).
+- Old scratch stores: their node records use the previous field names and the exporters cannot read
+  them. A key rename (reversible, in place over 4,000 small JSON files) was blocked by the
+  permission check after it had already renamed `uncommitted/eval-slice` and `uncommitted/blind/store`.
+  Decide: rename in place with `uncommitted/regions/migrate_records.py`, or rebuild when needed.
+  Stores built under an older position schema (`t0`, `s0`, `scratch-archive/c3c4`) are stale anyway.
+- Look at `uncommitted/regions/us-squares.blend` (Denver, mountain, desert; one collection each,
+  3 km apart; built with bpy, not yet seen in Blender). Yemen GLBs seen: okay, the mountain one
+  very good, buildings and vegetation lack relief (the height work's target).
+- Imagery: preview seen (`us-imagery-preview.md`); Esri stays the default. Open: per-build source
+  and season selector with a NAIP adapter; first a read-only check of dated Esri releases and NAIP
+  years per square. Texture refinement is in `TODO.md` Next.
+- Built: Plano, Portland (stores in `uncommitted/regions/us-{plano,portland}/store`); Ames is
+  running (20,736 leaves at z21 from a 2.4 cm county flight, hours) and Chicago waits behind it
+  (`uncommitted/regions/build_rest.sh`, status file beside it). Decide: cap Ames at a coarser zoom,
+  let it finish, or skip it. Not done: exporter attribution and provenance. `make check`, `make test`
+  and `make test-contract` pass; `make smoke-regions` builds Denver and Sana'a 100 m boxes in 72 s.
+- Stale DSM windows without the provenance tag sit in
+  `~/.cache/satmesh/usgs-3dep/ept-dsm-windows/` (early Denver attempt); delete or keep.
+- E2 larger training corpus (about 30 random 2 km squares, 10 to 12 h unattended, 5-square dry run
+  first): the owner greenlit it before the blind comparison, then E2 ranked behind `avg_ma` on the
+  blind square (`e2-results.md`). Held until the owner says what the comparison means for it.
+- The E2 forks in `e2-slice-plan.md` (real GLO-30 source, `noprior` control, second fold, per-tile
+  fit, vehicle policy) were not answered.
+- Whether to run the E1c controls (MMSR and PixTransform with the cell adjustment) before or after E2.
 - Scratch cleanup: the deletable list is in `scratch-audit.md`; nothing is deleted.
 - Whether GPL-3 tools (roofer, CGAL, lidR) are acceptable if satmesh is distributed
   (`semantic-height-research.md`).
@@ -50,8 +73,14 @@ checkpoint; keep it to current state only.
 
 ## Running
 
-Nothing. Scratch inputs the next stage reads: `uncommitted/e4b/` (stores, `seg/`, `m1/pred`, `e0/`),
-`uncommitted/scratch-archive/e4/` (trial inputs, `out/`, scorer, renderers) and
+Nothing. The regions work (R0) and the E2 slice are built and uncommitted; the new files are staged
+(`git add`) and nothing is committed. Scratch the height work reads (E2 slice and blind comparison):
+`uncommitted/e2/` (inputs, pred, cond, krige, ckpt, `e2lib.py`, `train.py`, `infer.py`),
+`uncommitted/blind/` (site, store, data, GLB tiles, `key.json`) and `uncommitted/regions/` (Sana'a
+and Shibam stores and GLBs, `migrate_records.py`). The model environments the E2 and blind scripts
+ran in sit in an ephemeral session scratchpad (`m1-research-a` and `-b`, `torchenv`) and will go;
+recreate them from `m1-model-recipes.md`. Other scratch inputs: `uncommitted/e4b/` (stores, `seg/`,
+`m1/pred`, `e0/`), `uncommitted/scratch-archive/e4/` (trial inputs, `out/`, scorer, renderers) and
 `uncommitted/models/` (RS3DAda and Geopose weights, CHMv2 tiles).
 
 ## Working principle

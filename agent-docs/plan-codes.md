@@ -26,6 +26,7 @@ to read about it.
 | E2, E2b | Lidar-referenced imagery position correction; towns and woodland with lean | `e2-results.md`, `e2b-results.md` |
 | C1 to C6, T0 to T2 | E2b build stages and opening measurements | `e2b-results.md` |
 | E3, E5 | Sharpen imagery past native zoom; fine-tuned super-resolution (not started) | `e4-research.md` |
+| R0, R1, R2 | Regions: registry and Middle East build, US 3DEP, polish for merging | `regions-plan.md`, `us-sources.md` |
 | E4, E4b | Fine height detail from coarse elevation; PixTransform trials, pretrained height models | `e4-results.md`, `e4b-results.md` |
 | E6 | Combine several captures (not started) | `status.md` |
 | E7 | Single-image height as detail layer (superseded by the E4b height models) | `e4-research-2.md` |

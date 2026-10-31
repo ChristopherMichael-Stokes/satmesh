@@ -1,7 +1,7 @@
 ---
 status: current
 topic: height-refinement
-summary: E4b results: PixTransform paused; mean of Geopose and RS3DAda anomaly on a kriging base chosen; CHMv2 for trees; DINOv3 features did not transfer; E0 mask results held for the owner.
+summary: E4b results: PixTransform paused; mean of Geopose and RS3DAda anomaly on a kriging base chosen; CHMv2 for trees; DINOv3 features did not transfer; E0 masks and E1 correction net judged and dropped.
 answers: Which height model did the owner judge most faithful to the lidar?; Why was PixTransform paused after S1?; How well does CHMv2 estimate tree height?; What are the 5.4 km stores and how were they built?; What did the E0 masked anomaly surface achieve?; What traps were found in the height experiments?
 ---
 
@@ -117,11 +117,13 @@ in the older lidar are real objects: keep or drop is a policy call). The mean of
 tempers Geopose's oversized tree domes. Texture streaking on steep sides is the Esri image draped
 on new slopes. The views sit on the tallest windows, where these models do best.
 
-## E0 results (masked anomaly surface, held for the owner)
+## E0 results (masked anomaly surface)
 
 Run 2026-10-30 on the two 540 m boxes (scratch `uncommitted/e4b/e0/`, surfaces
 `e0m|e0g|e0h-{site}-guide-x{5,30}.npz` in `scratch-archive/e4/out/`); specification in
-`pixtransform-proposal.md`. Not rendered; the owner has not seen it. Scores are secondary.
+`pixtransform-proposal.md`. Rendered 2026-10-30 (review page
+<https://claude.ai/artifact/Tr9PxaASze3wkHSnSH2SWR>, script `uncommitted/e4b/e0/render_e0.py`) and
+as GLBs (`glbs_e0.py`); the owner reads the GLBs. Scores are secondary.
 
 - Held-out head on the boxes: Ferrybridge box accuracy 0.882, building F1 0.773 (500 building
   tokens); Upper Aire box accuracy 0.954, only 12 building tokens (700 pixels), so its building F1
@@ -148,10 +150,46 @@ Run 2026-10-30 on the two 540 m boxes (scratch `uncommitted/e4b/e0/`, surfaces
 - Footprint extrusion (e0h): Ferrybridge 111 components (median 88 px, max 5,373; 15 under 16 px),
   median building height 5.06 m; best on x30 ground lift (26.4 %) and NMAD, worst at x5 (RMSE
   0.910, building RMSE 1.01 against 0.82); Upper Aire has no components.
+- Owner, before reading the renders: the buildings in the boxes have pitched roofs, so `e0h`'s
+  flat roofs are wrong in kind. GLBs of the lidar, `avg_ma`, `e0m`, `e0g` and `e0h` at both
+  factors and sites: `uncommitted/e4b/e0/glb/` (script `glbs_e0.py`).
+- Owner's reading of the GLBs (E0 still being evaluated): PixTransform has the best object
+  recovery and the closest match to the lidar, with spikes and wonky roofs; `e0m` turns many
+  buildings into curved blobs and scoops the road at one Ferrybridge end.
 - Traps: `seg/work/*-labels.npz` stores a `box` that does not match the area corners, so use
   `AREA_SW`; the lidar ground class has 4 to 7 % of pixels where DSM is over 1 m above DTM, so
   report false lift as well; `compose2.py` took 415 s (x5) and 669 s (x30) against 157 s for all
   16 fields with `OMP_NUM_THREADS=1` (thread oversubscription suspected).
+
+## E1 results (zero-initialised correction net per area, dropped)
+
+Run 2026-10-30 by a subagent; code, outputs and rerun in `uncommitted/e4b/e1/` (`run.sh`; operators
+from `ml/` with `operators.py`; log `e1.log`, whose 14:49 `FAILED` line is a hand-stopped first
+run). Owner dropped E1 after reading E0 in Blender and this evaluation; no E1 render page was made.
+GLBs of E1 at both sites and factors: `uncommitted/e4b/e0/glb/{ferry,aire}-e1-x{5,30}.glb`.
+
+What was tested: `avg` prior masked as in `e0m`, plus a net (1x1 stem, 4 residual blocks of 3x3
+convolutions, 32 channels, zero-initialised head, 11 input channels: RGB, four class probabilities,
+masked prior, CHMv2 at 0.5 m, x, y) correcting the prior in logit space, trained per 540 m box on
+coarse-cell consistency, ground smoothness (second difference and TV), a prior anchor and an
+edge-aware TV; Adam 1e-3, up to 1,500 steps, 3 seeds combined by median, jitter 0 to 2 px,
+iterative back-projection at x30. Step 0 reproduced `e0m` to 7e-5 m before projection.
+
+- Scores (RMSE m, `e0m` to `e1`): Ferrybridge x5 0.838 to 0.858, x30 1.723 to 1.742; Upper Aire x5
+  1.664 to 1.664, x30 2.152 to 2.155. Ferrybridge x5: 2 % of pixels differ from `e0m` by more than
+  0.5 m (max 7.0 m); x30: 11 % (max 19.1 m), seed spread up to 12.6 m (mean 0.07 m).
+- `e1_noprior` (prior out of input, n and anchor) is degenerate: delta fell to about -7,000 within
+  100 steps, n = 0 everywhere, so the surface is the kriged coarse DSM. The objective carries no
+  object-height signal; the prior does all the work. `e1_noclass` and `e1_nojitter` stay close to
+  the main run.
+- Traps: a plateau rule of 1e-3 relative gain per 100 steps stopped every fit at step 200 with
+  delta about 0 (1e-4 used); pixels `e0m` zeroed sit where the softplus gradient is about 1e-4, so
+  the net cannot raise them; at x30 the step-0 check passes only before projection (`e0m` misses
+  its cells by 2 to 3 cm); loss term (a) is identically zero at x5; cv2 is not in the `ml/` env.
+- Constants without a source (all in `fit.py`): `HUBER_DELTA` 0.1, `REFERENCE_CELL_RESIDUAL_M`
+  0.01, `REFERENCE_DELTA` 1.0, `REFERENCE_HEIGHT_STEP_M` 0.01, `EDGE_TV_SHARE` 0.1,
+  `PLATEAU_MIN_RELATIVE_GAIN` 1e-4, `PRIOR_FLOOR_M` 1e-4. Cost: operators 2.7 min CPU, fits 10.5 min
+  GPU (peak 1.7 GB).
 
 ## Traps
 

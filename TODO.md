@@ -15,22 +15,25 @@
       there (surveyed: GLO-30 is open and 0.31 to 0.46 m imagery exists, but no open reference
       height data), make the build work outside Great Britain (UTM, geoid, coarse
       elevation), and choose a test area
+- [ ] Imagery choice per build: pick the source and the capture date or season (Esri releases
+      and NAIP years), with Esri as the default; first check how many dated releases Esri holds
+      at a site and what NAIP years exist, and look at the seasonal differences side by side
+- [ ] Texture processing and refinement on the orthophotos: sharpen past native zoom only where
+      the automatic check says it helps, combine several captures of a place into one sharper
+      image, even out colour and shadow between captures and across tile seams, and fine-tune a
+      super-resolution model on our own imagery pairs if classical sharpening falls short; judge
+      by eye on fixed views against the 10 cm England aerial imagery
 
 ## Later
 
 - [ ] Find why the lean correction overshoots north at Southend (ground shift 0.7 m off the aerial
       reference)
-- [ ] Combine several captures of the same place into one sharper image
 - [ ] Source registry: which imagery and elevation data to use per region, with fallbacks
 - [ ] Terrain for areas larger than about 6 km, averaged rather than point-sampled for coarse tiles
 - [ ] Smoother, hole-free elevation data by classical processing, scored against lidar
-- [ ] Sharpen imagery past its native zoom, only where the automatic check says it helps
-- [ ] Fine-tune a super-resolution model on our own imagery pairs, only if the step above falls short
 - [ ] Use single-image height estimates as a fine detail layer
 - [ ] Find lidar point data for Wales (the position correction needs it; it is England only for now)
 - [ ] Find the Scottish lidar download route
-- [ ] Check whether older Esri releases hold finer imagery at a point, and how many capture dates a
-      site has
 - [ ] Check elevation coverage at the UK test sites
 - [ ] Choose more England test sites with lidar and 10 cm aerial imagery
 

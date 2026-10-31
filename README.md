@@ -97,6 +97,8 @@ Fetched data is cached under `~/.cache/satmesh` (`--cache-dir` or `SATMESH_CACHE
 come at 20 requests per second by default; `--esri-requests-per-second` changes it. Details:
 [docs/01-pipeline.md](docs/01-pipeline.md).
 
+Poses and lens from ordered photos: [docs/02-track.md](docs/02-track.md).
+
 ## Research results
 
 The build above is the shipped baseline. These results come from England, where Environment Agency

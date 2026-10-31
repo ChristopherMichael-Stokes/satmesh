@@ -137,7 +137,7 @@ Verified by a prior-art survey (2026-10-31):
 | H0b (built 2026-10-31, `gpu.py`, `projection.py`, 111 package tests pass) | `GpuRenderer`: wgpu rasterisation returning the H0 result type, frustum and range culling, leaves resident on the device | 8 to 12 ms p50 at 1280 x 960 on the slice and the 961-leaf store; against Embree hit masks 99.9999 %, range within 0.05 m + 0.005 per metre on 99.999 % |
 | H1 (built 2026-10-31, `matching.py`, `localise.py`, `references.py`, `ground.py`, 117 package tests pass, results in `harness-results.md`) | A1, A2, B and C references, SIFT and XFeat plus LighterGlue, perspective-n-point solve, recovery of a known perturbation | Render at pose A as the "photo", localise from a pose perturbed by a known offset: pose recovered within tolerance; repeat with the photo re-lit (gain, gamma) and blurred as a stand-in for the domain gap |
 | H2 (built 2026-10-31, `poses.py`, `photos.py`, `metrics.py`, `panels.py`, `harness.py`, `localise_report.py`, `review_page.py`, `satmesh eval localise`, 143 package tests pass, results in `harness-results.md`) | Metrics, JSON report and a review page (photo, render, matches, depth bands); reject solutions with too few inliers; emit inlier count and reprojection residual per fix so a later EKF can gate measurements | `satmesh eval localise PHOTOS --poses FILE --store DIR` runs end to end on synthetic photos; report fields match this plan |
-| H3 | Run on the owner's real photos | Run when the owner supplies photos and poses; results into a results doc |
+| H3 (after the photo-only work, owner order 2026-10-31) | Run on the owner's real photos | Run when the owner supplies photos and poses; results into a results doc |
 
 ## Forks for the owner
 
@@ -153,5 +153,5 @@ Verified by a prior-art survey (2026-10-31):
    photo's true pose; the harness renders at a prior (true pose displaced by a fixed offset, or an
    optional per-line `prior` with the same six pose fields) and scores against the true pose. The
    photos' own format is converted to this.
-4. Photos alone, no pose file: recovering poses and calibration from the photos is the next
-   research question (`photo-only-calibration-research.md`); nothing is built.
+4. Photos alone, no pose file: planned in `photo-only-plan.md` (stages P0 to P4), ahead of H3;
+   nothing is built.

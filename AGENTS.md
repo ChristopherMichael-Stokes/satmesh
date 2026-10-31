@@ -7,7 +7,7 @@ finest ground sample distance the sources support, enhanced by classical process
 
 | Path          | uv workspace | Holds                                                              |
 | ------------- | ------------ | ------------------------------------------------------------------ |
-| `pipeline/`   | yes          | `satmesh-core` (AOI, metric CRS, tile geometry, GSD), `satmesh-data` (Esri tiles, EA DTM and DSM, tile mosaic), `satmesh-mesh` (grid TIN, skirts, GLB), `satmesh-tiles` (georeferenced node store, tiler, 3D Tiles, Gazebo and area GLB exporters), `satmesh-eval` (height and smoothness scores, pipeline check, imagery offset, camera visibility), `satmesh-cli` (`satmesh` command) |
+| `pipeline/`   | yes          | `satmesh-core` (AOI, metric CRS, tile geometry, GSD), `satmesh-data` (Esri tiles, EA DTM and DSM, tile mosaic), `satmesh-mesh` (grid TIN, skirts, GLB), `satmesh-tiles` (georeferenced node store, tiler, 3D Tiles, Gazebo and area GLB exporters), `satmesh-eval` (height and smoothness scores, pipeline check, imagery offset, camera visibility, photo localisation harness), `satmesh-track` (camera poses and lens calibration from ordered photos: tracker, local and global search, GTSAM lens graph), `satmesh-cli` (`satmesh` command) |
 | `ml/`         | yes          | `satmesh-height` (PixTransform, area-to-point kriging, their compositions, the GeoTIFF contract with `pipeline/`, `satmesh-height` command; PyTorch) |
 | `agent-docs/` | no           | Docs written by and for agents: briefs, plans, research reports    |
 | `docs/`       | no           | Human-facing docs                                                  |
@@ -87,6 +87,7 @@ Run from the repo root unless a workspace is named.
 | Correct imagery position     | `uv run satmesh correct --store DIR` from `pipeline/` (downloads EA point clouds) |
 | Score a store                | `uv run satmesh eval {heights,smoothness,visibility} --store DIR --nw "LAT, LON" --se "LAT, LON"` from `pipeline/` |
 | Localise photos              | `uv run satmesh eval localise PHOTOS --poses FILE.jsonl --store DIR [--reference surface --reference flat ...] [--matcher {xfeat,sift}] [--out DIR]` from `pipeline/` (XFeat needs `XFEAT_MODEL_DIR`); writes `report.json` and `review.html` |
+| Poses and lens from photos   | `uv run satmesh track PHOTOS --store DIR [--start "LAT, LON" --radius-m M] [--megaloc-model F] [--out DIR]` from `pipeline/` (XFeat needs `XFEAT_MODEL_DIR`; without `--start` the MegaLoc ONNX graph is read from `MEGALOC_MODEL`); writes `poses.jsonl`, `calibration.json`, `report.json`, `review.html` |
 | Esri-to-EA imagery offset    | `uv run satmesh eval offset --aerial EA.tif --nw "LAT, LON" --se "LAT, LON" --zoom 19` from `pipeline/` |
 | Texture detail vs EA aerial  | `uv run satmesh eval texture --aerial EA.tif --nw "LAT, LON" --se "LAT, LON" --zoom 19` from `pipeline/` |
 | Eval on a 100 m slice        | `make eval-slice` (builds a store, then runs the three store checks; needs network) |

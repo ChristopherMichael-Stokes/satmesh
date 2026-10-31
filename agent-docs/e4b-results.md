@@ -163,9 +163,9 @@ as GLBs (`glbs_e0.py`); the owner reads the GLBs. Scores are secondary.
 
 ## E1 results (zero-initialised correction net per area, dropped)
 
-Run 2026-10-30 by a subagent; code, outputs and rerun in `uncommitted/e4b/e1/` (`run.sh`; operators
-from `ml/` with `operators.py`; log `e1.log`, whose 14:49 `FAILED` line is a hand-stopped first
-run). Owner dropped E1 after reading E0 in Blender and this evaluation; no E1 render page was made.
+Run 2026-10-30 by a subagent. Its code, outputs and rerun (`run.sh`, operators from `ml/` with
+`operators.py`, log `e1.log`) were in `uncommitted/e4b/e1/`, deleted 2026-10-31. Owner dropped E1
+after reading E0 in Blender and this evaluation; no E1 render page was made.
 GLBs of E1 at both sites and factors: `uncommitted/e4b/e0/glb/{ferry,aire}-e1-x{5,30}.glb`.
 
 What was tested: `avg` prior masked as in `e0m`, plus a net (1x1 stem, 4 residual blocks of 3x3

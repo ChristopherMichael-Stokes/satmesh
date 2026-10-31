@@ -39,9 +39,25 @@ plus LighterGlue on ONNX CPU:
   `poses.jsonl` with the harness reader).
 - The acceptance criteria of the plan (focal within 1 %, poses within 1 m) hold.
 
+## Further runs (method report examples, 2026-10-31)
+
+`satmesh track` through the CLI, same store, start 50 m from the first photo, 24 photos each unless
+noted. Truth from each flight's `flight.json`.
+
+| Run | Statuses | Position error median (max) | Focal error (1 sigma) | k1 (true) | k2 |
+| --- | --- | --- | --- | --- | --- |
+| Flight L, photos 6, 13, 19 with 70 % random pixels | 21 tracked, 3 lost | 0.06 m (0.13) | -0.07 % (0.7 %) | -0.0926 (-0.100) | -0.0144 |
+| Flight N, camera pitch -90 to -81 degrees | 24 tracked | 0.47 m (0.54) | -1.09 % (6.2 %) | -0.0954 | -0.0011 |
+| Flight W, 100 degree lens, k1 -0.25, k2 +0.08 | 24 tracked | 0.57 m (1.05) | +0.93 % (0.6 %) | -0.2480 | +0.0809 |
+| Sharp-turn flight, photos 8 to 16 missing, by file name | 13 tracked, 1 rejected (photo 17), 1 relocalised | 0.16 m (0.28) | -0.40 % (1.1 %) | -0.0914 | -0.0090 |
+| Same, true sequence indices (API) | search at photo 17: 600 renders, radius 205 m, recovered | | | | |
+
+Flight N's focal sigma is 9 times flight L's (62 px against 7 px). Scripts and data:
+`uncommitted/photo-only/report/`.
+
 ## Tests
 
-`packages/satmesh-track/tests`: 26 tests, 3 gated on model files (`XFEAT_MODEL_DIR`,
+`packages/satmesh-track/tests`: 28 tests, 3 gated on model files (`XFEAT_MODEL_DIR`,
 `MEGALOC_MODEL`) and skipped without them.
 
 - Lens: a known lens projected with OpenCV's own model is recovered noise-free and within the
@@ -64,8 +80,8 @@ plus LighterGlue on ONNX CPU:
 - The rejection floors its spread at the assumed noise (pixel sigma, mesh error), which the P3
   experiments did not have; the three corrupted-frame cases are covered by tests, the P3 flights
   were not rerun.
-- Local search ranks candidates with the full matcher on both images; it is correct but slower than
-  extracting the photo's features once.
+- Local search ranks candidates by extracting the photo's features once and matching each render's
+  on a pool of 3 workers (after the optimisation pass, `photo-only-profile.md`).
 
 ## Not tested
 
@@ -74,15 +90,39 @@ plus LighterGlue on ONNX CPU:
   them is about 83 minutes on CPU.
 - Real photos; `--matcher sift` through the CLI; a store of several kilometres.
 
-## Where the time goes (candidates for the optimisation pass)
+## Where the time goes
+
+After the optimisation pass the flight L run takes 49 s on the CPU (100.8 s before), outputs
+unchanged, and 13.9 s on TensorRT (`photo-only-profile.md`).
 
 | Step | Cost now | Idea |
 | --- | --- | --- |
 | Describing grid renders with MegaLoc | 0.64 s each on CPU, first run per store | GPU or TensorRT execution provider; fewer pitches or a coarser grid at the 100 m level |
-| Local search ranking | each candidate extracts both images' features (about 0.25 s on CPU) | extract the photo once, batch the candidates; TensorRT |
-| Matching during tracking | ONNX CPU, about 0.4 s a photo | TensorRT backend of `xfeat-rt` (10 to 15 ms a pair) |
+| Local search ranking | about 36 s for 216 candidates on CPU | Done on TensorRT; K1024 ranking or a cheaper candidate set change behaviour |
+| Matching during tracking | about 0.25 s a photo on CPU | Done: TensorRT backend |
 | Test suite | the gap test takes about 60 s, the tracker flight 15 s | smaller scene, fewer candidates |
 | Store scene load | 8 s and 5 GB of RAM for 961 leaves | far-field parent tiles |
+
+## Rerun recipes
+
+All from `pipeline/`. Model files are build outputs, never committed.
+
+| What | How |
+| --- | --- |
+| XFeat models | `XFEAT_MODEL_DIR=/home/chris/xfeat_dev/xfeat-rt/reference/uncommitted/models-chunked` (the `models/` folder there fails to load); FP16 exports in `models-fp16` |
+| MegaLoc ONNX | `huggingface_hub.hf_hub_download("gberton/MegaLoc", "megaloc.onnx")` into `~/.cache/huggingface/hub/models--gberton--MegaLoc/snapshots/*/megaloc.onnx` (458 MB, already there); `MEGALOC_MODEL=` that path |
+| Whole pipeline tests | `XFEAT_MODEL_DIR=... MEGALOC_MODEL=... uv run --frozen pytest packages` (392 passed, 2 skipped, about 3 minutes); `make test` runs the same without models (model-gated tests skip) |
+| End-to-end run | `uv run satmesh track PHOTOS --store uncommitted/e4b/ferry-slice-store --start "53.712453, -1.275374" --radius-m 120 --out OUT` with `PHOTOS` the 24 PNGs of `uncommitted/photo-only/flights/flightL` (start is 50 m from photo 0) |
+| Synthetic flight with a lens | `uncommitted/photo-only/p3/p2_flight.py NAME H_LOW H_HIGH SEED N [PITCH_LO PITCH_HI]` with env `TRUE_SCALE`, `TRUE_K1`, `TRUE_K2`, `TURN_SD_DEG`; needs `uncommitted/photo-only/p0/p0_common.py` on the path (`sys.path` `../p0`); writes `NAME/flight.json` and PNGs |
+| Profiling | `uvx py-spy record -r 50 -f raw -o spy.raw -- .venv/bin/python .venv/bin/satmesh track ...`; aggregate the raw stacks by frame (inclusive and self shares); data in `uncommitted/photo-only/profile/` |
+| TensorRT matcher | Part of the pipeline venv (`make setup`, `--all-extras`); `XFEAT_MODEL_DIR=/home/chris/xfeat_dev/satmesh/uncommitted/models/xfeat-rt` (symlinks to `models-chunked` and `models-fp16`); engines build on first use into `~/.cache/xfeat-rt/tensorrt` |
+| Torch MegaLoc (only for comparisons) | a throwaway venv with torch, torchvision, huggingface_hub, safetensors, pillow and a clone of `github.com/gmberton/MegaLoc` loaded with `torch.hub.load(path, "get_trained_model", source="local")`; production needs none of it |
+
+Scratch, all gitignored under `uncommitted/photo-only/`: `p0/` to `p3/` (experiment scripts and
+JSON), `flights/` (flights L, H, N, K, W, T with truth in `flight.json`, 196 MB together), `profile/`
+(cProfile and py-spy output). The session scratchpad held the 4.7 GB TensorRT environment, a 5.2 GB
+torch environment, the P1 render grids (126 MB and 349 MB) and the P2 and P3 pickles; they are
+rebuilt by the recipes above and the scripts and can be left to vanish.
 
 ## Traps
 
@@ -90,3 +130,13 @@ plus LighterGlue on ONNX CPU:
   test file base names are unique across the pipeline packages.
 - Renaming a helper `_solved` to `solved` made a local variable of the same name shadow it.
 - SIFT's basin on the small synthetic town is under 25 m, so the gap test needs XFeat.
+- `_follow` counted failed local searches but reset the count only on a recovered search, so three
+  isolated unusable photos (3 searches that failed, each followed by good photos) aborted a flight
+  as "3 local searches in a row". A photo that localises without a search now resets the count
+  (`test_isolated_unusable_photos_do_not_add_up_to_a_failed_track`). Found by the method report's
+  corrupted-frame example.
+- Photos are ordered by file name with one step between neighbours, so a run of missing photos looks
+  like one long step: the search radius stays at its margin and a correct fix after the gap is
+  flagged as a position jump and rejected (sharp-turn flight with photos 8 to 16 removed: photo 17
+  rejected, photo 18 relocalised). Passing true sequence indices (EXIF order, not built) removes
+  this.

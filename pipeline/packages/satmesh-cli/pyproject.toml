@@ -13,6 +13,7 @@ dependencies = [
   "satmesh-eval",
   "satmesh-mesh",
   "satmesh-tiles",
+  "satmesh-track",
   "typer>=0.27.3",
 ]
 
@@ -29,3 +30,4 @@ satmesh-data = { workspace = true }
 satmesh-eval = { workspace = true }
 satmesh-mesh = { workspace = true }
 satmesh-tiles = { workspace = true }
+satmesh-track = { workspace = true }

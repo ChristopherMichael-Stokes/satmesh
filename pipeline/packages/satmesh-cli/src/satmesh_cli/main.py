@@ -1,6 +1,7 @@
 """Typer app: `satmesh build` fills a tile store, `satmesh export` writes it for a consumer."""
 
 import math
+from collections import Counter
 from collections.abc import Generator
 from contextlib import contextmanager
 from enum import StrEnum
@@ -9,6 +10,7 @@ from typing import Annotated
 
 import httpx
 import mercantile
+import numpy as np
 import typer
 from loguru import logger
 from platformdirs import user_cache_dir
@@ -16,7 +18,13 @@ from platformdirs import user_cache_dir
 from satmesh_cli.corners import LatLon, corners_to_bng_inside, corners_to_wgs84, parse_lat_lon
 from satmesh_cli.grids import Region, grid_files, install_grids
 from satmesh_cli.reporting import file_log, run_log
-from satmesh_core import BNG_ODN, BRITISH_NATIONAL_GRID, Aoi, GridMissingError
+from satmesh_core import (
+    BNG_ODN,
+    BRITISH_NATIONAL_GRID,
+    Aoi,
+    GridMissingError,
+    geodetic_to_ecef,
+)
 from satmesh_data import (
     EsriClient,
     EsriQueryError,
@@ -25,6 +33,7 @@ from satmesh_data import (
     fetch_scene_map,
     new_client,
 )
+from satmesh_eval.camera import CameraPose
 from satmesh_eval.harness import (
     DEFAULT_MAX_RANGE_M,
     Reference,
@@ -64,6 +73,27 @@ from satmesh_tiles import (
     stored_tiles,
     write_positional_error,
 )
+from satmesh_track.first_fix import (
+    GridConfig,
+    descriptor_cache_path,
+    find_start,
+    grid_descriptors,
+    grid_poses,
+    start_near,
+)
+from satmesh_track.lens import LensConfig
+from satmesh_track.outputs import write_outputs
+from satmesh_track.photos import list_photos, load_photo
+from satmesh_track.retrieval import MegaLocDescriber
+from satmesh_track.store_scene import StoreScene, load_store_scene
+from satmesh_track.tracker import (
+    PhotoImage,
+    TrackConfig,
+    TrackingContext,
+    TrackingError,
+    nominal_focal,
+    track,
+)
 
 DEFAULT_CACHE_DIR = Path(user_cache_dir("satmesh"))
 DEFAULT_ESRI_REQUESTS_PER_SECOND = 20.0
@@ -101,6 +131,13 @@ SouthEastOption = Annotated[
 ]
 
 
+class MatcherChoice(StrEnum):
+    """Feature matcher of `eval localise` and `track`."""
+
+    XFEAT = "xfeat"
+    SIFT = "sift"
+
+
 @contextmanager
 def reported_errors() -> Generator[None]:
     """Turn the failures a user can act on into one stderr line and exit code 1."""
@@ -112,6 +149,7 @@ def reported_errors() -> Generator[None]:
         PlaceholderTileError,
         LidarCheckError,
         EsriQueryError,
+        TrackingError,
         httpx.HTTPError,
         RuntimeError,
     ) as e:
@@ -191,6 +229,75 @@ def build(  # noqa: PLR0913, PLR0917 (the two corners, store and three tuning op
         )
         file_log.info("built {} nodes, skipped {}", summary.built, summary.skipped)
     typer.echo(f"built {summary.built} nodes, skipped {summary.skipped} already in {store}")
+
+
+@app.command("track")
+def track_photos(  # noqa: PLR0913 (photos, store and seven settings)
+    photos: Annotated[Path, typer.Argument(help="Directory of photos, in the order taken.")],
+    store: StoreOption,
+    *,
+    out: Annotated[Path, typer.Option(help="Directory for the four output files.")] = Path(
+        "track-report"
+    ),
+    start: Annotated[
+        LatLon | None,
+        typer.Option(
+            parser=parse_lat_lon,
+            metavar="LAT, LON",
+            help="Rough position of the first photo; searches only around it instead of the store.",
+        ),
+    ] = None,
+    radius_m: Annotated[float, typer.Option(help="Search radius around --start.")] = 150.0,
+    mesh_error_m: Annotated[
+        float, typer.Option(min=0.0, help="Assumed error of the mesh's heights, metres.")
+    ] = LensConfig().mesh_error_m,
+    matcher: Annotated[MatcherChoice, typer.Option(help="Feature matcher.")] = MatcherChoice.XFEAT,
+    xfeat_models: Annotated[
+        Path | None, typer.Option(envvar="XFEAT_MODEL_DIR", help="xfeat-rt ONNX exports.")
+    ] = None,
+    megaloc_model: Annotated[
+        Path | None,
+        typer.Option(envvar="MEGALOC_MODEL", help="MegaLoc ONNX graph; needed without --start."),
+    ] = None,
+    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
+) -> None:
+    """Recover each photo's pose and the camera's lens from the photos alone; writes four files."""
+    settings = {
+        "photos": photos,
+        "out": out,
+        "start": start,
+        "radius_m": radius_m,
+        "mesh_error_m": mesh_error_m,
+        "matcher": matcher.value,
+    }
+    with reported_errors(), run_log(store, "track", settings):
+        loaded = [load_photo(path) for path in list_photos(photos)]
+        images = [item.image for item in loaded]
+        store_scene = load_store_scene(store)
+        config = TrackConfig(lens=LensConfig(mesh_error_m=mesh_error_m))
+        selected = _matcher(matcher, xfeat_models)
+        context = TrackingContext(store_scene.scene, selected, config, _log_photo_progress)
+        if start is not None:
+            ecef = np.array(geodetic_to_ecef().transform(start[1], start[0], 0.0))
+            centre = store_scene.scene.area.to_enu(ecef[None, :])[0][:2]
+            first_pose = start_near(images[0], centre, radius_m, context)
+        elif megaloc_model is not None:
+            first_pose = _store_wide_start(
+                images[0], store_scene, context, megaloc_model, cache_dir
+            )
+        else:
+            msg = "searching the store needs --megaloc-model (or MEGALOC_MODEL), or give --start"
+            raise typer.BadParameter(msg)
+        result = track(images, first_pose, context)
+        write_outputs(out, result, loaded, store_scene.scene.area)
+        counts = Counter(p.status.value for p in result.photos)
+        lens = result.lens.lens
+        typer.echo(
+            f"{dict(counts)}; focal {lens.focal_px:.1f} px "
+            f"(1 sigma {result.lens.focal_sigma_px:.1f} at the working size), "
+            f"k1 {lens.k1:.4f}, k2 {lens.k2:.4f}"
+        )
+        typer.echo(out)
 
 
 @app.command()
@@ -405,13 +512,6 @@ def eval_texture(
         typer.echo(texture_report(aerial, box, zoom, EsriClient(http, cache_dir), site))
 
 
-class MatcherChoice(StrEnum):
-    """Feature matcher of `eval localise`."""
-
-    XFEAT = "xfeat"
-    SIFT = "sift"
-
-
 @eval_app.command("localise")
 def eval_localise(  # noqa: PLR0913 (photos, poses, store and the five run settings)
     photos: Annotated[Path, typer.Argument(help="Directory of the photos named in the pose file.")],
@@ -479,6 +579,34 @@ def _matcher(choice: MatcherChoice, xfeat_models: Path | None) -> Matcher:
         msg = "--matcher xfeat needs --xfeat-models or XFEAT_MODEL_DIR"
         raise typer.BadParameter(msg)
     return xfeat_from_directory(xfeat_models)
+
+
+def _store_wide_start(
+    photo: PhotoImage,
+    store_scene: StoreScene,
+    context: TrackingContext,
+    model: Path,
+    cache_dir: Path,
+) -> CameraPose:
+    """First fix with no prior: the MegaLoc-ranked grid over the whole store, descriptors cached."""
+    describer = MegaLocDescriber(model)
+    grid_config = GridConfig()
+    grid = grid_poses(grid_config, store_scene.bounds, store_scene.scene.ground_height)
+    height, width = photo.rgb.shape[:2]
+    cache = descriptor_cache_path(
+        cache_dir / "first-fix", store_scene.key, grid_config, (width, height), model
+    )
+    logger.info("describing {} grid renders (cached after the first run)", len(grid))
+    descriptors = grid_descriptors(
+        grid,
+        store_scene.scene,
+        describer,
+        (width, height),
+        nominal_focal(width),
+        cache,
+        context.config.max_range_m,
+    )
+    return find_start(photo, grid, descriptors, describer, context, grid_config.verify_top_k)
 
 
 def _log_photo_progress(done: int, total: int) -> None:

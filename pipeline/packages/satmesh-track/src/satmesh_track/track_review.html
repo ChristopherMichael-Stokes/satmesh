@@ -1,0 +1,79 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Track Review</title>
+<style>
+:root{--bg:#f5f6f4;--fg:#1c2220;--muted:#5b6560;--line:#d6dbd7;--panel:#ffffff;--accent:#1d6b5c;--good:#2f8a3e;--bad:#c23b3b;--warn:#8a5a14;
+--display:Georgia,serif;--body:system-ui,sans-serif;--mono:ui-monospace,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121715;--fg:#e4e9e6;--muted:#97a39d;--line:#2b3531;--panel:#1a211e;--accent:#58b8a3;--good:#5cc26b;--bad:#e46a6a;--warn:#d9a45a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121715;--fg:#e4e9e6;--muted:#97a39d;--line:#2b3531;--panel:#1a211e;--accent:#58b8a3;--good:#5cc26b;--bad:#e46a6a;--warn:#d9a45a;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);line-height:1.5;margin:0;padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1{font-family:var(--display);font-size:2rem;margin:0}
+h2{font-family:var(--display);font-size:1.25rem;margin:0}
+.read{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;max-width:78ch}
+.read p{margin:0}.warn{color:var(--warn)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px;min-width:0}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:.88rem}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left}
+th{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.sel td{background:color-mix(in srgb,var(--accent) 14%,transparent)}
+svg{width:100%;height:auto;display:block}
+.dot{stroke:var(--panel);stroke-width:2;cursor:pointer}.arrow{stroke-width:2;fill:none}
+.tracked{fill:var(--good)}.relocalised{fill:var(--accent)}.rejected{fill:var(--bad)}
+.lbl{fill:var(--muted);font-size:10px;font-family:var(--mono)}
+.strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px}
+.strip figure{margin:0;flex:0 0 auto;border:2px solid transparent;border-radius:4px}
+.strip figure.sel{border-color:var(--accent)}
+.strip img{height:110px;display:block;border-radius:3px}
+.strip figcaption{font-family:var(--mono);font-size:.7rem;color:var(--muted)}
+.key{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--muted)}
+.key i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+</style>
+<main>
+<h1>Track Review</h1>
+<section class="read">
+<p><b>Question:</b> did the photos follow one sensible path, and is the camera's lens determined?</p>
+<p><b>Plan view:</b> each dot is a photo at its recovered position (east right, north up, metres from the scene origin), the short line points where the camera looks. <span style="color:var(--good)">Green</span> tracked, teal found again by the local search after a lost track, red dropped as a wrong frame. A lost photo has no dot. Click a dot, a thumbnail or a table row to find the same photo in all three.</p>
+<p><b>Lens:</b> focal length with its standard deviation, radial terms k1 and k2 of the OpenCV model, at the photos' original size. A standard deviation of the focal length above about 1 % means the photos did not determine it well (straight-down views over flat ground cannot).</p>
+<p class="warn" id="warnings"></p>
+</section>
+<div class="card"><svg id="plan" role="img" aria-label="Plan view of the recovered camera path"></svg>
+<div class="key"><span><i style="background:var(--good)"></i>tracked</span><span><i style="background:var(--accent)"></i>found by local search</span><span><i style="background:var(--bad)"></i>dropped as a wrong frame</span></div></div>
+<h2>Lens</h2>
+<div class="scroll"><table><tbody id="lens"></tbody></table></div>
+<h2>Photos</h2>
+<div class="strip" id="strip"></div>
+<div class="scroll"><table><thead><tr><th>Photo</th><th>Status</th><th class="n">Inliers</th><th class="n">Residual px</th><th class="n">East m</th><th class="n">North m</th><th class="n">Height m</th></tr></thead><tbody id="rows"></tbody></table></div>
+<h2>Local searches</h2>
+<div class="scroll"><table><thead><tr><th>Photo</th><th class="n">Radius m</th><th class="n">Renders</th><th>Result</th></tr></thead><tbody id="searches"></tbody></table></div>
+</main>
+<script>
+const D=__DATA__;
+const $=id=>document.getElementById(id);
+const fx=(x,d=2)=>x===null||x===undefined?"–":x.toFixed(d);
+$("warnings").textContent=D.warnings.join(" ");
+$("lens").innerHTML=D.lens.map(([k,v])=>`<tr><th>${k}</th><td class=n>${v}</td></tr>`).join("");
+$("searches").innerHTML=D.searches.length?D.searches.map(s=>`<tr><td>${s.photo}</td><td class=n>${s.radius_m.toFixed(0)}</td><td class=n>${s.renders}</td><td>${s.recovered?"found":"not found"}</td></tr>`).join(""):"<tr><td colspan=4>none</td></tr>";
+let cur=null;
+function select(i){cur=i;[...$("rows").children].forEach((r,j)=>r.classList.toggle("sel",j===i));[...$("strip").children].forEach((f,j)=>f.classList.toggle("sel",j===i));document.querySelectorAll("#plan .dot").forEach(d=>d.setAttribute("r",+d.dataset.i===i?9:6))}
+$("rows").innerHTML=D.photos.map((p,i)=>`<tr data-i="${i}"><td>${p.name}</td><td>${p.status}</td><td class=n>${p.inliers}</td><td class=n>${fx(p.rmse)}</td><td class=n>${fx(p.east,1)}</td><td class=n>${fx(p.north,1)}</td><td class=n>${fx(p.height,1)}</td></tr>`).join("");
+$("strip").innerHTML=D.photos.map((p,i)=>`<figure data-i="${i}"><img alt="${p.name}" src="${p.thumb}"><figcaption>${p.name}</figcaption></figure>`).join("");
+[...$("rows").children,...$("strip").children].forEach(e=>e.onclick=()=>select(+e.dataset.i));
+const placed=D.photos.filter(p=>p.east!==null);
+if(placed.length){
+ const xs=placed.map(p=>p.east),ys=placed.map(p=>p.north),pad=20;
+ const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+ const span=Math.max(x1-x0,y1-y0,1),W=640,H=640,s=(W-2*pad)/span;
+ const px=x=>pad+(x-x0)*s,py=y=>H-pad-(y-y0)*s;
+ $("plan").setAttribute("viewBox",`0 0 ${W} ${H}`);
+ let g=`<polyline class="arrow" points="${placed.map(p=>px(p.east)+","+py(p.north)).join(" ")}" stroke="var(--line)"/>`;
+ D.photos.forEach((p,i)=>{if(p.east===null)return;
+  const ax=px(p.east)+14*p.fx,ay=py(p.north)-14*p.fy;
+  g+=`<line class="arrow" x1="${px(p.east)}" y1="${py(p.north)}" x2="${ax}" y2="${ay}" stroke="var(--muted)"/><circle class="dot ${p.status}" data-i="${i}" cx="${px(p.east)}" cy="${py(p.north)}" r="6"><title>${p.name}: ${p.status}, ${p.inliers} inliers</title></circle><text class="lbl" x="${px(p.east)+8}" y="${py(p.north)-8}">${i+1}</text>`});
+ $("plan").innerHTML=g;
+ document.querySelectorAll("#plan .dot").forEach(d=>d.onclick=()=>select(+d.dataset.i));
+}
+</script>

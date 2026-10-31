@@ -42,7 +42,8 @@ Demo video: `docs/demo.mp4` (to be added)
 ## Use
 
 Needs the PROJ datum grids (`make setup` fetches all of them; `make grids REGIONS="gb us"`
-fetches only the named regions `gb`, `global`, `us`). Imagery is Esri World Imagery everywhere.
+fetches only the named regions `gb`, `global`, `us`). Imagery is Esri World Imagery everywhere,
+never finer than 30 cm: a finer local flight is fetched at the 30 cm zoom.
 Heights come from the first registry entry that covers the area
 (`pipeline/packages/satmesh-data/src/satmesh_data/registry.toml`):
 

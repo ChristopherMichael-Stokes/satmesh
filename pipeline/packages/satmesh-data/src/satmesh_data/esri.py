@@ -27,6 +27,9 @@ PLACEHOLDER_MD5_PREFIX = "f27d9de7"
 DEFAULT_MIN_INTERVAL_S = 1.0
 CACHE_SUBDIR = Path("esri-world-imagery") / "live"
 NULL_ATTRIBUTE = "Null"
+# owner's upper bound on imagery quality: a source finer than this is fetched as if it were this
+# fine, so a 2.4 cm county flight costs z19 tiles instead of z21 (20,736 leaves per 2 km square)
+FINEST_IMAGERY_RESOLUTION_M = 0.30
 
 
 class PlaceholderTileError(Exception):
@@ -77,13 +80,15 @@ def choose_zoom(sources: list[EsriSource], latitude_deg: float) -> tuple[int, Es
 
     The source is the one cached deepest, ties to the finest resolution. The zoom is the coarsest
     whose ground sample distance reaches that source's resolution, clamped to the source's cache
-    levels: a source that starts at a deep level is only visible from there.
+    levels: a source that starts at a deep level is only visible from there. A source finer than
+    `FINEST_IMAGERY_RESOLUTION_M` counts as that resolution.
     """
     if not sources:
         msg = "no imagery sources"
         raise ValueError(msg)
     best = max(sources, key=lambda s: (s.to_cache_level, -s.resolution_m))
-    zoom = zoom_for_resolution(best.resolution_m, latitude_deg, max_zoom=best.to_cache_level)
+    target_resolution_m = max(best.resolution_m, FINEST_IMAGERY_RESOLUTION_M)
+    zoom = zoom_for_resolution(target_resolution_m, latitude_deg, max_zoom=best.to_cache_level)
     return max(zoom, best.from_cache_level), best
 
 

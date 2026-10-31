@@ -9,6 +9,13 @@ every command that takes `--store` appends to `run.log` in the store: the comman
 settings, timings, and for `correct` the shift and error bound of each cell and the lean of each
 satellite capture.
 
+## Imagery zoom
+
+The tiler fetches Esri tiles at the coarsest zoom whose ground sample distance reaches the source
+resolution at the area's centre, never past the source's deepest cache level. Sources finer than
+30 cm count as 30 cm (`FINEST_IMAGERY_RESOLUTION_M`), which bounds the tile count over counties
+flown at a few centimetres.
+
 ## Elevation sources
 
 `build` asks a registry for the heights of the area: the first entry in `registry.toml` whose

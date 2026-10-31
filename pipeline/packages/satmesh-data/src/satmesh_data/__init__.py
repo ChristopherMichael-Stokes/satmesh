@@ -26,6 +26,7 @@ from satmesh_data.ept_dsm import (
     find_ept_project,
 )
 from satmesh_data.esri import (
+    FINEST_IMAGERY_RESOLUTION_M,
     EsriClient,
     EsriSource,
     PlaceholderTileError,
@@ -75,6 +76,7 @@ from satmesh_data.usgs_dem import (
 __all__ = [
     "EA_DSM",
     "EA_DTM",
+    "FINEST_IMAGERY_RESOLUTION_M",
     "UNLABELLED",
     "USER_AGENT",
     "WEB_MERCATOR",

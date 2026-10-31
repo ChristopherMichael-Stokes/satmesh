@@ -12,6 +12,7 @@ import pytest
 from pydantic import ValidationError
 
 from satmesh_data import (
+    FINEST_IMAGERY_RESOLUTION_M,
     EsriClient,
     EsriSource,
     PlaceholderTileError,
@@ -132,6 +133,22 @@ def test_zoom_reaches_a_source_drawn_only_at_deep_levels() -> None:
 def test_zoom_is_capped_at_the_deepest_level() -> None:
     zoom, _ = choose_zoom([source(0.05, 12, 19)], 0.0)
     assert zoom == 19
+
+
+def test_source_finer_than_the_imagery_bound_is_fetched_at_the_bound() -> None:
+    # Ames: a 0.0243 m flight cached to level 23
+    zoom, chosen = choose_zoom([source(0.0243, 12, 23)], 42.03)
+    assert chosen.resolution_m == 0.0243
+    assert (
+        web_mercator_gsd_m(zoom, 42.03)
+        <= FINEST_IMAGERY_RESOLUTION_M
+        < web_mercator_gsd_m(zoom - 1, 42.03)
+    )
+
+
+def test_source_coarser_than_the_imagery_bound_is_unchanged() -> None:
+    zoom, _ = choose_zoom([source(0.5, 12, 19)], 39.74)
+    assert web_mercator_gsd_m(zoom, 39.74) <= 0.5 < web_mercator_gsd_m(zoom - 1, 39.74)
 
 
 def test_no_sources_is_an_error() -> None:

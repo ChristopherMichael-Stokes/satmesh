@@ -139,7 +139,7 @@ def build(  # noqa: PLR0913, PLR0917 (the two corners, store and three tuning op
     ] = DEFAULT_MAX_ERROR_M,
     esri_requests_per_second: EsriRateOption = DEFAULT_ESRI_REQUESTS_PER_SECOND,
 ) -> None:
-    """Fetch imagery and terrain for an area and write its tiles to the store; resumable."""
+    """Fetch imagery (at most 30 cm fine) and terrain for an area into the store; resumable."""
     settings = {
         "nw": nw,
         "se": se,

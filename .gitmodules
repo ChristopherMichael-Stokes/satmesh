@@ -1,0 +1,3 @@
+[submodule "third-party/xfeat-rt"]
+	path = third-party/xfeat-rt
+	url = git@github.com:ChristopherMichael-Stokes/xfeat-rt.git

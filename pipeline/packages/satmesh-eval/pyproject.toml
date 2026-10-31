@@ -18,7 +18,11 @@ dependencies = [
   "scipy>=1.18.1",
   "threadpoolctl>=3.7.0",
   "trimesh>=5.2.0",
+  "wgpu>=0.32.0",
   "xdem>=0.2.3",
+  "xfeat-core",
+  "xfeat-ort",
+  "xfeat-pairs",
 ]
 
 [build-system]
@@ -29,3 +33,6 @@ build-backend = "uv_build"
 satmesh-core = { workspace = true }
 satmesh-data = { workspace = true }
 satmesh-tiles = { workspace = true }
+xfeat-core = { path = "../../../third-party/xfeat-rt/runtime/packages/xfeat-core", editable = true }
+xfeat-ort = { path = "../../../third-party/xfeat-rt/backends/ort", editable = true }
+xfeat-pairs = { path = "../../../third-party/xfeat-rt/runtime/packages/xfeat-pairs", editable = true }

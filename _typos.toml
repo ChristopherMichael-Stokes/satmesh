@@ -9,3 +9,5 @@ LOD = "LOD"
 Ture = "Ture"
 # author surname (Nasir, Liu, Mian; NAIMA, WAVE)
 Mian = "Mian"
+# perspective-n-point: typos splits OpenCV's solvePnPRansac at "Pn" and rewrites it to "On"
+Pn = "Pn"

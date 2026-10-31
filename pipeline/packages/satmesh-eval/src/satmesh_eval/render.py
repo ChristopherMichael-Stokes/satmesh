@@ -101,17 +101,28 @@ def render_luma(leaves: list[LeafMesh], box: Aoi, grid_m: float) -> np.ndarray:
 
 
 def _luma_at(leaf: LeafMesh, points: np.ndarray, triangles: np.ndarray) -> np.ndarray:
-    corners = leaf.mesh.vertices[leaf.mesh.faces[triangles]]
+    uv = interpolated_uv(leaf.mesh, leaf.uv, points, triangles)
+    return texture_rgb_at(leaf.texture, uv) @ LUMA_709
+
+
+def interpolated_uv(
+    mesh: Trimesh, vertex_uv: np.ndarray, points: np.ndarray, triangles: np.ndarray
+) -> np.ndarray:
+    """UV at `points` on `triangles` of `mesh`, barycentric from the per-vertex `vertex_uv`."""
+    corners = mesh.vertices[mesh.faces[triangles]]
     weights = points_to_barycentric(corners, points)
-    uv = np.einsum("nk,nkd->nd", weights, leaf.uv[leaf.mesh.faces[triangles]])
-    height, width = leaf.texture.shape[:2]
+    return np.einsum("nk,nkd->nd", weights, vertex_uv[mesh.faces[triangles]])
+
+
+def texture_rgb_at(texture: np.ndarray, uv: np.ndarray) -> np.ndarray:
+    """Bilinear RGB (float, 0 to 255) of `texture` at glTF `uv` (n, 2), origin top-left."""
+    height, width = texture.shape[:2]
     # texel centres sit at +0.5 px: u = (col + 0.5) / width
     cols, rows = uv[:, 0] * width - 0.5, uv[:, 1] * height - 0.5
-    rgb = np.stack(
+    return np.stack(
         [
-            map_coordinates(leaf.texture[..., band], [rows, cols], order=1, mode="nearest")
+            map_coordinates(texture[..., band], [rows, cols], order=1, mode="nearest")
             for band in range(3)
         ],
         axis=1,
     )
-    return rgb @ LUMA_709

@@ -12,6 +12,7 @@ finest ground sample distance the sources support, enhanced by classical process
 | `agent-docs/` | no           | Docs written by and for agents: briefs, plans, research reports    |
 | `docs/`       | no           | Human-facing docs                                                  |
 | `docker/`     | no           | Images for tools no wheel ships: `gdal-ecw` converts ECW to GeoTIFF |
+| `third-party/` | no          | Git submodule `xfeat-rt` (XFeat and LighterGlue inference): `satmesh-eval` depends on its `xfeat-core`, `xfeat-pairs` and `xfeat-ort` by path; its exported ONNX models are build outputs, tests read them from `XFEAT_MODEL_DIR` |
 | root          | no           | Shared checks (`prek.toml`), `ruff.toml`, `Makefile`, `TODO.md`    |
 
 - Each workspace has its own `uv.lock` and `.venv`. Members live at

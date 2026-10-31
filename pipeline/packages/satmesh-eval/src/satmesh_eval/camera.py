@@ -98,6 +98,30 @@ def pose_from_enu(
     return CameraPose(latitude, longitude, height, heading_deg, pitch_deg, roll_deg)
 
 
+def pose_from_camera_to_enu(
+    area: EnuFrame, centre_enu: np.ndarray, camera_to_enu: np.ndarray
+) -> CameraPose:
+    """Inverse of `camera_centre_and_rotation`: the geodetic pose with its heading, pitch, roll.
+
+    The area-frame rotation is carried to the ENU frame at the camera, where
+    forward = (sin h cos p, cos h cos p, sin p) gives h and p, and the roll is the angle that turns
+    the zero-roll right and up axes onto the camera's. Pitch of +-90 degrees has no heading.
+    """
+    ecef = area.origin_ecef + area.east_north_up.T @ centre_enu
+    longitude, latitude, height = ecef_to_geodetic().transform(*ecef)
+    local = EnuFrame.at(ecef, longitude, latitude)
+    in_local = local.east_north_up @ area.east_north_up.T @ camera_to_enu
+    right, _, forward = in_local.T
+    heading = math.atan2(forward[0], forward[1])
+    pitch = math.asin(np.clip(forward[2], -1.0, 1.0))
+    level_right = np.array([math.cos(heading), -math.sin(heading), 0.0])
+    level_up = np.cross(level_right, forward)
+    roll = math.atan2(-right @ level_up, right @ level_right)
+    return CameraPose(
+        latitude, longitude, height, *(math.degrees(angle) for angle in (heading, pitch, roll))
+    )
+
+
 @dataclass(frozen=True)
 class PoseOffset:
     """A displacement in the camera's local ENU (metres) and attitude angle increments (degrees)."""

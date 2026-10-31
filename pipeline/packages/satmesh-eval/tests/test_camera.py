@@ -6,7 +6,13 @@ import pytest
 from pyproj import Geod
 
 from satmesh_core import EnuFrame, ecef_to_geodetic, geodetic_to_ecef
-from satmesh_eval.camera import CameraPose, Intrinsics, camera_centre_and_rotation, pixel_rays
+from satmesh_eval.camera import (
+    CameraPose,
+    Intrinsics,
+    camera_centre_and_rotation,
+    pixel_rays,
+    pose_from_camera_to_enu,
+)
 
 LATITUDE_DEG, LONGITUDE_DEG, ORIGIN_HEIGHT_M = 53.72, -1.27, 40.0
 WGS84_EQUATORIAL_RADIUS_M = 6_378_137.0
@@ -106,3 +112,26 @@ def test_area_frame_origin_geodetic_roundtrip() -> None:
     assert (longitude, latitude, height) == pytest.approx(
         (LONGITUDE_DEG, LATITUDE_DEG, ORIGIN_HEIGHT_M), abs=1e-7
     )
+
+
+@pytest.mark.parametrize(
+    ("heading", "pitch", "roll"),
+    [(0.0, 0.0, 0.0), (137.0, -25.0, 0.0), (-80.0, 40.0, 12.0), (359.0, -89.0, -170.0)],
+)
+def test_pose_from_camera_to_enu_recovers_the_pose_that_made_the_rotation(
+    heading: float, pitch: float, roll: float
+) -> None:
+    area = area_frame_at_origin()
+    made = CameraPose(LATITUDE_DEG + 0.003, LONGITUDE_DEG - 0.004, 80.0, heading, pitch, roll)
+    centre, camera_to_enu = camera_centre_and_rotation(made, area)
+
+    recovered = pose_from_camera_to_enu(area, centre, camera_to_enu)
+
+    # 1e-9 degrees of latitude is 0.1 mm; the angles round-trip through trigonometry only
+    assert recovered.latitude_deg == pytest.approx(made.latitude_deg, abs=1e-9)
+    assert recovered.longitude_deg == pytest.approx(made.longitude_deg, abs=1e-9)
+    assert recovered.ellipsoidal_height_m == pytest.approx(made.ellipsoidal_height_m, abs=1e-4)
+    wrapped = (recovered.heading_deg - made.heading_deg + 180.0) % 360.0 - 180.0
+    assert wrapped == pytest.approx(0.0, abs=1e-6)
+    assert recovered.pitch_deg == pytest.approx(made.pitch_deg, abs=1e-6)
+    assert recovered.roll_deg == pytest.approx(made.roll_deg, abs=1e-6)

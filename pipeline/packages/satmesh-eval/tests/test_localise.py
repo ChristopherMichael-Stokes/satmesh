@@ -20,14 +20,16 @@ from satmesh_eval.camera import (
     pose_from_enu,
 )
 from satmesh_eval.localise import (
+    MINIMUM_INLIERS,
     RECALL_THRESHOLDS,
     Correspondences,
+    Localisation,
     PoseEstimate,
     localise,
     pose_error,
     solve_pose,
 )
-from satmesh_eval.matching import Matcher, XFeatLighterGlueMatcher, sift_match
+from satmesh_eval.matching import Matcher, Matches, sift_match, xfeat_from_directory
 from satmesh_eval.perspective import AreaScene, GroundExtent, SceneLeaf, flat_plane_scene, render
 from satmesh_eval.references import PhotoQuery, Renderer, nadir_views, perspective_views
 
@@ -157,7 +159,7 @@ def test_pose_error_of_a_known_turn_and_shift() -> None:
             [0.0, 0.0, 1.0],
         ]
     )
-    estimate = PoseEstimate(np.array([0.3, 0.4, 0.0]), rotation, np.ones(1, dtype=bool))
+    estimate = PoseEstimate(np.array([0.3, 0.4, 0.0]), rotation, np.ones(1, dtype=bool), 0.0)
 
     error = pose_error(estimate, np.zeros(3), np.eye(3))
 
@@ -216,11 +218,45 @@ def test_sift_recovers_the_pose_from_a_surface_render() -> None:
 @pytest.mark.skipif(MODEL_DIR_VARIABLE not in os.environ, reason=f"{MODEL_DIR_VARIABLE} not set")
 def test_xfeat_with_lighterglue_recovers_the_pose_when_the_photo_is_relit_and_blurred() -> None:
     model_dir = Path(os.environ[MODEL_DIR_VARIABLE])
-    matcher = XFeatLighterGlueMatcher(
-        model_dir / "xfeat_1280x960_k2048_b1.onnx", model_dir / "lighterglue_k2048_b1.onnx"
-    )
+    matcher = xfeat_from_directory(model_dir)
 
     translation_m, rotation_deg = surface_localisation_error(matcher, relit_and_blurred)
 
     assert translation_m <= RECALL_THRESHOLDS[1][0]
     assert rotation_deg <= RECALL_THRESHOLDS[1][1]
+
+
+def sift_localisation(matcher: Matcher = sift_match) -> Localisation:
+    scene = with_buildings()
+    truth = truth_pose()
+    photo = render(scene, INTRINSICS, truth, MAX_RANGE_M).rgb
+    prior = offset_pose(truth, PRIOR_OFFSET)
+    views = perspective_views(
+        PhotoQuery(photo, INTRINSICS, prior, scene.frame), embree_renderer(scene), MAX_RANGE_M
+    )
+    return localise(views, INTRINSICS, matcher)
+
+
+def test_a_well_supported_pose_reports_its_inliers_and_a_small_residual() -> None:
+    result = sift_localisation()
+
+    assert result.estimate is not None
+    assert result.rejected is None
+    assert result.estimate.inlier_count >= MINIMUM_INLIERS
+    # render against render: only keypoint localisation noise, about a pixel
+    assert result.estimate.reprojection_rmse_px < 2.0
+
+
+def test_a_pose_from_too_few_inliers_is_rejected_and_kept_aside() -> None:
+    few = 12
+
+    def few_matches(image_a: np.ndarray, image_b: np.ndarray) -> Matches:
+        matches = sift_match(image_a, image_b)
+        return Matches(matches.points_a[:few], matches.points_b[:few])
+
+    result = sift_localisation(few_matches)
+
+    assert result.estimate is None
+    assert result.rejected is not None
+    assert result.rejected.inlier_count <= few < MINIMUM_INLIERS
+    assert result.match_count == few

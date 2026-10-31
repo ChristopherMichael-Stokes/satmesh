@@ -19,6 +19,8 @@ SIFT_FEATURE_LIMIT = 8000
 SIFT_RATIO = 0.8  # Lowe, "Distinctive Image Features from Scale-Invariant Keypoints", IJCV 2004
 PIXEL_CENTRE_OFFSET = 0.5  # OpenCV and XFeat put pixel centres at integers, camera.py at +0.5
 KNN_NEIGHBOURS = 2
+XFEAT_KEYPOINTS = 2048
+XFEAT_INPUT_SIZE = "1280x960"
 
 
 @dataclass(frozen=True)
@@ -100,6 +102,14 @@ class XFeatLighterGlueMatcher:
             points_a.astype(np.float64) + PIXEL_CENTRE_OFFSET,
             points_b.astype(np.float64) + PIXEL_CENTRE_OFFSET,
         )
+
+
+def xfeat_from_directory(model_dir: Path) -> XFeatLighterGlueMatcher:
+    """The matcher from a directory of `xfeat-rt` exports named by input size and keypoint count."""
+    return XFeatLighterGlueMatcher(
+        model_dir / f"xfeat_{XFEAT_INPUT_SIZE}_k{XFEAT_KEYPOINTS}_b1.onnx",
+        model_dir / f"lighterglue_k{XFEAT_KEYPOINTS}_b1.onnx",
+    )
 
 
 def _fit_to_model(image: npt.NDArray[np.uint8], model_size: tuple[int, int]) -> PreparedImage:

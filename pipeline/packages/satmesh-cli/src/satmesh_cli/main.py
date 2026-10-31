@@ -3,6 +3,7 @@
 import math
 from collections.abc import Generator
 from contextlib import contextmanager
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
@@ -24,6 +25,17 @@ from satmesh_data import (
     fetch_scene_map,
     new_client,
 )
+from satmesh_eval.harness import (
+    DEFAULT_MAX_RANGE_M,
+    Reference,
+    ReferenceRenderers,
+    RunSettings,
+    run_photos,
+)
+from satmesh_eval.localise import MINIMUM_INLIERS
+from satmesh_eval.localise_report import report_json
+from satmesh_eval.matching import Matcher, sift_match, xfeat_from_directory
+from satmesh_eval.poses import read_pose_file
 from satmesh_eval.registration import measure_correction
 from satmesh_eval.report import (
     heights_report,
@@ -33,6 +45,7 @@ from satmesh_eval.report import (
     texture_report,
     visibility_report,
 )
+from satmesh_eval.review_page import review_page
 from satmesh_eval.scene_lean import correction_field
 from satmesh_mesh import DEFAULT_MAX_ERROR_M
 from satmesh_tiles import (
@@ -390,6 +403,86 @@ def eval_texture(
     with reported_errors(), new_client() as http:
         site = load_site(box, cache_dir, http)
         typer.echo(texture_report(aerial, box, zoom, EsriClient(http, cache_dir), site))
+
+
+class MatcherChoice(StrEnum):
+    """Feature matcher of `eval localise`."""
+
+    XFEAT = "xfeat"
+    SIFT = "sift"
+
+
+@eval_app.command("localise")
+def eval_localise(  # noqa: PLR0913 (photos, poses, store and the five run settings)
+    photos: Annotated[Path, typer.Argument(help="Directory of the photos named in the pose file.")],
+    poses: Annotated[Path, typer.Option(help="JSON-lines pose file, one line per photo.")],
+    store: StoreOption,
+    *,
+    out: Annotated[Path, typer.Option(help="Directory for report.json and review.html.")] = Path(
+        "localise-report"
+    ),
+    reference: Annotated[
+        list[Reference] | None,
+        typer.Option(help="References to match against; repeat for several. Default: all four."),
+    ] = None,
+    matcher: Annotated[MatcherChoice, typer.Option(help="Feature matcher.")] = MatcherChoice.XFEAT,
+    xfeat_models: Annotated[
+        Path | None,
+        typer.Option(
+            envvar="XFEAT_MODEL_DIR",
+            help="Directory of xfeat-rt ONNX exports; for --matcher xfeat.",
+        ),
+    ] = None,
+    minimum_inliers: Annotated[
+        int, typer.Option(min=4, help="Fewer inliers than this reject a pose.")
+    ] = MINIMUM_INLIERS,
+    range_m: Annotated[float, typer.Option(help="Render range limit.")] = DEFAULT_MAX_RANGE_M,
+) -> None:
+    """Localise photos with known poses against the store; write a JSON report and a review page."""
+    references = tuple(reference or Reference)
+    settings = {
+        "photos": photos,
+        "poses": poses,
+        "out": out,
+        "references": [r.value for r in references],
+        "matcher": matcher.value,
+        "minimum_inliers": minimum_inliers,
+        "range_m": range_m,
+    }
+    with reported_errors(), run_log(store, "eval localise", settings):
+        records = read_pose_file(poses)
+        run_settings = RunSettings(
+            ReferenceRenderers.from_store(store, references),
+            references,
+            _matcher(matcher, xfeat_models),
+            matcher.value,
+            minimum_inliers=minimum_inliers,
+            max_range_m=range_m,
+        )
+        result = run_photos(records, photos, run_settings, _log_photo_progress)
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "report.json").write_text(report_json(result))
+        (out / "review.html").write_text(review_page(result))
+        for each in references:
+            recall = result.recall(each)
+            typer.echo(
+                f"{each.value}: {recall.solved_count}/{recall.photo_count} solved, "
+                f"recalled {recall.recalled}"
+            )
+        typer.echo(out)
+
+
+def _matcher(choice: MatcherChoice, xfeat_models: Path | None) -> Matcher:
+    if choice == MatcherChoice.SIFT:
+        return sift_match
+    if xfeat_models is None:
+        msg = "--matcher xfeat needs --xfeat-models or XFEAT_MODEL_DIR"
+        raise typer.BadParameter(msg)
+    return xfeat_from_directory(xfeat_models)
+
+
+def _log_photo_progress(done: int, total: int) -> None:
+    logger.info("localised photo {}/{}", done, total)
 
 
 def _store_area(finest: list[mercantile.Tile]) -> Aoi:

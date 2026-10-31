@@ -8,6 +8,7 @@ dependencies = [
   "laspy[lazrs]>=2.7.0",
   "numpy>=2.5.4",
   "opencv-python-headless>=5.0.0.93",
+  "pydantic>=2.14.1",
   "pygltflib>=1.16.5",
   "pyproj>=3.8.0",
   "rasterio>=1.5.2",

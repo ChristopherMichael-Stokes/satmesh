@@ -24,6 +24,9 @@ RANSAC_ITERATIONS = 10000
 MINIMAL_SOLVER_POINTS = 4  # OpenCV's RANSAC takes minimal samples of at least four points
 # MeshLoc's pose-recall operating points (Aachen Day-Night): metres and degrees
 RECALL_THRESHOLDS = ((0.25, 2.0), (0.5, 5.0), (5.0, 10.0))
+# Measured on 227 solved localisations (harness-results.md): of 41 with fewer than 30 inliers 16
+# were more than 5 m wrong (worst 512 m); none of the 24 with 30 to 100 inliers was.
+MINIMUM_INLIERS = 30
 
 
 @dataclass(frozen=True)
@@ -65,6 +68,12 @@ class PoseEstimate:
     centre_enu: npt.NDArray[np.float64]
     camera_to_enu: npt.NDArray[np.float64]
     inlier_mask: npt.NDArray[np.bool_]
+    reprojection_rmse_px: float
+
+    @property
+    def inlier_count(self) -> int:
+        """Number of correspondences that agree with the pose."""
+        return int(self.inlier_mask.sum())
 
 
 @dataclass(frozen=True)
@@ -81,19 +90,36 @@ class PoseError:
 
 @dataclass(frozen=True)
 class Localisation:
-    """Outcome of one photo against one reference; `estimate` is None when no pose was found."""
+    """Outcome of one photo against one reference.
 
-    match_count: int
+    `estimate` is the accepted pose, None when none was found or when the best one had fewer than
+    `MINIMUM_INLIERS` inliers; that rejected pose is kept in `rejected`.
+    """
+
+    matches: Matches
     correspondences: Correspondences
     estimate: PoseEstimate | None
+    rejected: PoseEstimate | None
+
+    @property
+    def match_count(self) -> int:
+        """Number of matches between photo view and reference."""
+        return len(self.matches)
 
 
-def localise(views: MatchingViews, photo_intrinsics: Intrinsics, matcher: Matcher) -> Localisation:
-    """Match `views`, lift the matches and solve the photo's pose."""
+def localise(
+    views: MatchingViews,
+    photo_intrinsics: Intrinsics,
+    matcher: Matcher,
+    minimum_inliers: int = MINIMUM_INLIERS,
+) -> Localisation:
+    """Match `views`, lift the matches, solve the photo's pose and reject a weakly supported one."""
     matches = matcher(views.photo_view, views.reference.render.rgb)
     correspondences = lift_matches(matches, views)
     estimate = solve_pose(correspondences, photo_intrinsics)
-    return Localisation(len(matches), correspondences, estimate)
+    if estimate is not None and estimate.inlier_count < minimum_inliers:
+        return Localisation(matches, correspondences, None, estimate)
+    return Localisation(matches, correspondences, estimate, None)
 
 
 def lift_matches(matches: Matches, views: MatchingViews) -> Correspondences:
@@ -104,17 +130,18 @@ def lift_matches(matches: Matches, views: MatchingViews) -> Correspondences:
     pixels the render missed are dropped.
     """
     reference = views.reference
-    columns, rows = np.floor(matches.points_b).astype(int).T
-    height, width = reference.render.z_depth_m.shape
-    inside = (rows >= 0) & (rows < height) & (columns >= 0) & (columns < width)
-    depth = np.full(len(matches), np.nan)
-    depth[inside] = reference.render.z_depth_m[rows[inside], columns[inside]]
+    depth = _reference_depth(matches, views)
     lifted = np.isfinite(depth)
     pixels = np.column_stack([matches.points_b[lifted], np.ones(lifted.sum())])
     in_camera = (pixels @ np.linalg.inv(reference.intrinsics.matrix()).T) * depth[lifted, None]
     world = in_camera @ reference.camera_to_enu.T + reference.centre_enu
     photo_points = _apply_homography(views.photo_from_photo_view, matches.points_a[lifted])
     return Correspondences(photo_points, world)
+
+
+def lifted_mask(matches: Matches, views: MatchingViews) -> npt.NDArray[np.bool_]:
+    """Which matches `lift_matches` keeps: those on a pixel the reference render hit."""
+    return np.asarray(np.isfinite(_reference_depth(matches, views)), dtype=bool)
 
 
 def solve_pose(
@@ -154,12 +181,21 @@ def solve_pose(
         translation,
     )
     world_to_camera, _ = cv2.Rodrigues(rotation_vector)
+    reprojected, _ = cv2.projectPoints(
+        correspondences.world_points[inlier_index],
+        rotation_vector,
+        translation,
+        intrinsics.matrix(),
+        None,
+    )
+    residuals = reprojected.reshape(-1, 2) - correspondences.photo_points[inlier_index]
     inlier_mask = np.zeros(len(correspondences.photo_points), dtype=bool)
     inlier_mask[inlier_index] = True
     return PoseEstimate(
         centre_enu=np.asarray((-world_to_camera.T @ translation).ravel(), dtype=np.float64),
         camera_to_enu=np.asarray(world_to_camera.T, dtype=np.float64),
         inlier_mask=inlier_mask,
+        reprojection_rmse_px=float(np.sqrt(np.mean(np.sum(residuals**2, axis=1)))),
     )
 
 
@@ -174,6 +210,17 @@ def pose_error(
         translation_m=float(np.linalg.norm(estimate.centre_enu - true_centre_enu)),
         rotation_deg=float(np.degrees(relative.magnitude())),
     )
+
+
+def _reference_depth(matches: Matches, views: MatchingViews) -> npt.NDArray[np.float64]:
+    """Optical-axis depth under each matched reference pixel; NaN outside the image or on a miss."""
+    z_depth_m = views.reference.render.z_depth_m
+    columns, rows = np.floor(matches.points_b).astype(int).T
+    height, width = z_depth_m.shape
+    inside = (rows >= 0) & (rows < height) & (columns >= 0) & (columns < width)
+    depth = np.full(len(matches), np.nan)
+    depth[inside] = z_depth_m[rows[inside], columns[inside]]
+    return depth
 
 
 def _apply_homography(

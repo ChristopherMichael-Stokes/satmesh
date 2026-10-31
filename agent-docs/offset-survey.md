@@ -10,7 +10,7 @@ answers: How far is Esri imagery offset from EA aerial; Is the Esri offset a con
 Measured with `satmesh eval offset` (phase correlation, 256 px windows at 50 % overlap on a 0.25 m
 BNG grid, windows kept above the null-response threshold). Positive east and north mean Esri is
 displaced east and north of EA. Each box is the 500 m central slice of the 1 km candidate box,
-except box 1 (full 1 km, see below). Stores and GLBs are in `uncommitted/offset-survey/`.
+except box 1 (full 1 km, see below). The stores are not kept; see Box corners to rebuild them.
 
 ## Conclusions
 
@@ -32,20 +32,40 @@ except box 1 (full 1 km, see below). Stores and GLBs are in `uncommitted/offset-
 
 ## Box corners
 
-BNG corners (E, N). The store of each box is the 500 m slice from its slice corner, built with
-`satmesh build --bbox E N E+500 N+500 --crs EPSG:27700` and exported with `export glb` (1 to 3 min
-each); the 1 km candidate box is the slice corner minus 250 m on both axes (recorded for boxes 1 and
-2, assumed for 3 to 6). Scripts in `uncommitted/scratch-archive/e2-survey/` (`build_all.sh` reads
-`box1.txt` and `rest.txt`, whose lines are `name E N`).
+BNG corners (E, N). The measurement box of each row is the 500 m slice from its slice corner
+(E to E+500, N to N+500); box 1 was also measured over its 1 km box. The 1 km candidate boxes of
+boxes 1 to 4 exist as measured boxes (SW corners below, aerial truth over 1 km in
+`uncommitted/scratch-archive/e2-survey/full1km.sh`); boxes 5 and 6 were only ever 500 m slices,
+so their "1 km SW corner" is the slice corner minus 250 m and was not used. "EA tile" is the
+5 km EA lidar tile that covers the box. Scripts: `uncommitted/scratch-archive/e2-survey/`
+(`build_all.sh` reads `box1.txt` and `rest.txt`, whose lines are `name E N`; `b12_slices.sh` and
+`full1km.sh` hold the slice corners, zoom, tile and aerial year per box).
 
-| Box | Place | Slice corner E, N | 1 km box SW corner | OS square | EA aerial year |
+| Box | Place | Slice corner E, N | 1 km box SW corner | EA tile | EA aerial year |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Dunster | 299250, 143250 | 299000, 143000 | | 2020 |
+| 1 | Dunster | 299250, 143250 | 299000, 143000 | SS9540 | 2020 |
 | 2 | Southend | 587250, 185250 | 587000, 185000 | TQ8585 | 2024 |
 | 3 | Snettisham | 562250, 328250 | 562000, 328000 | TF6025 | 2023 |
 | 4 | Loughborough | 454250, 319250 | 454000, 319000 | SK5015 | 2025 |
-| 5 | Neston | 328250, 376250 | 328000, 376000 | SJ2575 | 2024 |
-| 6 | Belford | 408250, 641250 | 408000, 641000 | NU0540 | 2023 |
+| 5 | Neston | 328250, 376250 | none (not used) | SJ2575 | 2024 |
+| 6 | Belford | 408250, 641250 | none (not used) | NU0540 | 2023 |
+
+Rebuild a box store and GLB (the six GLBs in `uncommitted/offset-survey/` are not kept). The
+current `satmesh build` takes `--nw` and `--se` as "LAT, LON", not BNG; the survey ran an earlier
+CLI with `--bbox E N E N --crs EPSG:27700`, which no longer exists. Convert the slice with pyproj
+(`Transformer.from_crs(27700, 4326, always_xy=True)`; NW is (E, N+500), SE is (E+500, N)), then,
+from `pipeline/`, run `uv run satmesh build --nw "LAT, LON" --se "LAT, LON" --store DIR` and
+`uv run satmesh export glb --store DIR --out FILE.glb`. Each box took about 1 to 3 minutes to
+build plus the export. The converted corners (6 decimals):
+
+| Box | `--nw` | `--se` |
+| --- | --- | --- |
+| 1 Dunster | 51.184068, -3.442903 | 51.179662, -3.435612 |
+| 2 Southend | 51.539588, 0.698752 | 51.534931, 0.705687 |
+| 3 Snettisham | 52.831866, 0.407004 | 52.827225, 0.414170 |
+| 4 Loughborough | 52.772644, -1.197299 | 52.768100, -1.189971 |
+| 5 Neston | 53.282862, -3.077626 | 53.278436, -3.070016 |
+| 6 Belford | 55.669185, -1.870418 | 55.664684, -1.862485 |
 
 ## Traps
 

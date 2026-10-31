@@ -115,9 +115,9 @@ S0b location note in `e2b-results.md`) and the two Dunster boxes (`x299*`), acce
 | Dunster 299530, 143209 | 10 | 0 | 0 | 0 | 0 |
 
 The pooled `dsm` set is 83 buildings from the seven `x35*` boxes with acceptances plus the 3 at
-Ferrybridge (86 in 8 boxes); pooled `dsmt` 97 in 6 boxes, slope 0.518, azimuth 218 degrees. The
-box funnel for the 323-component box: 31 failed the edge test, 62 solidity or rectangle fill,
-226 roughness.
+Ferrybridge (86 in 8 boxes, so the "8 boxes" of the Worcester line above counts Ferrybridge);
+pooled `dsmt` 97 in 6 boxes, slope 0.518, azimuth 218 degrees. The box funnel for the
+323-component box: 31 failed the edge test, 62 solidity or rectangle fill, 226 roughness.
 
 Ground registration on the DTM does not work at either site (96 windows at Upper Aire, 36 at
 Ferrybridge; the intensity reference gave few windows too):
@@ -140,9 +140,11 @@ Synthetic check (`synth2.py`): a synthetic image built from the DSMs and DTMs of
 | --- | --- | --- | --- | --- |
 | Null, no lean | 0 | 0.004 | 0.019 | not present |
 | Lean added to the DSM before matching, (-0.25, -0.5), k 0.559 | 0.559 | 0.024 (not present) | 0.047 (present) | 0.04 to 0.08 |
+| Lean added to the DSM before matching, (+0.10, +0.05), k 0.112 | 0.112 | 0.054 (present) | 0.072 (present) | 0.49, 0.65 |
 | Forward projection, (-0.15, -0.25), k 0.292 | 0.292 | 0.143 (E -0.075, N -0.122, az 211) | 0.166 | 0.49, 0.57 |
 | Forward projection, (+0.10, +0.05), k 0.112 | 0.112 | 0.050 | 0.064 | 0.45, 0.57 |
 | Forward projection with step edges, (-0.15, -0.25) | 0.292 | 0.160 | 0.170 | 0.55, 0.58 |
+| Forward projection with step edges, (+0.10, +0.05) | 0.112 | 0.045 | 0.060 | 0.41, 0.54 |
 
 - The first variant (lean added to the DSM before matching) missed the lean at (-0.25, -0.5);
   why the forward-projection variant replaced it is not documented. A 10-building synthetic on the

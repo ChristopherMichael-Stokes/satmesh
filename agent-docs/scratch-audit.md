@@ -263,3 +263,22 @@ Listed because the brief asked for anything not recreatable from docs. These liv
 - `3047c0e6-.../scratchpad/torchenv` is the interpreter named in `e4/run_all*.sh`.
 - Other session folders (`7b0118d9` 3.4 G, `532d0073` 4.6 G, `f11fea70` 1.3 G, `91561170` 940 M,
   `6fb1fb7f` 441 M) were not audited (outside the brief).
+
+## Cleanup record 2026-10-31
+
+Deleted:
+
+- Node files of the stores under `uncommitted/t0`, `uncommitted/s0` and `scratch-archive/c3c4`.
+- `scratch-archive/c3c4/exports` and the c3c4 variants.
+- `scratch-archive/{q,txt,page,leanpage}`.
+- `uncommitted/contract-test`.
+- The `s0` views.
+- `scratch-archive/s0b/*.npz`.
+
+Ordered by the owner next, after the missing facts are lifted into the docs:
+
+- `scratch-archive/lean` `*.npz` and `lean2/southend_l.npz`.
+- `scratch-archive/c5/work` pkl, npz and npy files.
+- The `e2b-lean` PNG files (`stats.json` is kept).
+- The `offset-survey` GLBs.
+- `scratch-archive/e4/glb` and `scratch-archive/e4/page` (regeneration in `e4-results.md`).

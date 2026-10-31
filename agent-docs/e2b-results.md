@@ -134,7 +134,10 @@ share is that after growing.
 | Neston | 0.016 / 0.018 | 48 | 52 (196) | 45 (176) |
 
 - Setting A raises the window count at 10 of 12 boxes, lowers it at Southend (21 to 7) and leaves
-  Belford unchanged; the extra windows include the zero-shift artefact above.
+  Belford unchanged; the extra windows include the zero-shift artefact above. The share of
+  setting-A windows at exactly zero shift: Dunster 0.24, Loughborough 0.17, town box 0.22, 445050
+  0.28, 446100 0.16, 447200 0.21, Ferrybridge 0.23, Upper Aire 0.29, Snettisham 0.01, Neston
+  0.02, Southend 0 and Belford 0.
 - Setting B at Southend has 69 eligible windows and none reliable. The eligible counts at the
   first three boxes are therefore 347, 69 and 127; the 0 above is Southend's reliable count.
 - Ferrybridge and Upper Aire were measured (105 and 52 windows under A, 5 and 25 under B), but
@@ -240,11 +243,16 @@ buildings of 5 m or more among 267), Southend 588300, 186400 (136 of 187), Newca
   (0.509 to 0.796) with `h_p10`, 0.555 (0.433 to 0.681) with plain height, azimuth 209.5 degrees;
   the "about 0.55" quoted above is the plain-height value.
 - Unresolved: `e9-results.md` attributes the S0b building set to Worcester (86 buildings in 8
-  boxes). The 83 buildings of this cross-check are its seven `x35*` boxes, whose grid corners
-  (BNG E 351892 to 354925, N 237291 to 238828) lie about 33 km west of the Worcester box above
-  (E 385500, N 254600) and in a different area; the 86 are those 83 plus 3 at Ferrybridge.
-  Which place name the S0b records carry has not been checked against a gazetteer, so the
-  Worcester label in `e9-results.md` and in `status.md` stays unconfirmed.
+  boxes). `s0b_xcheck.py` fits the `x35*` boxes of `results_extra.json` that hold at least 2
+  `dsm`-accepted buildings: 7 of the 8 `x35*` boxes (354160 has none), 83 buildings; its docstring
+  says "8 boxes", the log prints 7. The 86 of `e9-results.md` are those 83 plus 3 at Ferrybridge,
+  8 boxes counting Ferrybridge. The `x35*` grid corners (BNG E 351892 to 354925, N 237291 to
+  238828) lie about 33 km west of the Worcester box above (E 385500, N 254600). No S0b log or
+  script names a place for the `x35*` boxes; the Worcester label in `e9-results.md` and in
+  `status.md` stays unconfirmed.
+- Files kept for the open-ground re-check: `lean2/{southend_t,ferry_t}.npz` and `*_obs.pkl`,
+  `lean2/fits.py`, `c6/gate.py`, `s0b/lean.py` (imported by `lean2/fits.py`), all under
+  `uncommitted/scratch-archive/`.
 
 ## Esri scene polygons by one query (2026-10-26)
 
@@ -267,8 +275,9 @@ buildings of 5 m or more among 267), Southend 588300, 186400 (136 of 187), Newca
 ## Lean2: conditioning of the joint fit (2026-10-29)
 
 Scratch: `uncommitted/scratch-archive/lean2/` (`results.md`, `results_tables.md`, `progress.log`,
-`*_results.json`, `*_obs.pkl`, `fits.py`, `prep2.py`; `southend_t.npz` and `ferry_t.npz` are inputs
-of the open-ground re-check in `metric-bias-audit.md`). Declared 2026-10-26, run 2026-10-29. Every
+`*_results.json`, `*_obs.pkl`, `fits.py`, `prep2.py`; `southend_t.npz`, `ferry_t.npz` and their
+`*_obs.pkl` are inputs of the open-ground re-check in
+`metric-bias-audit.md`). Declared 2026-10-26, run 2026-10-29. Every
 fit is soft-L1, `f_scale` 1 m, per dominant Esri scene; k = |l| in m per m, the Maxar cap is
 tan 30 = 0.577. Bootstrap: 300 draws over roofs and 4 x 4 window blocks, F0 to F2 only.
 
@@ -519,10 +528,11 @@ accepts 16 (13 GE01, 3 WV02), as in production.
 
 - Ground-window rule, 3 amendments recorded in the log: the absolute thresholds (nDSM variance at
   most 0.0225 m2, 90 % of pixels under 0.5 m) gave no candidate, since the lowest window variance
-  in the store is 0.023 m2; 40 m windows had variance 2.4 to 3.3 m2 and were a third to half roofs
-  or trees, so display windows became 20 m; single 64 m windows then gave phase-correlation shifts
-  of up to 18 m on dense roofs, so the ground check became the production store-wide measurement
-  and the three crops are for the eye only.
+  in the store is 0.023 m2 and only 2 windows have 90 % of pixels under 0.5 m, so the candidates
+  became the covered windows in the lowest decile of nDSM variance; 40 m windows had variance 2.4
+  to 3.3 m2 and were a third to half roofs or trees, so display windows became 20 m; single 64 m
+  windows then gave phase-correlation shifts of up to 18 m on dense roofs, so the ground check
+  became the production store-wide measurement and the three crops are for the eye only.
 - Render check: the best-fit shift of render B's ground pixels against the shifted-by-t render A is
   (+0.05, +2.10) against the stored t (+0.07, +2.13), 0.03 m apart (limit 0.25); luma RMS 36.5
   unshifted to 5.6 shifted (2,899,346 ground pixels).
@@ -537,6 +547,8 @@ accepts 16 (13 GE01, 3 WV02), as in production.
   `metric-bias-audit.md` says. B's median N is 0.85 m below direct's and A's 0.82 m above. The
   "Southend over-correction" rests on these 11 of 529 windows with north from -9.27 to +6.4 m, not
   on a documented eye judgement.
+- Kept for the open-ground re-check: `lean2/{southend_t,ferry_t}.npz` and `*_obs.pkl`,
+  `c6/gate.py`, `s0b/lean.py`; the C5 `work/` pickles and arrays are not inputs of it.
 - Consistency blocks (n = 31): B(p) = A(p + d) gives median N +1.93 m, sd 0.74 m (E +0.05, sd
   0.03); A(p) = direct(p + d) gives median (-0.06, +0.06) m, sd about 0.02 m.
 
@@ -556,7 +568,7 @@ loss at the other, and at least `MIN_GROUND_WINDOWS` (10) in-scene windows after
 | Box | Truth E, N | F2 t, error | De-leaned windows (raw) | De-leaned t0, error | Refit t, error | Refit status |
 | --- | --- | --- | --- | --- | --- | --- |
 | Southend T | +0.23, +1.57 | +0.54, +2.23, 0.73 m | 38 (13) | +0.50, +2.50, 0.97 m | +0.55, +2.46, 0.95 m | applied, k 0.43 |
-| Ferrybridge T | -0.31, +0.71 | -0.57, +0.46, 0.36 m | 30 (63) | -0.21, +0.64, 0.12 m | -0.37, +1.13, 0.42 m | rejected (radius 0.59) |
+| Ferrybridge T | -0.31, +0.71 | -0.57, +0.46, 0.36 m | 30 (63) | -0.21, +0.64, 0.12 m | -0.37, +1.13, 0.42 m | rejected (radius 0.59 above 0.29) |
 
 - Both boxes get worse (+0.22 m and +0.06 m); the window half of the gate passes.
 - At Southend de-leaning moves the window median 0.4 m further north of truth, the direction of

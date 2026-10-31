@@ -16,11 +16,11 @@ answers: What can go wrong in the build; what is the Gazebo collision risk; what
   (New Mexico) and falls through to the ImageServer or the 1/3 arc-second COGs. The TNM API
   sometimes answers 200 with an error body. Imagery position is bounded only by Esri's stated
   8.47 m; `correct` is England only. Exporters do not yet carry the USGS attribution or
-  `elevation_provenance`. Alaska and Hawaii have no registry entry.
+  `elevation_provenance`. Alaska and Hawaii have no registry entry. Imagery finer than 30 cm is
+  fetched at the 30 cm zoom (`FINEST_IMAGERY_RESOLUTION_M`), so a finer local flight (Ames, 2.4 cm)
+  is not used at its full detail.
 - FABDEM is non-commercial (CC BY-NC-SA 4.0); a commercial use needs Fathom or GEDTM30.
 - Zip reads for FABDEM have no retry; the `N51W001` member name did not resolve (`regions-results.md`).
-- Node records written before the region work use `origin_odn_height_m`; the exporters cannot read
-  those stores until they are rebuilt or their keys renamed.
 - Lean-biased truth (`metric-bias-audit.md`, 2026-10-30): the Esri-to-EA-aerial truth used for every
   position and lean fit is a median over all windows, roofs included, so lean pulls it south;
   against a 12-window open-ground truth at Southend the C6 refit would pass and the north

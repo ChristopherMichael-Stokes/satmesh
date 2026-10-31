@@ -66,8 +66,9 @@ with its own `cache/` and `build*.log`.
 
 - Ames: Esri serves a 0.0243 m county flight there (z23, capped by the build at z21): the 2 km
   square plans 20,736 leaves at z21 and up to 331,776 Esri tiles (about 185 min of fetching at 1
-  per second; the build ran at 30), and built about 1,900 nodes in the first 33 min. Not finished;
-  waits on the owner (imagery zoom cap for this square).
+  per second; the build ran at 30), and built about 1,900 nodes in the first 33 min. The owner
+  then capped imagery at 30 cm (`decisions.md`); a rebuild at the cap into `us-ames-z19/store` was
+  stopped on the owner's word before it finished. Neither Ames store is usable.
 - A DSM window cached by an early attempt without the `DSM_PROVENANCE` tag makes
   `read_dsm_provenance` raise `KeyError` on a later build that shares the cache (seen with the
   default cache at Denver).
@@ -92,9 +93,8 @@ with its own `cache/` and `build*.log`.
 
 ## Not checked
 
-- Any of the US meshes by eye in Blender.
-- Ames and Chicago squares (in progress, see Traps); Plano and Portland by
-  eye; Alaska and Hawaii (no registry entry).
+- Plano and Portland meshes by eye (the owner saw the Denver, mountain and desert squares).
+- Ames and Chicago squares (not built, see Traps); Alaska and Hawaii (no registry entry).
 - The ImageServer resolution is read at the window centre only.
 - Exporters do not yet carry the provenance or the USGS attribution into the 3D Tiles, GLB or
   Gazebo outputs.

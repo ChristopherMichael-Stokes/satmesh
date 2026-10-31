@@ -90,7 +90,8 @@ Edge slope at flat guide edges, m per m (lidar 0.033 Ferrybridge, 0.041 Upper Ai
   executed for the unshifted guide only. Logged four-tile runs: x2 and x5 6.6 min each (about
   100 s per tile), x30 60 min at Ferrybridge and 43 min at Upper Aire with two processes sharing
   the GPU. Both scripts hard-code the interpreter path of a /tmp session scratchpad
-  (`.../3047c0e6-.../scratchpad/torchenv/bin/python`); `e4b/m1/run.sh` does the same.
+  (`.../3047c0e6-.../scratchpad/torchenv/bin/python`); `e4b/m1/run.sh` does the same. The `torchenv`
+  recreate command is in `e4b-plan.md`; `m1-model-recipes.md` holds the M1 environments.
 
 Fitted point covariance of the kriging, C(h) = sill exp(-3 h / range), by regularisation to the
 coarse semivariogram (`out/kriging-variograms.json`, `krige-progress.log`):
@@ -143,6 +144,22 @@ Each site has 291,600 pixels.
   at x2 and x5 PixTransform's NMAD is 1.7 to 10 times the smooth methods' (Ferrybridge x2 0.30 m
   against 0.04 for bilinear, Upper Aire x2 0.20 against 0.02), consistent with the texture copying
   on flat ground.
+
+## Scratch kept and scratch regenerated
+
+- `uncommitted/scratch-archive/e4/` is kept: `e4b/m1/common.py`, `e4b/e0/common.py`,
+  `e4b/dino/common.py`, `e4b/m1render.sh`, `e4b/s1.sh`, `e4b/m2render.sh`, `e4b/combine.py` and
+  `e4b/s2_check.py` read its inputs, `out/`, `scores.json` and scripts (checked by grep, 2026-10-31).
+- `glb/` (78 GLBs, 990 MB) and `page/` (216 MB) are deleted; the scripts regenerate them from
+  `out/`, `*-inputs.npz` and `*-texture.npz`, run from `pipeline/` (`e4b/s1.sh` runs them in order).
+- `glb/` held `SITE-SURFACE.glb` for the two sites, 39 surfaces each: `truth`, then `bilinear`,
+  `guided`, `kriging`, `pix`, `pixa`, `pixb` at x2, x5 and x30 (`pix-x2.glb`), and at x5 and x30
+  `bil`, `avg_ma`, `avg_mu`, `geo_ma`, `geo_mc`, `geo_mu`, `rs3dtta_ma`, `rs3dtta_mc`,
+  `rs3dtta_mu`, `chmtiles_mb` (`glbs.py` writes them; textured at 0.25 m).
+- `page/` held `index.html`, `views.json` and `data.json`, 1,640 PNG renders in `img/` (for example
+  `aire-err-avg_ma-x30.png`, `ferry-worst-ground-tex-truth.png`) and 128 JPEG strips in `strips/`
+  (for example `aire-tile0-ground-tex-x5.jpg`, `aire-err-x2.jpg`). `render.py` writes `img/` and
+  `views.json`; `make_page.py` reads them and writes `strips/` and `data.json`.
 
 ## Traps
 

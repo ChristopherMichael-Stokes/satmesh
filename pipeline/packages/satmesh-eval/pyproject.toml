@@ -6,6 +6,7 @@ requires-python = ">=3.13"
 dependencies = [
   "embreex>=4.4.0.post1",
   "laspy[lazrs]>=2.7.0",
+  "numba>=0.68.1",
   "numpy>=2.5.4",
   "opencv-python-headless>=5.0.0.93",
   "pydantic>=2.14.1",
@@ -26,6 +27,9 @@ dependencies = [
   "xfeat-pairs",
 ]
 
+[project.optional-dependencies]
+tensorrt = ["xfeat-trt"]
+
 [build-system]
 requires = ["uv_build>=0.13.5,<0.14.0"]
 build-backend = "uv_build"
@@ -36,4 +40,5 @@ satmesh-data = { workspace = true }
 satmesh-tiles = { workspace = true }
 xfeat-core = { path = "../../../third-party/xfeat-rt/runtime/packages/xfeat-core", editable = true }
 xfeat-ort = { path = "../../../third-party/xfeat-rt/backends/ort", editable = true }
+xfeat-trt = { path = "../../../third-party/xfeat-rt/backends/tensorrt", editable = true }
 xfeat-pairs = { path = "../../../third-party/xfeat-rt/runtime/packages/xfeat-pairs", editable = true }

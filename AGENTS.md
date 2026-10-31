@@ -12,7 +12,7 @@ finest ground sample distance the sources support, enhanced by classical process
 | `agent-docs/` | no           | Docs written by and for agents: briefs, plans, research reports    |
 | `docs/`       | no           | Human-facing docs                                                  |
 | `docker/`     | no           | Images for tools no wheel ships: `gdal-ecw` converts ECW to GeoTIFF |
-| `third-party/` | no          | Git submodule `xfeat-rt` (XFeat and LighterGlue inference): `satmesh-eval` depends on its `xfeat-core`, `xfeat-pairs` and `xfeat-ort` by path; its exported ONNX models are build outputs, tests read them from `XFEAT_MODEL_DIR` |
+| `third-party/` | no          | Git submodule `xfeat-rt` (XFeat and LighterGlue inference): `satmesh-eval` depends on its `xfeat-core`, `xfeat-pairs` and `xfeat-ort` by path; its `xfeat-trt` is the `tensorrt` extra of `satmesh-eval` (NVIDIA GPU; about 4.7 GB of wheels, `make setup` installs it); its exported ONNX models (FP32 for CPU, FP16 for TensorRT) are build outputs, read from `XFEAT_MODEL_DIR` |
 | root          | no           | Shared checks (`prek.toml`), `ruff.toml`, `Makefile`, `TODO.md`    |
 
 - Each workspace has its own `uv.lock` and `.venv`. Members live at
@@ -86,8 +86,8 @@ Run from the repo root unless a workspace is named.
 | Export a store               | `uv run satmesh export {3dtiles,gazebo,glb} --store DIR ...` from `pipeline/` |
 | Correct imagery position     | `uv run satmesh correct --store DIR` from `pipeline/` (downloads EA point clouds) |
 | Score a store                | `uv run satmesh eval {heights,smoothness,visibility} --store DIR --nw "LAT, LON" --se "LAT, LON"` from `pipeline/` |
-| Localise photos              | `uv run satmesh eval localise PHOTOS --poses FILE.jsonl --store DIR [--reference surface --reference flat ...] [--matcher {xfeat,sift}] [--out DIR]` from `pipeline/` (XFeat needs `XFEAT_MODEL_DIR`); writes `report.json` and `review.html` |
-| Poses and lens from photos   | `uv run satmesh track PHOTOS --store DIR [--start "LAT, LON" --radius-m M] [--megaloc-model F] [--out DIR]` from `pipeline/` (XFeat needs `XFEAT_MODEL_DIR`; without `--start` the MegaLoc ONNX graph is read from `MEGALOC_MODEL`); writes `poses.jsonl`, `calibration.json`, `report.json`, `review.html` |
+| Localise photos              | `uv run satmesh eval localise PHOTOS --poses FILE.jsonl --store DIR [--reference surface --reference flat ...] [--matcher {xfeat,sift}] [--backend {tensorrt,onnx}] [--out DIR]` from `pipeline/` (XFeat needs `XFEAT_MODEL_DIR`, one directory holding the FP32 and `_fp16` exports); writes `report.json` and `review.html` |
+| Poses and lens from photos   | `uv run satmesh track PHOTOS --store DIR [--start "LAT, LON" --radius-m M] [--megaloc-model F] [--backend {tensorrt,onnx}] [--out DIR]` from `pipeline/` (XFeat needs `XFEAT_MODEL_DIR`, one directory holding the FP32 and `_fp16` exports; without `--start` the MegaLoc ONNX graph is read from `MEGALOC_MODEL`); writes `poses.jsonl`, `calibration.json`, `report.json`, `review.html` |
 | Esri-to-EA imagery offset    | `uv run satmesh eval offset --aerial EA.tif --nw "LAT, LON" --se "LAT, LON" --zoom 19` from `pipeline/` |
 | Texture detail vs EA aerial  | `uv run satmesh eval texture --aerial EA.tif --nw "LAT, LON" --se "LAT, LON" --zoom 19` from `pipeline/` |
 | Eval on a 100 m slice        | `make eval-slice` (builds a store, then runs the three store checks; needs network) |

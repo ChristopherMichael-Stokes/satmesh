@@ -10,7 +10,9 @@ cameras at 25 m and above, and the worst offset on a square grid is spacing x 0.
 keeps every pose inside the basin (`photo-only-p0-results.md`).
 """
 
-from collections.abc import Callable, Sequence
+from collections import deque
+from collections.abc import Callable, Iterable, Sequence
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 
 import numpy as np
@@ -18,7 +20,7 @@ import numpy.typing as npt
 
 from satmesh_core import EnuFrame
 from satmesh_eval.camera import CameraPose, Intrinsics, pose_from_enu
-from satmesh_eval.matching import Matcher
+from satmesh_eval.matching import Matcher, Matches, match_against, supports_concurrent_calls
 from satmesh_eval.references import Renderer
 
 GroundHeight = Callable[
@@ -37,6 +39,7 @@ class SearchConfig:
     min_height_above_ground_m: float = 25.0  # cameras below this are out of scope
     heading_count: int = 8
     top_k: int = 5
+    ranking_workers: int = 3  # candidates matched at once; renders stay on the calling thread
 
 
 def search_radius_m(config: SearchConfig, step_m: float, missed_steps: int) -> float:
@@ -88,6 +91,32 @@ def best_candidates(  # noqa: PLR0913, PLR0917 (photo, candidates, render, match
     max_range_m: float,
 ) -> list[CameraPose]:
     """The `top_k` candidates whose renders share the most matches with the photo."""
-    counts = [len(matcher(photo, render(intrinsics, pose, max_range_m).rgb)) for pose in candidates]
+    match_photo = match_against(matcher, photo)
+    renders = (render(intrinsics, pose, max_range_m).rgb for pose in candidates)
+    workers = config.ranking_workers if supports_concurrent_calls(matcher) else 1
+    counts = _match_counts(match_photo, renders, workers)
     order = np.argsort(counts)[::-1][: config.top_k]
     return [candidates[i] for i in order]
+
+
+def _match_counts(
+    match_photo: Callable[[npt.NDArray[np.uint8]], Matches],
+    renders: Iterable[npt.NDArray[np.uint8]],
+    workers: int,
+) -> list[int]:
+    """Match counts of `renders` in order.
+
+    Up to `workers` matches run at once (ONNX Runtime and OpenCV release the GIL); at most
+    2 x `workers` renders are held at a time. One worker runs inline.
+    """
+    if workers == 1:  # on the calling thread: a GPU matcher's context belongs to it
+        return [len(match_photo(image)) for image in renders]
+    in_flight: deque[Future[int]] = deque()
+    counts: list[int] = []
+    with ThreadPoolExecutor(workers) as pool:
+        for image in renders:
+            in_flight.append(pool.submit(lambda image=image: len(match_photo(image))))
+            if len(in_flight) >= 2 * workers:
+                counts.append(in_flight.popleft().result())
+        counts.extend(future.result() for future in in_flight)
+    return counts

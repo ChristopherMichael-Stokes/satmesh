@@ -25,7 +25,7 @@ from satmesh_core import EnuFrame
 from satmesh_eval.camera import CameraPose, pose_from_camera_to_enu, pose_from_enu
 from satmesh_eval.perspective import GroundExtent
 from satmesh_track.retrieval import MegaLocDescriber
-from satmesh_track.search import GroundHeight, SearchConfig, best_candidates, candidate_poses
+from satmesh_track.search import GroundHeight, best_candidates, candidate_poses
 from satmesh_track.tracker import (
     FIRST_SEARCH_HEIGHTS_M,
     UNKNOWN_PITCH_DEG,
@@ -157,9 +157,9 @@ def start_near(
     centre_east_north: FloatArray,
     radius_m: float,
     context: TrackingContext,
-    search: SearchConfig = SearchConfig(),  # noqa: B008  # frozen
 ) -> CameraPose:
     """The first photo's pose when its position is known roughly: a local search at the ladder."""
+    search = context.config.search
     candidates = candidate_poses(
         search,
         context.scene.area,

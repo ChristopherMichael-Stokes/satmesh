@@ -1,7 +1,7 @@
 import numpy as np
 import scene
 
-from satmesh_eval.camera import camera_centre_and_rotation
+from satmesh_eval.camera import CameraPose, camera_centre_and_rotation
 from satmesh_eval.matching import sift_match
 from satmesh_eval.perspective import render
 from satmesh_track.search import SearchConfig, best_candidates, candidate_poses, search_radius_m
@@ -66,3 +66,33 @@ def test_the_render_from_the_photos_own_pose_ranks_first() -> None:
     )
 
     assert best == [truth]
+
+
+def test_ranking_with_several_workers_matches_the_serial_ranking() -> None:
+    truth = scene.pose_at(0.0, 0.0, 0.0)
+    photo = render(scene.town(), scene.pinhole(), truth, scene.MAX_RANGE_M).rgb
+    candidates = [
+        scene.pose_at(east, north, heading)
+        for east, north, heading in [
+            (60, 40, 0),
+            (0, 0, 0),
+            (-20, -60, 180),
+            (10, 5, 10),
+            (40, 0, 0),
+        ]
+    ]
+
+    def ranked(workers: int) -> list[CameraPose]:
+        return best_candidates(
+            SearchConfig(top_k=4, ranking_workers=workers),
+            photo,
+            candidates,
+            lambda intrinsics, pose, max_range_m: render(
+                scene.town(), intrinsics, pose, max_range_m
+            ),
+            sift_match,
+            scene.pinhole(),
+            scene.MAX_RANGE_M,
+        )
+
+    assert ranked(4) == ranked(1)

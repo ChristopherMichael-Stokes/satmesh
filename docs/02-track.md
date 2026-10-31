@@ -13,7 +13,9 @@ uv run satmesh track PHOTOS --store STORE --out OUT [--start "LAT, LON" --radius
 - `--start` is a rough position of the first photo (within about a hundred metres). Without it the
   whole store is searched with the MegaLoc model (`--megaloc-model` or `MEGALOC_MODEL`), which
   describes a few thousand renders once per store and keeps them in the cache directory. Matching
-  uses the XFeat models in `XFEAT_MODEL_DIR` (or `--matcher sift`).
+  uses the XFeat models in `XFEAT_MODEL_DIR` (or `--matcher sift`). `--backend tensorrt` (the
+  default) runs them on an NVIDIA GPU from the `_fp16` exports and builds its engines on first use;
+  `--backend onnx` runs on the CPU, about 3.5 times slower on the 24-photo test flight.
 - A photo that the previous position does not explain starts a search around the last position, so
   a gap of missing photos does not end the track.
 

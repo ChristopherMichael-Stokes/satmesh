@@ -7,7 +7,7 @@ import pytest
 import scene
 
 from satmesh_eval.camera import camera_centre_and_rotation
-from satmesh_eval.matching import xfeat_from_directory
+from satmesh_eval.matching import onnx_matcher
 from satmesh_eval.perspective import GroundExtent, render
 from satmesh_track.first_fix import (
     GridConfig,
@@ -121,7 +121,7 @@ def test_the_cache_name_changes_with_the_grid_the_image_size_and_the_model(tmp_p
 )
 def test_the_first_photo_is_localised_from_the_grid_with_no_prior(tmp_path: Path) -> None:
     describer = MegaLocDescriber(Path(os.environ[MEGALOC_VARIABLE]))
-    matcher = xfeat_from_directory(Path(os.environ[XFEAT_VARIABLE]))
+    matcher = onnx_matcher(Path(os.environ[XFEAT_VARIABLE]))
     truth = scene.pose_at(-20.0, -60.0, 0.0)
     photo = PhotoImage("first.png", scene.photograph(truth))
     tracker_scene, _ = counting_scene()

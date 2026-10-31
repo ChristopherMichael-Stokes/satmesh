@@ -29,7 +29,7 @@ from satmesh_eval.localise import (
     pose_error,
     solve_pose,
 )
-from satmesh_eval.matching import Matcher, Matches, sift_match, xfeat_from_directory
+from satmesh_eval.matching import Matcher, Matches, onnx_matcher, sift_match
 from satmesh_eval.perspective import AreaScene, GroundExtent, SceneLeaf, flat_plane_scene, render
 from satmesh_eval.references import PhotoQuery, Renderer, nadir_views, perspective_views
 
@@ -218,7 +218,7 @@ def test_sift_recovers_the_pose_from_a_surface_render() -> None:
 @pytest.mark.skipif(MODEL_DIR_VARIABLE not in os.environ, reason=f"{MODEL_DIR_VARIABLE} not set")
 def test_xfeat_with_lighterglue_recovers_the_pose_when_the_photo_is_relit_and_blurred() -> None:
     model_dir = Path(os.environ[MODEL_DIR_VARIABLE])
-    matcher = xfeat_from_directory(model_dir)
+    matcher = onnx_matcher(model_dir)
 
     translation_m, rotation_deg = surface_localisation_error(matcher, relit_and_blurred)
 

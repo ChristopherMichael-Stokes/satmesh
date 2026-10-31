@@ -43,7 +43,7 @@ from satmesh_eval.harness import (
 )
 from satmesh_eval.localise import MINIMUM_INLIERS
 from satmesh_eval.localise_report import report_json
-from satmesh_eval.matching import Matcher, sift_match, xfeat_from_directory
+from satmesh_eval.matching import Matcher, onnx_matcher, sift_match, tensorrt_matcher
 from satmesh_eval.poses import read_pose_file
 from satmesh_eval.registration import measure_correction
 from satmesh_eval.report import (
@@ -136,6 +136,21 @@ class MatcherChoice(StrEnum):
 
     XFEAT = "xfeat"
     SIFT = "sift"
+
+
+class XFeatBackend(StrEnum):
+    """Where XFeat and LighterGlue run."""
+
+    TENSORRT = "tensorrt"
+    ONNX = "onnx"
+
+
+BackendOption = Annotated[
+    XFeatBackend,
+    typer.Option(
+        help="Where --matcher xfeat runs: tensorrt (NVIDIA GPU, FP16 exports) or onnx (CPU)."
+    ),
+]
 
 
 @contextmanager
@@ -252,6 +267,7 @@ def track_photos(  # noqa: PLR0913 (photos, store and seven settings)
         float, typer.Option(min=0.0, help="Assumed error of the mesh's heights, metres.")
     ] = LensConfig().mesh_error_m,
     matcher: Annotated[MatcherChoice, typer.Option(help="Feature matcher.")] = MatcherChoice.XFEAT,
+    backend: BackendOption = XFeatBackend.TENSORRT,
     xfeat_models: Annotated[
         Path | None, typer.Option(envvar="XFEAT_MODEL_DIR", help="xfeat-rt ONNX exports.")
     ] = None,
@@ -269,13 +285,14 @@ def track_photos(  # noqa: PLR0913 (photos, store and seven settings)
         "radius_m": radius_m,
         "mesh_error_m": mesh_error_m,
         "matcher": matcher.value,
+        "backend": backend.value,
     }
     with reported_errors(), run_log(store, "track", settings):
         loaded = [load_photo(path) for path in list_photos(photos)]
         images = [item.image for item in loaded]
         store_scene = load_store_scene(store)
         config = TrackConfig(lens=LensConfig(mesh_error_m=mesh_error_m))
-        selected = _matcher(matcher, xfeat_models)
+        selected = _matcher(matcher, backend, xfeat_models)
         context = TrackingContext(store_scene.scene, selected, config, _log_photo_progress)
         if start is not None:
             ecef = np.array(geodetic_to_ecef().transform(start[1], start[0], 0.0))
@@ -526,6 +543,7 @@ def eval_localise(  # noqa: PLR0913 (photos, poses, store and the five run setti
         typer.Option(help="References to match against; repeat for several. Default: all four."),
     ] = None,
     matcher: Annotated[MatcherChoice, typer.Option(help="Feature matcher.")] = MatcherChoice.XFEAT,
+    backend: BackendOption = XFeatBackend.TENSORRT,
     xfeat_models: Annotated[
         Path | None,
         typer.Option(
@@ -546,6 +564,7 @@ def eval_localise(  # noqa: PLR0913 (photos, poses, store and the five run setti
         "out": out,
         "references": [r.value for r in references],
         "matcher": matcher.value,
+        "backend": backend.value,
         "minimum_inliers": minimum_inliers,
         "range_m": range_m,
     }
@@ -554,7 +573,7 @@ def eval_localise(  # noqa: PLR0913 (photos, poses, store and the five run setti
         run_settings = RunSettings(
             ReferenceRenderers.from_store(store, references),
             references,
-            _matcher(matcher, xfeat_models),
+            _matcher(matcher, backend, xfeat_models),
             matcher.value,
             minimum_inliers=minimum_inliers,
             max_range_m=range_m,
@@ -572,13 +591,19 @@ def eval_localise(  # noqa: PLR0913 (photos, poses, store and the five run setti
         typer.echo(out)
 
 
-def _matcher(choice: MatcherChoice, xfeat_models: Path | None) -> Matcher:
+def _matcher(choice: MatcherChoice, backend: XFeatBackend, xfeat_models: Path | None) -> Matcher:
     if choice == MatcherChoice.SIFT:
         return sift_match
     if xfeat_models is None:
         msg = "--matcher xfeat needs --xfeat-models or XFEAT_MODEL_DIR"
         raise typer.BadParameter(msg)
-    return xfeat_from_directory(xfeat_models)
+    if backend == XFeatBackend.ONNX:
+        return onnx_matcher(xfeat_models)
+    try:
+        return tensorrt_matcher(xfeat_models)
+    except ModuleNotFoundError as error:
+        msg = f"--backend tensorrt needs the tensorrt extra ({error}); sync with --all-extras"
+        raise typer.BadParameter(msg) from error
 
 
 def _store_wide_start(

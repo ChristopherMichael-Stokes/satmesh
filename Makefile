@@ -12,7 +12,7 @@ SANAA_AREA = --nw "15.35545, 44.20654" --se "15.35455, 44.20746"
 
 setup:
 	git submodule update --init
-	uv sync --project pipeline --all-packages --locked
+	uv sync --project pipeline --all-packages --all-extras --locked
 	uv sync --project ml --all-packages --locked
 	$(MAKE) grids
 	$(PREK) install

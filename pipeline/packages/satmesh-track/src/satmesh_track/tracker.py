@@ -296,6 +296,8 @@ def _follow(
             if failed_in_a_row >= config.max_failed_searches:
                 msg = f"{failed_in_a_row} local searches in a row failed at {photo.name}"
                 raise TrackingError(msg)
+        elif solved(attempt, config):
+            failed_in_a_row = 0
         if solved(attempt, config) and attempt.estimate is not None:
             fixes.append(
                 _Fix(index, steps[index], attempt.estimate, attempt.correspondences, relocalised)

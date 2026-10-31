@@ -53,6 +53,28 @@ def test_a_flight_is_tracked_and_the_lens_is_recovered() -> None:
         assert np.linalg.norm(tracked.pose.centre_enu - centre) < POSITION_TOLERANCE_M
 
 
+def test_isolated_unusable_photos_do_not_add_up_to_a_failed_track() -> None:
+    poses = flight_poses(PHOTO_COUNT)
+    unusable = {2, 5}
+    photos = [
+        PhotoImage(
+            f"{i}.png",
+            np.full_like(scene.photograph(pose), 128) if i in unusable else scene.photograph(pose),
+        )
+        for i, pose in enumerate(poses)
+    ]
+    cheap_search = SearchConfig(heading_count=1, height_factors=(1.0,))
+    config = TrackConfig(search=cheap_search, max_failed_searches=len(unusable))
+
+    result = track(photos, poses[0], TrackingContext(tracker_scene(), sift_match, config))
+
+    statuses = [p.status for p in result.photos]
+    assert [i for i, status in enumerate(statuses) if status is PhotoStatus.LOST] == sorted(
+        unusable
+    )
+    assert statuses.count(PhotoStatus.TRACKED) == PHOTO_COUNT - len(unusable)
+
+
 @pytest.mark.skipif(MODEL_DIR_VARIABLE not in os.environ, reason=f"{MODEL_DIR_VARIABLE} not set")
 def test_a_turn_inside_a_gap_is_recovered_by_the_local_search() -> None:
     # SIFT's basin on this small scene is under 25 m, so the search grid would be too fine to test

@@ -8,12 +8,20 @@ import rasterio
 from pyproj import Transformer
 from rasterio.transform import from_bounds, from_origin
 
-from satmesh_data import EA_DSM, EA_DTM, WEB_MERCATOR, EsriSource, Raster, cached_lidar_path
+from satmesh_data import (
+    EA_DSM,
+    EA_DTM,
+    WEB_MERCATOR,
+    EsriSource,
+    Raster,
+    Surface,
+    SurfacePair,
+    cached_lidar_path,
+)
 from satmesh_eval.pipeline_check import check_node, check_store
 from satmesh_tiles import (
     ESRI_TILES_PER_LEAF_SIDE,
     MeshSettings,
-    SurfacePaths,
     build_node,
     ground_path,
     node_paths,
@@ -71,12 +79,18 @@ def write_plane(path: Path, rise_m: float) -> None:
 def stored(tmp_path: Path) -> tuple[Path, Path]:
     """A one-leaf store and the lidar cache its record names."""
     cache, store = tmp_path / "cache", tmp_path / "store"
-    surfaces = SurfacePaths(
-        dsm=cached_lidar_path(cache, EA_DSM, "box.tif"),
-        dtm=cached_lidar_path(cache, EA_DTM, "box.tif"),
+    dsm_path = cached_lidar_path(cache, EA_DSM, "box.tif")
+    dtm_path = cached_lidar_path(cache, EA_DTM, "box.tif")
+    surfaces = SurfacePair(
+        dsm=Surface(dsm_path, "EPSG:27700", "EPSG:7405"),
+        dtm=Surface(dtm_path, "EPSG:27700", "EPSG:7405"),
+        source="ea-lidar-composite",
+        attribution="Environment Agency",
+        ground_is_surface=False,
+        provenance=None,
     )
-    write_plane(surfaces.dsm, CANOPY_M)
-    write_plane(surfaces.dtm, 0.0)
+    write_plane(dsm_path, CANOPY_M)
+    write_plane(dtm_path, 0.0)
     side = ESRI_TILES_PER_LEAF_SIDE * 256
     texture = Raster(
         np.zeros((3, side, side), np.uint8),

@@ -18,11 +18,11 @@ from scipy.ndimage import map_coordinates
 from satmesh_core import (
     WGS84,
     EnuFrame,
-    bng_odn_to_wgs84,
+    ellipsoidal_height_from,
     geodetic_to_ecef,
-    wgs84_to_bng,
+    wgs84_to,
 )
-from satmesh_data import WEB_MERCATOR, EsriSource, Raster, SceneId
+from satmesh_data import WEB_MERCATOR, EsriSource, Raster, SceneId, SurfacePair, SurfaceProvenance
 from satmesh_mesh import (
     add_skirts,
     glb_bytes,
@@ -42,6 +42,9 @@ SKIRT_DEPTH_PER_ERROR = 4.0
 # raster index of a pixel centre is half a pixel inside its corner coordinate
 PIXEL_CENTRE_OFFSET = 0.5
 EDGE_TOLERANCE_M = 1e-6
+# Maxar basemap specification: off-nadir at most 30 degrees, so |l| <= tan 30. An uncorrected
+# vertex at height h above the ground can sit this much further from its true position per metre.
+MAX_LEAN = float(np.tan(np.radians(30.0)))
 
 
 @dataclass(frozen=True)
@@ -100,6 +103,9 @@ class NodeRecord(BaseModel):
     The GLB is in the glTF frame (x east, y up, z south) in ground metres, origin at `enu_origin`.
     `enu_to_ecef` is the row-major 4 x 4 matrix taking ENU (x east, y north, z up) to ECEF, and
     `enu_min` and `enu_max` bound every vertex, skirts included, in that ENU frame.
+    `elevation_provenance` records how a lidar-built DSM and DTM were assembled (US 3DEP: EPT
+    project and capture dates, DEM sources with their pixel shares and resolutions, interpolated
+    fraction); None for ready-made rasters.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -110,8 +116,9 @@ class NodeRecord(BaseModel):
     origin_lon: float
     origin_lat: float
     origin_ellipsoidal_height_m: float
-    origin_odn_height_m: float
+    origin_orthometric_height_m: float
     geoid_separation_m: float
+    vertical_crs: str
     enu_to_ecef: tuple[tuple[float, float, float, float], ...]
     enu_min: tuple[float, float, float]
     enu_max: tuple[float, float, float]
@@ -127,7 +134,10 @@ class NodeRecord(BaseModel):
     imagery: ImageryRecord
     dsm: str
     dtm: str
+    elevation_source: str
+    ground_is_surface: bool
     position: PositionRecord | None = None
+    elevation_provenance: SurfaceProvenance | None = None
 
 
 @dataclass(frozen=True)
@@ -151,37 +161,30 @@ def esri_tiles(leaf: mercantile.Tile) -> list[mercantile.Tile]:
     ]
 
 
-@dataclass(frozen=True)
-class SurfacePaths:
-    """The BNG GeoTIFFs of one node: first-return DSM (visual) and DTM (ground)."""
-
-    dsm: Path
-    dtm: Path
-
-
 def build_node(
     node: mercantile.Tile,
     texture: Raster,
-    surfaces: SurfacePaths,
+    surfaces: SurfacePair,
     imagery: EsriSource,
     settings: MeshSettings,
 ) -> Node:
-    """Mesh `node` from the BNG first-return DSM and drape `texture`, which covers the node.
+    """Mesh `node` from the DSM and drape `texture`, which covers the node.
 
     The height grids are sampled every `settings.grid_spacing_m` ground metres on the node's own
     Web Mercator grid, so every grid node has an exact texture coordinate and a neighbouring node
-    samples identical heights along a shared edge. Heights are ODN, interpolated bilinearly; the
-    mesh is placed in ENU through OSTN15 and OSGM15. The DTM is not meshed: its sampled grid is
-    returned as a GeoTIFF for ground queries and collision.
+    samples identical heights along a shared edge. Heights are interpolated bilinearly in the
+    source's vertical datum and placed in ENU through that datum's geoid; the record keeps both
+    heights. The DTM is not meshed: its sampled grid is returned as a GeoTIFF for ground queries
+    and collision.
     """
     bounds = mercantile.xy_bounds(node)
     _require_texture_matches(texture, bounds)
     grid = _sample_grid(bounds, surfaces, settings.grid_spacing_m)
-    tin = triangulate_heights(grid.odn_heights, settings.max_error_m)
+    tin = triangulate_heights(grid.heights, settings.max_error_m)
     frame = EnuFrame.at(grid.origin_ecef, grid.origin_lon, grid.origin_lat)
     enu = frame.to_enu(grid.ecef[tin.rows, tin.columns])
     vertices = np.column_stack([enu[:, 0], enu[:, 2], -enu[:, 1]])
-    last = grid.odn_heights.shape[0] - 1
+    last = grid.heights.shape[0] - 1
     uv = np.column_stack([tin.columns / last, 1 - tin.rows / last])
     triangles = upward(vertices, tin.triangles)
     skirt_depth_m = SKIRT_DEPTH_PER_ERROR * settings.max_error_m
@@ -194,13 +197,14 @@ def build_node(
         origin_lon=grid.origin_lon,
         origin_lat=grid.origin_lat,
         origin_ellipsoidal_height_m=grid.origin_height_m,
-        origin_odn_height_m=grid.origin_height_m - grid.geoid_separation_m,
+        origin_orthometric_height_m=grid.origin_height_m - grid.geoid_separation_m,
         geoid_separation_m=grid.geoid_separation_m,
+        vertical_crs=surfaces.dsm.height_crs,
         enu_to_ecef=tuple(tuple(float(v) for v in row) for row in frame.enu_to_ecef_matrix()),
         enu_min=_triple(all_enu.min(axis=0)),
         enu_max=_triple(all_enu.max(axis=0)),
         grid_spacing_m=settings.grid_spacing_m,
-        grid_nodes=grid.odn_heights.size,
+        grid_nodes=grid.heights.size,
         terrain_vertices=len(vertices),
         vertices=len(all_vertices),
         triangles=len(all_triangles),
@@ -214,12 +218,16 @@ def build_node(
             capture_date=imagery.capture_date,
             zoom=node.z + LEAF_ZOOM_DEPTH,
         ),
-        dsm=surfaces.dsm.name,
-        dtm=surfaces.dtm.name,
+        dsm=surfaces.dsm.path.name,
+        dtm=surfaces.dtm.path.name,
+        elevation_source=surfaces.source,
+        ground_is_surface=surfaces.ground_is_surface,
+        elevation_provenance=surfaces.provenance,
+        position=uncorrected_position(imagery.accuracy_m),
     )
     return Node(
         glb_bytes(all_vertices, all_uv, all_triangles, texture),
-        _ground_geotiff(grid.ground_odn_heights, bounds),
+        _ground_geotiff(grid.ground_heights, bounds),
         record,
     )
 
@@ -228,11 +236,12 @@ def build_node(
 class _SampledGrid:
     """Heights and positions at the nodes of a tile's Web Mercator grid, row 0 the north row.
 
-    `odn_heights` and `ecef` are the DSM; `ground_odn_heights` is the DTM at the same nodes.
+    `heights` and `ecef` are the DSM and `ground_heights` the DTM at the same nodes, both in the
+    source's vertical datum.
     """
 
-    odn_heights: np.ndarray
-    ground_odn_heights: np.ndarray
+    heights: np.ndarray
+    ground_heights: np.ndarray
     ecef: np.ndarray
     origin_ecef: np.ndarray
     origin_lon: float
@@ -242,7 +251,7 @@ class _SampledGrid:
 
 
 def _sample_grid(
-    bounds: mercantile.Bbox, surfaces: SurfacePaths, grid_spacing_m: float
+    bounds: mercantile.Bbox, surfaces: SurfacePair, grid_spacing_m: float
 ) -> _SampledGrid:
     centre_lat = mercantile.lnglat(
         (bounds.left + bounds.right) / 2, (bounds.top + bounds.bottom) / 2
@@ -253,10 +262,16 @@ def _sample_grid(
         np.linspace(bounds.left, bounds.right, nodes), np.linspace(bounds.top, bounds.bottom, nodes)
     )
     lon, lat = Transformer.from_crs(WEB_MERCATOR, WGS84, always_xy=True).transform(x, y)
-    easting, northing = wgs84_to_bng().transform(lon, lat)
-    odn_heights = _bilinear_heights(surfaces.dsm, easting, northing)
-    ground_odn_heights = _bilinear_heights(surfaces.dtm, easting, northing)
-    lon, lat, height = bng_odn_to_wgs84().transform(easting, northing, odn_heights)
+    if surfaces.dsm.height_crs != surfaces.dtm.height_crs:
+        msg = f"DSM heights are {surfaces.dsm.height_crs} but DTM heights {surfaces.dtm.height_crs}"
+        raise ValueError(msg)
+    dsm_x, dsm_y = wgs84_to(surfaces.dsm.xy_crs).transform(lon, lat)
+    heights = _bilinear_heights(surfaces.dsm.path, dsm_x, dsm_y)
+    dtm_x, dtm_y = wgs84_to(surfaces.dtm.xy_crs).transform(lon, lat)
+    ground_heights = _bilinear_heights(surfaces.dtm.path, dtm_x, dtm_y)
+    lon, lat, height = ellipsoidal_height_from(surfaces.dsm.height_crs).transform(
+        dsm_x, dsm_y, heights
+    )
     ecef = np.stack(geodetic_to_ecef().transform(lon, lat, height), axis=-1)
     origin_lon, origin_lat = (
         float(v)
@@ -267,14 +282,30 @@ def _sample_grid(
     origin_height = float(height.min())
     origin_ecef = np.array(geodetic_to_ecef().transform(origin_lon, origin_lat, origin_height))
     return _SampledGrid(
-        odn_heights=odn_heights,
-        ground_odn_heights=ground_odn_heights,
+        heights=heights,
+        ground_heights=ground_heights,
         ecef=ecef,
         origin_ecef=origin_ecef,
         origin_lon=origin_lon,
         origin_lat=origin_lat,
         origin_height_m=origin_height,
-        geoid_separation_m=float((height - odn_heights).mean()),
+        geoid_separation_m=float((height - heights).mean()),
+    )
+
+
+def uncorrected_position(accuracy_m: float | None) -> PositionRecord | None:
+    """Position of imagery nobody has corrected, bounded by Esri's stated accuracy if it has one."""
+    if accuracy_m is None:
+        return None
+    return PositionRecord(
+        status="uncorrected",
+        scene=None,
+        east_m=0.0,
+        north_m=0.0,
+        lean_east=0.0,
+        lean_north=0.0,
+        error_bound_m=accuracy_m,
+        error_bound_per_height=MAX_LEAN,
     )
 
 
@@ -284,6 +315,7 @@ def _triple(values: np.ndarray) -> tuple[float, float, float]:
 
 
 def _bilinear_heights(path: Path, easting: np.ndarray, northing: np.ndarray) -> np.ndarray:
+    """Heights of the GeoTIFF at points in its own CRS; `easting` is x and `northing` is y."""
     with rasterio.open(path) as src:
         transform = src.transform
         heights = src.read(1, masked=True)

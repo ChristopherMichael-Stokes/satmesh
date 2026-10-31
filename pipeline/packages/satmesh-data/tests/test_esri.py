@@ -25,8 +25,13 @@ UPPER_AIRE_LON, UPPER_AIRE_LAT = -2.0015, 53.9236
 UPPER_AIRE_TILE = mercantile.tile(UPPER_AIRE_LON, UPPER_AIRE_LAT, 19)
 
 
-def citation(
-    source: str, resolution: str, yyyymmdd: str, from_level: int, to_level: int
+def citation(  # noqa: PLR0913, PLR0917 (the service's attributes, one argument each)
+    source: str,
+    resolution: str,
+    yyyymmdd: str,
+    from_level: int,
+    to_level: int,
+    accuracy: str = "Null",
 ) -> dict[str, object]:
     """One layer 4 identify result as the live service returns it: every attribute a string."""
     return {
@@ -37,6 +42,7 @@ def citation(
             "DATE (YYYYMMDD)": yyyymmdd,
             "FROM_CACHE_LEVEL": str(from_level),
             "TO_CACHE_LEVEL": str(to_level),
+            "ACCURACY (M)": accuracy,
             "DRAW_ORDER": "80",
         },
     }
@@ -46,7 +52,7 @@ def citation(
 UPPER_AIRE_IDENTIFY = {
     "results": [
         citation("TerraColor NextGen", "15", "Null", 0, 11),
-        citation("Vivid", "0.34", "20250318", 12, 19),
+        citation("Vivid", "0.34", "20250318", 12, 19, "8.47"),
     ]
 }
 
@@ -94,6 +100,7 @@ def test_identify_is_parsed_into_sources(tmp_path: Path) -> None:
         date(2025, 3, 18),
     )
     assert (vivid.from_cache_level, vivid.to_cache_level) == (12, 19)
+    assert (terracolor.accuracy_m, vivid.accuracy_m) == (None, 8.47)
     assert server.requests[0].url.params["layers"] == "all:4"
 
 

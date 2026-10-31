@@ -1,5 +1,7 @@
 """HTTP conventions shared by every satmesh source: User-Agent, status handling and retry."""
 
+import threading
+import time
 from collections.abc import Callable
 from importlib.metadata import version
 
@@ -15,6 +17,26 @@ RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
 
 class RetryableStatusError(Exception):
     """A rate-limit or server-error status worth another attempt."""
+
+
+class RequestSchedule:
+    """Spaces requests at least `min_interval_s` apart; any number of threads share one rate."""
+
+    def __init__(self, min_interval_s: float) -> None:
+        """Start with the first slot free."""
+        self._min_interval_s = min_interval_s
+        self._next_request = -float("inf")
+        self._lock = threading.Lock()
+
+    def wait_for_slot(self) -> None:
+        """Return when this caller's slot has come."""
+        # each caller reserves the next free slot under the lock and then waits for it outside it
+        with self._lock:
+            slot = max(time.monotonic(), self._next_request)
+            self._next_request = slot + self._min_interval_s
+        wait_s = slot - time.monotonic()
+        if wait_s > 0:
+            time.sleep(wait_s)
 
 
 def new_client() -> httpx.Client:

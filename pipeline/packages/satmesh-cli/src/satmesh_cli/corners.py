@@ -5,7 +5,7 @@ from typing import NamedTuple
 
 import typer
 
-from satmesh_core import BRITISH_NATIONAL_GRID, WGS84, Aoi, wgs84_to_bng
+from satmesh_core import BRITISH_NATIONAL_GRID, WGS84, Aoi, wgs84_to
 
 MAX_LATITUDE_DEG = 90.0
 MAX_LONGITUDE_DEG = 180.0
@@ -57,7 +57,7 @@ def corners_to_bng_inside(north_west: LatLon, south_east: LatLon) -> Aoi:
     box is slightly rotated in BNG, so each edge is taken from the corner that reaches in furthest.
     """
     corners_to_wgs84(north_west, south_east)  # validates the order
-    to_bng = wgs84_to_bng()
+    to_bng = wgs84_to(BRITISH_NATIONAL_GRID)
     nw_e, nw_n = to_bng.transform(north_west.lon, north_west.lat)
     se_e, se_n = to_bng.transform(south_east.lon, south_east.lat)
     ne_e, ne_n = to_bng.transform(south_east.lon, north_west.lat)

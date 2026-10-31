@@ -102,11 +102,15 @@ def test_plan_covers_the_aoi_with_native_zoom_leaves_and_one_parent(
     assert plan.roots[0].z == LEAF_ZOOM - 1
 
 
-def test_plan_outside_great_britain_raises(services: FakeServices, tmp_path: Path) -> None:
+def test_plan_outside_great_britain_takes_the_global_elevation_source(
+    services: FakeServices, tmp_path: Path
+) -> None:
     paris = Aoi(crs="EPSG:4326", west=2.29, south=48.85, east=2.30, north=48.86)
     esri, _ = clients(services, tmp_path)
-    with pytest.raises(ValueError, match="only Great Britain"):
-        plan_tiles(paris, esri)
+    plan = plan_tiles(paris, esri)
+    assert plan.source.name == "copernicus-glo30"
+    assert plan.source.ground_is_surface
+    assert plan.leaves
 
 
 def test_build_writes_every_node_and_a_rerun_repeats_nothing(

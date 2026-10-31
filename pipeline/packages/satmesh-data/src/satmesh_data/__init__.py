@@ -1,5 +1,6 @@
 """Cached, throttled fetch of Esri World Imagery tiles and scenes and EA lidar surfaces; mosaics."""
 
+from satmesh_data.cog_tiles import TileMissingError, fetch_cog_window
 from satmesh_data.ea_aerial import AerialTile, crop_aerial, fetch_aerial_ecws, find_aerial_tiles
 from satmesh_data.ea_lidar import (
     EA_DSM,
@@ -17,6 +18,13 @@ from satmesh_data.ea_lidar_points import (
     os_tile_id,
     tile_ids_covering,
 )
+from satmesh_data.ept_dsm import (
+    DsmProvenance,
+    EptCoverageError,
+    EptProject,
+    fetch_ept_dsm,
+    find_ept_project,
+)
 from satmesh_data.esri import (
     EsriClient,
     EsriSource,
@@ -33,8 +41,36 @@ from satmesh_data.esri_scenes import (
     SceneMap,
     fetch_scene_map,
 )
-from satmesh_data.http import USER_AGENT, RetryableStatusError, new_client
+from satmesh_data.ground_tiles import fetch_ground_window
+from satmesh_data.http import USER_AGENT, RequestSchedule, RetryableStatusError, new_client
 from satmesh_data.mosaic import WEB_MERCATOR, Raster, crop_to_aoi, decode_tile, mosaic_tiles
+from satmesh_data.registry import (
+    CogTilesSource,
+    CogTilesWithZipGroundSource,
+    EaWcsSource,
+    Registry,
+    RegistryEntry,
+    SourceSelectionError,
+    SurfaceSource,
+    TnmDemWithEptDsmSource,
+    load_registry,
+)
+from satmesh_data.surfaces import (
+    Surface,
+    SurfacePair,
+    SurfaceProvenance,
+    fetch_surfaces,
+    fetch_surfaces_from_source,
+    select_surface_source,
+)
+from satmesh_data.usgs_dem import (
+    DemCoverageError,
+    DemProvenance,
+    DemSources,
+    MetreGrid,
+    fetch_dem_window,
+    grid_for,
+)
 
 __all__ = [
     "EA_DSM",
@@ -43,18 +79,38 @@ __all__ = [
     "USER_AGENT",
     "WEB_MERCATOR",
     "AerialTile",
+    "CogTilesSource",
+    "CogTilesWithZipGroundSource",
+    "DemCoverageError",
+    "DemProvenance",
+    "DemSources",
+    "DsmProvenance",
     "EaLidarProduct",
+    "EaWcsSource",
+    "EptCoverageError",
+    "EptProject",
     "EsriClient",
     "EsriQueryError",
     "EsriScene",
     "EsriSource",
     "LidarCheckError",
+    "MetreGrid",
     "PlaceholderTileError",
     "PointCloudTile",
     "Raster",
+    "Registry",
+    "RegistryEntry",
+    "RequestSchedule",
     "RetryableStatusError",
     "SceneId",
     "SceneMap",
+    "SourceSelectionError",
+    "Surface",
+    "SurfacePair",
+    "SurfaceProvenance",
+    "SurfaceSource",
+    "TileMissingError",
+    "TnmDemWithEptDsmSource",
     "ZoomBeyondSourceError",
     "cached_lidar_path",
     "check_lidar",
@@ -63,14 +119,24 @@ __all__ = [
     "crop_to_aoi",
     "decode_tile",
     "fetch_aerial_ecws",
+    "fetch_cog_window",
+    "fetch_dem_window",
     "fetch_ea_lidar",
+    "fetch_ept_dsm",
+    "fetch_ground_window",
     "fetch_point_cloud",
     "fetch_scene_map",
+    "fetch_surfaces",
+    "fetch_surfaces_from_source",
     "find_aerial_tiles",
+    "find_ept_project",
     "find_point_cloud_tiles",
+    "grid_for",
     "is_placeholder",
+    "load_registry",
     "mosaic_tiles",
     "new_client",
     "os_tile_id",
+    "select_surface_source",
     "tile_ids_covering",
 ]

@@ -6,6 +6,7 @@ requires-python = ">=3.13"
 dependencies = [
   "affine>=3.0.1",
   "httpx>=0.28.1",
+  "laspy[lazrs]>=2.7.0",
   "rasterio>=1.5.2",
   "satmesh-core",
   "shapely>=2.2.0",

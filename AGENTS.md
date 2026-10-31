@@ -71,6 +71,7 @@ Run from the repo root unless a workspace is named.
 | What                         | Command                                                 |
 | ---------------------------- | ------------------------------------------------------- |
 | Sync workspace, hooks        | `make setup` (prek runs through `uvx prek@0.5.7`)       |
+| PROJ datum grids             | `make grids [REGIONS="gb global us"]` (empty = all; `satmesh grids --region NAME ...`) |
 | All checks                   | `make check`                                            |
 | Checks for one workspace     | `uvx prek@0.5.7 run --all-files pipeline/`              |
 | Update hook revisions        | `make update-hooks` (skips releases under 7 days old)   |

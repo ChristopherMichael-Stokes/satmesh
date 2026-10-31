@@ -21,7 +21,6 @@ from satmesh_tiles.node import (
     Node,
     NodeRecord,
     PositionRecord,
-    SurfacePaths,
     build_node,
     esri_tiles,
 )
@@ -64,7 +63,6 @@ __all__ = [
     "PositionRecord",
     "SceneLean",
     "StaleCorrectionError",
-    "SurfacePaths",
     "TilePlan",
     "apply_correction",
     "build_node",

@@ -30,16 +30,17 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from pyproj import Transformer
 
 from satmesh_core import (
+    BNG_ODN,
     BRITISH_NATIONAL_GRID,
     WGS84,
     ProgressReport,
-    bng_odn_to_wgs84,
     ecef_to_geodetic,
-    wgs84_to_bng,
+    ellipsoidal_height_from,
+    wgs84_to,
 )
 from satmesh_data import UNLABELLED, WEB_MERCATOR, SceneId, SceneMap
 from satmesh_mesh import read_vertices, with_texture_coordinates
-from satmesh_tiles.node import NodeRecord, PositionRecord
+from satmesh_tiles.node import MAX_LEAN, NodeRecord, PositionRecord
 from satmesh_tiles.tiler import (
     CORRECTION_FILE,
     CORRECTION_SCHEMA_VERSION,
@@ -54,9 +55,6 @@ from satmesh_tiles.tileset import stored_tiles
 CellStatus = Literal["corrected", "uncorrected"]
 POSITIONAL_ERROR_FILE = "positional_error.json"
 UPDATE_PHASE = "updating tiles"
-# Maxar basemap specification: off-nadir at most 30 degrees, so |l| <= tan 30. An uncorrected
-# raised point is displaced at most this much per metre of height beyond the ground shift.
-MAX_LEAN = float(np.tan(np.radians(30.0)))
 # a vertex's position, read back from float32 glTF, lands this close to its build-grid node; the
 # float32 rounding is under 1e-4 of a grid step for the largest stored tiles
 GRID_INDEX_TOLERANCE = 0.01
@@ -229,8 +227,8 @@ class _Transforms:
     def build(cls) -> "_Transforms":
         return cls(
             ecef_to_geodetic(),
-            bng_odn_to_wgs84(),
-            wgs84_to_bng(),
+            ellipsoidal_height_from(BNG_ODN),
+            wgs84_to(BRITISH_NATIONAL_GRID),
             Transformer.from_crs(WGS84, WEB_MERCATOR, always_xy=True),
             Transformer.from_crs(WEB_MERCATOR, WGS84, always_xy=True),
         )

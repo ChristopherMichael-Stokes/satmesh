@@ -5,7 +5,6 @@ from typer.testing import CliRunner
 from satmesh_cli.main import app
 
 runner = CliRunner()
-PARIS = ["--nw", "48.86, 2.29", "--se", "48.85, 2.30"]
 
 
 def test_help_lists_build_and_the_export_group() -> None:
@@ -13,12 +12,6 @@ def test_help_lists_build_and_the_export_group() -> None:
     assert result.exit_code == 0
     assert "build" in result.output
     assert "export" in result.output
-
-
-def test_build_outside_great_britain_fails_before_any_request(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["build", *PARIS, "--store", str(tmp_path / "store")])
-    assert result.exit_code == 1
-    assert "only Great Britain" in result.output
 
 
 def test_build_with_an_empty_box_reports_it(tmp_path: Path) -> None:

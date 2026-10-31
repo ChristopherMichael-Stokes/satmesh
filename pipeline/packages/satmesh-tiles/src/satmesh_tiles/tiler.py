@@ -14,31 +14,29 @@ import numpy as np
 from rasterio.transform import from_bounds
 
 from satmesh_core import (
-    BRITISH_NATIONAL_GRID,
     Aoi,
     ProgressReport,
-    bng_odn_to_wgs84,
+    ellipsoidal_height_from,
     metric_crs,
-    wgs84_to_bng,
+    wgs84_to,
 )
 from satmesh_data import (
-    EA_DSM,
-    EA_DTM,
     WEB_MERCATOR,
-    EaLidarProduct,
     EsriClient,
     EsriSource,
     Raster,
+    SurfacePair,
+    SurfaceSource,
     choose_zoom,
-    fetch_ea_lidar,
+    fetch_surfaces,
     mosaic_tiles,
+    select_surface_source,
 )
 from satmesh_mesh import DEFAULT_MAX_ERROR_M
 from satmesh_tiles.node import (
     LEAF_ZOOM_DEPTH,
     MeshSettings,
     NodeRecord,
-    SurfacePaths,
     build_node,
     esri_tiles,
 )
@@ -46,8 +44,6 @@ from satmesh_tiles.node import (
 logger = logging.getLogger(__name__)
 
 CHILDREN_PER_PARENT = 4
-# whole metres of DTM beyond a node's footprint, so bilinear sampling at its edges has neighbours
-DTM_BOX_MARGIN_M = 2
 # (dx, dy) of the north-west, north-east, south-west and south-east child; mercantile.children
 # lists them in another order
 CHILD_ORDER = ((0, 0), (1, 0), (0, 1), (1, 1))
@@ -72,6 +68,7 @@ class TilePlan:
 
     leaf_zoom: int
     imagery: EsriSource
+    source: SurfaceSource
     leaves: tuple[mercantile.Tile, ...]
     children: dict[mercantile.Tile, tuple[mercantile.Tile, ...]]
     roots: tuple[mercantile.Tile, ...]
@@ -86,10 +83,11 @@ class BuildSummary:
 
 
 def snap_outward(aoi: Aoi) -> Aoi:
-    """Return the AOI as a BNG box with whole-metre edges, grown outward, as the EA WCS needs."""
-    west, south, east, north = aoi.bounds_in(BRITISH_NATIONAL_GRID)
+    """Return the AOI as a box in its metric CRS with whole-metre edges, grown outward."""
+    crs = metric_crs(aoi)
+    west, south, east, north = aoi.bounds_in(crs)
     return Aoi(
-        crs=BRITISH_NATIONAL_GRID,
+        crs=crs,
         west=math.floor(west),
         south=math.floor(south),
         east=math.ceil(east),
@@ -99,12 +97,10 @@ def snap_outward(aoi: Aoi) -> Aoi:
 
 def plan_tiles(aoi: Aoi, esri: EsriClient) -> TilePlan:
     """Plan the tree for `aoi`: native zoom from Esri metadata at the centre, leaves covering it."""
-    if metric_crs(aoi) != BRITISH_NATIONAL_GRID:
-        msg = f"only Great Britain has a DTM source, but the AOI's metric CRS is {metric_crs(aoi)}"
-        raise ValueError(msg)
-    # fail before any fetch if the OSTN15 and OSGM15 grids are missing
-    wgs84_to_bng()
-    bng_odn_to_wgs84()
+    # fail before any fetch if the datum grids the AOI's elevation source needs are missing
+    wgs84_to(metric_crs(aoi))
+    source = select_surface_source(aoi)
+    ellipsoidal_height_from(source.height_crs)
     west, south, east, north = snap_outward(aoi).wgs84_bounds()
     zoom, imagery = choose_zoom(
         esri.sources_at((west + east) / 2, (south + north) / 2), (south + north) / 2
@@ -115,7 +111,7 @@ def plan_tiles(aoi: Aoi, esri: EsriClient) -> TilePlan:
         raise ValueError(msg)
     leaves = tuple(mercantile.tiles(west, south, east, north, [leaf_zoom]))
     children, roots = complete_tree(leaves)
-    return TilePlan(leaf_zoom, imagery, leaves, children, roots)
+    return TilePlan(leaf_zoom, imagery, source, leaves, children, roots)
 
 
 def complete_tree(
@@ -315,7 +311,7 @@ def _write_node(  # noqa: PLR0913, PLR0917 (one node's inputs)
     store_dir: Path,
     tile: mercantile.Tile,
     texture: Raster,
-    surfaces: SurfacePaths,
+    surfaces: SurfacePair,
     imagery: EsriSource,
     settings: MeshSettings,
 ) -> None:
@@ -328,24 +324,12 @@ def _write_node(  # noqa: PLR0913, PLR0917 (one node's inputs)
     logger.info("built node z%d x%d y%d: %d vertices", tile.z, tile.x, tile.y, node.record.vertices)
 
 
-def _fetch_surfaces(http: httpx.Client, tile: mercantile.Tile, cache_dir: Path) -> SurfacePaths:
+def _fetch_surfaces(http: httpx.Client, tile: mercantile.Tile, cache_dir: Path) -> SurfacePair:
     bounds = mercantile.xy_bounds(tile)
     footprint = Aoi(
         crs=WEB_MERCATOR, west=bounds.left, south=bounds.bottom, east=bounds.right, north=bounds.top
     )
-    west, south, east, north = footprint.bounds_in(BRITISH_NATIONAL_GRID)
-    box = Aoi(
-        crs=BRITISH_NATIONAL_GRID,
-        west=math.floor(west) - DTM_BOX_MARGIN_M,
-        south=math.floor(south) - DTM_BOX_MARGIN_M,
-        east=math.ceil(east) + DTM_BOX_MARGIN_M,
-        north=math.ceil(north) + DTM_BOX_MARGIN_M,
-    )
-
-    def fetch(product: EaLidarProduct) -> Path:
-        return fetch_ea_lidar(http, box, cache_dir, product)
-
-    return SurfacePaths(dsm=fetch(EA_DSM), dtm=fetch(EA_DTM))
+    return fetch_surfaces(http, footprint, cache_dir)
 
 
 def write_atomically(path: Path, data: bytes) -> None:

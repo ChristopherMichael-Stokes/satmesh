@@ -1,8 +1,6 @@
 """Esri World Imagery: source metadata, zoom choice and cached, throttled tile fetch."""
 
 import hashlib
-import threading
-import time
 from collections.abc import Mapping
 from datetime import date, datetime
 from pathlib import Path
@@ -13,7 +11,7 @@ import mercantile
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from satmesh_core import zoom_for_resolution
-from satmesh_data.http import DEFAULT_INITIAL_BACKOFF_S, checked, with_retry
+from satmesh_data.http import DEFAULT_INITIAL_BACKOFF_S, RequestSchedule, checked, with_retry
 
 BASE_URL = "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer"
 CITATIONS_LAYER = 4
@@ -49,6 +47,14 @@ class EsriSource(BaseModel):
     capture_date: date | None = Field(alias="DATE (YYYYMMDD)")
     from_cache_level: int = Field(alias="FROM_CACHE_LEVEL")
     to_cache_level: int = Field(alias="TO_CACHE_LEVEL")
+    accuracy_m: float | None = Field(default=None, alias="ACCURACY (M)")
+
+    @field_validator("accuracy_m", mode="before")
+    @classmethod
+    def _parse_accuracy(cls, value: Any) -> float | None:  # noqa: ANN401 (raw JSON before validation)
+        if value == NULL_ATTRIBUTE:
+            return None
+        return float(value)
 
     @field_validator("capture_date", mode="before")
     @classmethod
@@ -104,10 +110,8 @@ class EsriClient:
         """Use `http` for requests and keep tiles under `cache_dir`; the caller owns `http`."""
         self._http = http
         self._tile_dir = cache_dir / CACHE_SUBDIR
-        self._min_interval_s = min_interval_s
+        self._schedule = RequestSchedule(min_interval_s)
         self._initial_backoff_s = initial_backoff_s
-        self._next_request = -float("inf")
-        self._schedule_lock = threading.Lock()
 
     def sources_at(self, lon: float, lat: float) -> list[EsriSource]:
         """Return every imagery source polygon under a WGS84 point."""
@@ -156,12 +160,5 @@ class EsriClient:
         return with_retry(lambda: self._throttled_get(url, params), self._initial_backoff_s)
 
     def _throttled_get(self, url: str, params: Mapping[str, str | int | float]) -> httpx.Response:
-        # each request reserves the next free slot under the lock and then waits for it outside
-        # it, so any number of threads share one request rate
-        with self._schedule_lock:
-            slot = max(time.monotonic(), self._next_request)
-            self._next_request = slot + self._min_interval_s
-        wait_s = slot - time.monotonic()
-        if wait_s > 0:
-            time.sleep(wait_s)
+        self._schedule.wait_for_slot()
         return checked(self._http.get(url, params=params))

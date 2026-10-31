@@ -10,12 +10,11 @@ from pyproj import Transformer
 from rasterio.io import MemoryFile
 from rasterio.transform import from_bounds, from_origin
 
-from satmesh_data import WEB_MERCATOR, EsriSource, Raster
+from satmesh_data import WEB_MERCATOR, EsriSource, Raster, Surface, SurfacePair
 from satmesh_tiles import (
     ESRI_TILES_PER_LEAF_SIDE,
     MeshSettings,
     NodeRecord,
-    SurfacePaths,
     build_node,
     esri_tiles,
 )
@@ -94,11 +93,22 @@ def leaf_texture() -> Raster:
     )
 
 
-def write_surfaces(directory: Path) -> tuple[SurfacePaths, float, float]:
-    surfaces = SurfacePaths(dsm=directory / "dsm.tif", dtm=directory / "dtm.tif")
-    west, south = write_plane(surfaces.dtm)
-    write_plane(surfaces.dsm, CANOPY_M)
-    return surfaces, west, south
+def ea_surfaces(dsm: Path, dtm: Path) -> SurfacePair:
+    return SurfacePair(
+        dsm=Surface(dsm, "EPSG:27700", "EPSG:7405"),
+        dtm=Surface(dtm, "EPSG:27700", "EPSG:7405"),
+        source="ea-lidar-composite",
+        attribution="Environment Agency",
+        ground_is_surface=False,
+        provenance=None,
+    )
+
+
+def write_surfaces(directory: Path) -> tuple[SurfacePair, float, float]:
+    dsm, dtm = directory / "dsm.tif", directory / "dtm.tif"
+    west, south = write_plane(dtm)
+    write_plane(dsm, CANOPY_M)
+    return ea_surfaces(dsm, dtm), west, south
 
 
 def positions(glb: bytes) -> tuple[np.ndarray, np.ndarray]:
@@ -218,7 +228,7 @@ def test_dsm_that_misses_the_leaf_raises(tmp_path: Path) -> None:
         build_node(
             LEAF,
             leaf_texture(),
-            SurfacePaths(dsm=small, dtm=surfaces.dtm),
+            ea_surfaces(small, surfaces.dtm.path),
             ESRI_SOURCE,
             MESH_SETTINGS,
         )

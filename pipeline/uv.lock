@@ -1296,6 +1296,7 @@ source = { editable = "packages/satmesh-data" }
 dependencies = [
     { name = "affine" },
     { name = "httpx" },
+    { name = "laspy", extra = ["lazrs"] },
     { name = "rasterio" },
     { name = "satmesh-core" },
     { name = "shapely" },
@@ -1306,6 +1307,7 @@ dependencies = [
 requires-dist = [
     { name = "affine", specifier = ">=3.0.1" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "laspy", extras = ["lazrs"], specifier = ">=2.7.0" },
     { name = "rasterio", specifier = ">=1.5.2" },
     { name = "satmesh-core", editable = "packages/satmesh-core" },
     { name = "shapely", specifier = ">=2.2.0" },

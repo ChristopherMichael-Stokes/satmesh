@@ -13,8 +13,9 @@ from loguru import logger
 from platformdirs import user_cache_dir
 
 from satmesh_cli.corners import LatLon, corners_to_bng_inside, corners_to_wgs84, parse_lat_lon
+from satmesh_cli.grids import Region, grid_files, install_grids
 from satmesh_cli.reporting import file_log, run_log
-from satmesh_core import BRITISH_NATIONAL_GRID, Aoi, GridMissingError
+from satmesh_core import BNG_ODN, BRITISH_NATIONAL_GRID, Aoi, GridMissingError
 from satmesh_data import (
     EsriClient,
     EsriQueryError,
@@ -52,7 +53,7 @@ from satmesh_tiles import (
 )
 
 DEFAULT_CACHE_DIR = Path(user_cache_dir("satmesh"))
-DEFAULT_ESRI_REQUESTS_PER_SECOND = 1.0
+DEFAULT_ESRI_REQUESTS_PER_SECOND = 20.0
 SECONDS_PER_MINUTE = 60
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="Tiled terrain meshes.")
@@ -99,9 +100,27 @@ def reported_errors() -> Generator[None]:
         LidarCheckError,
         EsriQueryError,
         httpx.HTTPError,
+        RuntimeError,
     ) as e:
         typer.echo(f"error: {e}", err=True)
         raise typer.Exit(1) from e
+
+
+@app.command()
+def grids(
+    region: Annotated[
+        list[Region] | None,
+        typer.Option(help="Region to fetch grids for, repeatable; omitted means all."),
+    ] = None,
+    dry_run: Annotated[bool, typer.Option(help="List the grid files without downloading.")] = False,  # noqa: FBT002 (typer flag)
+) -> None:
+    """Download the PROJ datum grids the regions' height sources need."""
+    files = grid_files(region or [])
+    if dry_run:
+        typer.echo("\n".join(files))
+        return
+    install_grids(files)
+    typer.echo(f"{len(files)} grids installed")
 
 
 @app.command()
@@ -140,6 +159,13 @@ def build(  # noqa: PLR0913, PLR0917 (the two corners, store and three tuning op
             len(plan.children),
             tiles,
             eta_min,
+        )
+        logger.info(
+            "elevation {} ({}); imagery {}, stated accuracy {} m",
+            plan.source.name,
+            "DSM also serves as ground" if plan.source.ground_is_surface else "DSM and DTM",
+            plan.imagery.source_info,
+            plan.imagery.accuracy_m,
         )
         summary = build_store(
             plan,
@@ -196,7 +222,14 @@ def correct(
             msg = f"no nodes in store {store}"
             raise ValueError(msg)
         finest = max(tile.z for tile in tiles)
-        zoom = read_record(store, next(t for t in sorted(tiles) if t.z == finest)).imagery.zoom
+        first = read_record(store, next(t for t in sorted(tiles) if t.z == finest))
+        if first.vertical_crs != BNG_ODN:
+            msg = (
+                f"position correction needs EA lidar, which covers England only; this store's "
+                f"heights are {first.vertical_crs}"
+            )
+            raise ValueError(msg)
+        zoom = first.imagery.zoom
         area = _store_area([t for t in tiles if t.z == finest])
         logger.info(
             "measuring over {} nodes at Esri z{}; point clouds are downloaded on first use",

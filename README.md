@@ -23,11 +23,13 @@ Demo video: `docs/demo.mp4` (to be added)
 
 ## How it works
 
-1. **Plan:** the two corners become a box in British National Grid, cut into leaves of 4 x 4 Esri
-   tiles (about 180 m); parents are added where all four children exist.
-2. **Fetch:** Esri tiles and the Environment Agency 1 m surface (DSM) and ground (DTM) models,
+1. **Plan:** the two corners become a box in the area's metric CRS (British National Grid in Great
+   Britain, else the UTM zone), cut into leaves of 4 x 4 Esri tiles (about 180 m); parents are
+   added where all four children exist.
+2. **Fetch:** Esri tiles and the elevation sources the registry picks for the area (below),
    cached, throttled and fetched ahead of the node being built.
-3. **Mesh:** heights are sampled every 0.5 m in true-metre local coordinates (OSTN15 and OSGM15),
+3. **Mesh:** heights are sampled every 0.5 m in true-metre local coordinates through the source's
+   geoid (OSGM15 for England, EGM2008 for the global sources),
    triangulated to a 0.1 m height error with skirts between tiles, and draped with the imagery;
    each node also keeps its ground grid.
 4. **Measure the imagery position** (`correct`): windows of imagery are matched to the lidar
@@ -39,9 +41,24 @@ Demo video: `docs/demo.mp4` (to be added)
 
 ## Use
 
-Needs the UK PROJ grids (`make setup` fetches them) and, for Great Britain, nothing else: imagery is
-Esri World Imagery and heights are the Environment Agency 1 m lidar: the first-return DSM for the
-visual mesh and the DTM for the ground grid stored beside it.
+Needs the PROJ datum grids (`make setup` fetches all of them; `make grids REGIONS="gb us"`
+fetches only the named regions `gb`, `global`, `us`). Imagery is Esri World Imagery everywhere.
+Heights come from the first registry entry that covers the area
+(`pipeline/packages/satmesh-data/src/satmesh_data/registry.toml`):
+
+| Area | Surface (visual mesh) | Ground (collision, ground grid) |
+| --- | --- | --- |
+| England | Environment Agency 1 m first-return DSM | EA 1 m DTM |
+| Contiguous United States | USGS 3DEP lidar: 1 m first-return DSM rasterised from EPT point clouds | USGS 3DEP 1 m DEM (1/3 arc-second where no 1 m exists) |
+| Middle East (lon 34 to 60, lat 12 to 38) | Copernicus GLO-30 (30 m DSM) | FABDEM V1-2 (30 m bare earth, non-commercial licence) |
+| Elsewhere | Copernicus GLO-30 | the same surface, recorded as `ground_is_surface` |
+
+Outside England the heights are 30 m data meshed at 0.5 m, so buildings and trees appear only as
+far as the 30 m model carries them. The build logs the source and attribution of every store.
+In the United States the heights are 1 m lidar products, so buildings and trees carry their
+relief; the build fetches the point clouds and takes minutes per square kilometre on a cold cache.
+`satmesh correct` (imagery position from lidar) is England only; elsewhere the exports report
+Esri's stated imagery accuracy as the position bound.
 
 The area is two corners, north-west and south-east, as `lat, lon` text copied from a map. Run
 everything from `pipeline/`. Outputs go in `uncommitted/`, which git ignores.
@@ -52,7 +69,8 @@ cd pipeline
 # 1. Build a tile store for a 500 m square (resumable; fetched data is cached)
 uv run satmesh build --nw "53.925897, -2.005297" --se "53.921403, -1.997683" --store ../uncommitted/my_area/store
 
-# 2. Move the imagery to its true position (England only; downloads lidar on first use)
+# 2. Move the imagery to its true position (England only; downloads lidar on first use);
+#    elsewhere every tile carries Esri's stated position accuracy as its error bound
 uv run satmesh correct --store ../uncommitted/my_area/store
 
 # 3. Export for a consumer
@@ -75,7 +93,7 @@ square, cached) and needs about 2 GB per cell it measures in parallel. Every exp
 `positional_error.json` with a 95 % error bound per tile. England only; `--no-lean` skips the lean.
 
 Fetched data is cached under `~/.cache/satmesh` (`--cache-dir` or `SATMESH_CACHE_DIR`). Esri tiles
-come at one request per second by default; `--esri-requests-per-second 10` raises it. Details:
+come at 20 requests per second by default; `--esri-requests-per-second` changes it. Details:
 [docs/01-pipeline.md](docs/01-pipeline.md).
 
 ## Research results
@@ -114,7 +132,6 @@ Ferrybridge, 1 km window, left to right: image, lidar classes, predicted classes
 
 - Building and tree height inside `build`, from pretrained models on the coarse elevation, with
   land cover keeping ground flat and tidying roofs, walls and tree crowns.
-- Other regions, Yemen first: UTM and geoid handling, a source registry, global coarse elevation.
 - Terrain beyond about 6 km, with averaged coarse tiles.
 - A lighter Gazebo collision mesh and a test in a running simulator.
 - A real-photo localisation test, and imagery correction outside England.

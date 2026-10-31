@@ -15,7 +15,7 @@ from pyproj import Transformer
 from rasterio.io import MemoryFile
 from rasterio.transform import from_bounds
 
-from satmesh_core import BRITISH_NATIONAL_GRID, WGS84, wgs84_to_bng
+from satmesh_core import BRITISH_NATIONAL_GRID, WGS84, wgs84_to
 from satmesh_data import EA_DSM, WEB_MERCATOR, EsriScene, SceneId, SceneMap
 from satmesh_tiles import (
     CORRECTION_FILE,
@@ -235,12 +235,12 @@ def bng_of_uv(tile: mercantile.Tile, uv: np.ndarray) -> tuple[np.ndarray, np.nda
     x = bounds.left + uv[:, 0] * (bounds.right - bounds.left)
     y = bounds.bottom + uv[:, 1] * (bounds.top - bounds.bottom)
     lon, lat = Transformer.from_crs(WEB_MERCATOR, WGS84, always_xy=True).transform(x, y)
-    easting, northing = wgs84_to_bng().transform(lon, lat)
+    easting, northing = wgs84_to(BRITISH_NATIONAL_GRID).transform(lon, lat)
     return np.asarray(easting), np.asarray(northing)
 
 
 def uv_of_bng(tile: mercantile.Tile, easting: np.ndarray, northing: np.ndarray) -> np.ndarray:
-    lon, lat = wgs84_to_bng().transform(easting, northing, direction="INVERSE")
+    lon, lat = wgs84_to(BRITISH_NATIONAL_GRID).transform(easting, northing, direction="INVERSE")
     x, y = Transformer.from_crs(WGS84, WEB_MERCATOR, always_xy=True).transform(lon, lat)
     bounds = mercantile.xy_bounds(tile)
     return np.column_stack(

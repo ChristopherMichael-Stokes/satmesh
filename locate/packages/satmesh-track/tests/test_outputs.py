@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 import scene
 
-from satmesh_eval.camera import camera_centre_and_rotation
+from satmesh_eval.camera import camera_centre_and_rotation, pose_from_enu
 from satmesh_eval.poses import read_pose_file
 from satmesh_track.lens import CameraPoseEnu, Lens, LensEstimate
 from satmesh_track.outputs import (
@@ -13,7 +13,9 @@ from satmesh_track.outputs import (
     POSES_FILE,
     REPORT_FILE,
     REVIEW_FILE,
+    ReferencePoint,
     horizontal_fov_deg,
+    read_reference,
     write_outputs,
 )
 from satmesh_track.photos import LoadedPhoto
@@ -112,3 +114,54 @@ def test_the_report_lists_every_photo_and_the_review_page_embeds_the_run(tmp_pat
     assert [p["name"] for p in data["photos"]] == ["a.png", "b.png", "c.png", "d.png"]
     assert data["photos"][3]["east"] is None
     assert page.count("</script>") == 1
+
+
+def logged_at(name: str, east: float, north: float, height: float | None) -> ReferencePoint:
+    pose = pose_from_enu(scene.area_frame(), np.array([east, north, 0.0]), 0.0, 0.0, 0.0)
+    return ReferencePoint(name, pose.latitude_deg, pose.longitude_deg, height)
+
+
+def test_a_reference_track_adds_horizontal_and_height_residuals_to_the_page(
+    tmp_path: Path,
+) -> None:
+    result = result_for()
+    # photos sit at north -50, heights 40; the log is 3 m west and 4 m south of a.png (5 m away),
+    # exact horizontally for b.png, and its heights differ by 10, 10 and 8 m, so after removing the
+    # median offset (10 m) the height residuals are 0, 0 and -2 m; d.png is lost and has no residual
+    reference = [
+        logged_at("a.png", -13.0, -54.0, 30.0),
+        logged_at("b.png", 10.0, -50.0, 30.0),
+        logged_at("c.png", 30.0, -50.0, 32.0),
+        logged_at("d.png", 50.0, -50.0, 30.0),
+    ]
+
+    write_outputs(
+        tmp_path, result, [loaded(p.name) for p in result.photos], scene.area_frame(), reference
+    )
+
+    page = (tmp_path / REVIEW_FILE).read_text()
+    data = json.loads(page.split("const D=", 1)[1].split(";\nconst $", 1)[0])
+    residuals = [p["residual_m"] for p in data["photos"]]
+    assert residuals[:3] == pytest.approx([5.0, 0.0, 0.0], abs=POSE_TOLERANCE_M)
+    assert residuals[3] is None
+    assert [p["height_residual_m"] for p in data["photos"][:3]] == pytest.approx(
+        [0.0, 0.0, -2.0], abs=POSE_TOLERANCE_M
+    )
+    assert data["reference"]["height_offset_m"] == pytest.approx(10.0, abs=POSE_TOLERANCE_M)
+    assert data["reference"]["horizontal_max_m"] == pytest.approx(5.0, abs=POSE_TOLERANCE_M)
+
+
+def test_a_reference_file_is_read_and_one_without_the_columns_is_refused(tmp_path: Path) -> None:
+    good = tmp_path / "good.csv"
+    good.write_text(
+        "photo,latitude_deg,longitude_deg,height_m\na.png,50.1,0.2,12.5\nb.png,50.2,0.3,\n"
+    )
+    bad = tmp_path / "bad.csv"
+    bad.write_text("photo,lat,lon\na.png,50.1,0.2\n")
+
+    assert read_reference(good) == [
+        ReferencePoint("a.png", 50.1, 0.2, 12.5),
+        ReferencePoint("b.png", 50.2, 0.3, None),
+    ]
+    with pytest.raises(ValueError, match="lacks columns"):
+        read_reference(bad)

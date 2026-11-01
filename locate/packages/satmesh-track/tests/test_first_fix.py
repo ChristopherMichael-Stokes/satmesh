@@ -9,6 +9,7 @@ import scene
 from satmesh_eval.camera import camera_centre_and_rotation
 from satmesh_eval.matching import onnx_matcher
 from satmesh_eval.perspective import GroundExtent, render
+from satmesh_locate.megaloc import DESCRIPTOR_SIZE, MegaLocDescriber
 from satmesh_track.first_fix import (
     GridConfig,
     descriptor_cache_path,
@@ -16,7 +17,6 @@ from satmesh_track.first_fix import (
     grid_descriptors,
     grid_poses,
 )
-from satmesh_track.retrieval import DESCRIPTOR_SIZE, MegaLocDescriber
 from satmesh_track.tracker import PhotoImage, Scene, TrackConfig, TrackingContext
 
 MEGALOC_VARIABLE, XFEAT_VARIABLE = "MEGALOC_MODEL", "XFEAT_MODEL_DIR"

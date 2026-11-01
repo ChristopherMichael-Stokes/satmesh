@@ -37,14 +37,29 @@ class SearchConfig:
     radius_per_missed_step: float = 1.2  # times the typical step between fixes
     height_factors: tuple[float, ...] = (0.7, 1.0, 1.4)  # times the last height above ground
     min_height_above_ground_m: float = 25.0  # cameras below this are out of scope
-    heading_count: int = 8
+    heading_count: int = 8  # evenly spaced headings when the camera's heading is unknown
+    local_spacing_m: float = 40.0  # position step when re-localising around the last fix
+    local_heading_offsets_deg: tuple[float, ...] = (-30.0, -15.0, 0.0, 15.0, 30.0)
+    local_pitch_offsets_deg: tuple[float, ...] = (-20.0, -10.0, 0.0, 10.0)  # gimbal moves
     top_k: int = 5
+    recovery_step_factor: float = (
+        3.0  # a recovered fix moved at most this many typical steps a photo
+    )
+    recovery_margin_m: float = 15.0  # pose noise of a weak fix
     ranking_workers: int = 3  # candidates matched at once; renders stay on the calling thread
 
 
 def search_radius_m(config: SearchConfig, step_m: float, missed_steps: int) -> float:
     """How far the camera may have moved: a margin plus the missed steps at the typical step."""
     return config.margin_m + config.radius_per_missed_step * step_m * missed_steps
+
+
+def max_recovered_displacement_m(config: SearchConfig, step_m: float, missed_steps: int) -> float:
+    """How far a recovered fix may lie from the last fix: a few typical steps per missed photo.
+
+    The margin covers the noise of a weak fix (under 10 m from the log on the Bexhill clip).
+    """
+    return config.recovery_step_factor * step_m * missed_steps + config.recovery_margin_m
 
 
 def candidate_poses(  # noqa: PLR0913, PLR0917 (config, frame, ground, centre, radius, heights, pitch)
@@ -54,12 +69,13 @@ def candidate_poses(  # noqa: PLR0913, PLR0917 (config, frame, ground, centre, r
     centre_east_north: npt.NDArray[np.float64],
     radius_m: float,
     heights_above_ground_m: Sequence[float],
-    pitch_deg: float,
+    pitches_deg: Sequence[float],
+    headings_deg: Sequence[float],
+    spacing_m: float,
 ) -> list[CameraPose]:
     """Poses on a grid, centred on `centre_east_north`, inside the circle of `radius_m`."""
-    steps_out = int(radius_m // config.spacing_m)
-    offsets = config.spacing_m * np.arange(-steps_out, steps_out + 1)
-    headings = np.arange(config.heading_count) * 360.0 / config.heading_count
+    steps_out = int(radius_m // spacing_m)
+    offsets = spacing_m * np.arange(-steps_out, steps_out + 1)
     poses = []
     for east_offset in offsets:
         for north_offset in offsets:
@@ -76,7 +92,9 @@ def candidate_poses(  # noqa: PLR0913, PLR0917 (config, frame, ground, centre, r
                     [east, north, ground + max(config.min_height_above_ground_m, height)]
                 )
                 poses.extend(
-                    pose_from_enu(area, centre, float(h), pitch_deg, 0.0) for h in headings
+                    pose_from_enu(area, centre, float(h), float(pitch), 0.0)
+                    for h in headings_deg
+                    for pitch in pitches_deg
                 )
     return poses
 

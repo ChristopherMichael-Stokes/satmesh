@@ -1,6 +1,8 @@
 PREK = uvx prek@0.5.7
+LOCATE_VARIANT ?= gpu
+LOCATE_EXTRAS = --extra $(LOCATE_VARIANT) $(if $(filter gpu,$(LOCATE_VARIANT)),--extra tensorrt)
 
-.PHONY: setup grids check test test-contract update-hooks gdal-ecw-image eval-slice smoke-regions
+.PHONY: setup sync grids check test test-contract update-hooks gdal-ecw-image eval-slice smoke-regions
 
 REGIONS ?=
 SLICE_STORE ?= $(CURDIR)/uncommitted/eval-slice
@@ -12,10 +14,14 @@ SANAA_AREA = --nw "15.35545, 44.20654" --se "15.35455, 44.20746"
 
 setup:
 	git submodule update --init
-	uv sync --project pipeline --all-packages --all-extras --locked
-	uv sync --project ml --all-packages --locked
+	$(MAKE) sync
 	$(MAKE) grids
 	$(PREK) install
+
+sync:
+	uv sync --project pipeline --all-packages --all-extras --locked
+	uv sync --project ml --all-packages --locked
+	uv sync --project locate --all-packages $(LOCATE_EXTRAS) --locked
 
 grids:
 	uv run --project pipeline satmesh grids $(addprefix --region ,$(REGIONS))
@@ -26,6 +32,7 @@ check:
 test:
 	cd pipeline && uv run --frozen pytest packages
 	cd ml && uv run --frozen pytest packages
+	cd locate && uv run --frozen $(LOCATE_EXTRAS) pytest packages
 
 # pipeline writes inputs, ml refines them, pipeline reads the outputs, through $(CONTRACT_DIR)
 test-contract:

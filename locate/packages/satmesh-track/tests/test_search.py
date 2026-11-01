@@ -4,13 +4,23 @@ import scene
 from satmesh_eval.camera import CameraPose, camera_centre_and_rotation
 from satmesh_eval.matching import sift_match
 from satmesh_eval.perspective import render
-from satmesh_track.search import SearchConfig, best_candidates, candidate_poses, search_radius_m
+from satmesh_track.search import (
+    SearchConfig,
+    best_candidates,
+    candidate_poses,
+    max_recovered_displacement_m,
+    search_radius_m,
+)
 
 CONFIG = SearchConfig(spacing_m=70.0, margin_m=60.0, height_factors=(1.0, 0.5), heading_count=4)
 
 
 def test_the_radius_is_the_margin_plus_the_missed_steps_at_the_typical_step() -> None:
     assert search_radius_m(CONFIG, 12.0, 4) == 60.0 + 1.2 * 12.0 * 4
+
+
+def test_a_recovered_fix_may_move_three_typical_steps_per_missed_photo_plus_the_margin() -> None:
+    assert max_recovered_displacement_m(CONFIG, 4.0, 4) == 3.0 * 4.0 * 4 + 15.0
 
 
 def test_candidates_cover_the_circle_in_every_height_and_heading() -> None:
@@ -21,7 +31,9 @@ def test_candidates_cover_the_circle_in_every_height_and_heading() -> None:
         np.array([0.0, 0.0]),
         100.0,
         [40.0, 20.0],
-        -35.0,
+        [-35.0],
+        [0.0, 90.0, 180.0, 270.0],
+        CONFIG.spacing_m,
     )
 
     # offsets -70, 0, 70 on each axis: all nine are within 100 m (70 * sqrt 2 = 99); the 20 m
@@ -37,11 +49,37 @@ def test_candidates_cover_the_circle_in_every_height_and_heading() -> None:
     )  # the column through the centre
 
 
+def test_every_pitch_and_heading_is_tried_at_each_position() -> None:
+    poses = candidate_poses(
+        CONFIG,
+        scene.area_frame(),
+        scene.ground_height,
+        np.array([0.0, 0.0]),
+        10.0,
+        [40.0],
+        [-45.0, -35.0, -25.0],
+        [10.0, 20.0],
+        CONFIG.spacing_m,
+    )
+
+    assert sorted({(round(p.pitch_deg), round(p.heading_deg)) for p in poses}) == [
+        (pitch, heading) for pitch in (-45, -35, -25) for heading in (10, 20)
+    ]
+
+
 def test_positions_outside_the_scene_are_left_out() -> None:
     far = np.array([scene.GROUND_HALF_EXTENT_M, 0.0])
 
     poses = candidate_poses(
-        CONFIG, scene.area_frame(), scene.ground_height, far, 100.0, [40.0], -35.0
+        CONFIG,
+        scene.area_frame(),
+        scene.ground_height,
+        far,
+        100.0,
+        [40.0],
+        [-35.0],
+        [0.0, 90.0, 180.0, 270.0],
+        CONFIG.spacing_m,
     )
 
     frame = scene.area_frame()

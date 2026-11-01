@@ -1,0 +1,46 @@
+[project]
+name = "satmesh-track"
+version = "0.1.0"
+description = "Camera poses and lens calibration recovered from ordered photos against a tile store."
+requires-python = ">=3.13"
+dependencies = [
+  "gtsam>=4.3.0",
+  "numpy>=2.5.4",
+  "opencv-python-headless>=5.0.0.93",
+  "satmesh-cli",
+  "satmesh-core",
+  "satmesh-data",
+  "satmesh-eval",
+  "satmesh-locate",
+  "satmesh-mesh",
+  "satmesh-tiles",
+  "scipy>=1.18.1",
+  "typer>=0.27.3",
+  "xfeat-core",
+  "xfeat-ort",
+  "xfeat-pairs",
+]
+
+[project.scripts]
+satmesh-track = "satmesh_track.cli:app"
+
+[project.optional-dependencies]
+tensorrt = ["xfeat-trt"]
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+satmesh-locate = { workspace = true }
+# the pipeline workspace's packages: a path dependency does not bring its own sources along
+satmesh-cli = { path = "../../../pipeline/packages/satmesh-cli", editable = true }
+satmesh-core = { path = "../../../pipeline/packages/satmesh-core", editable = true }
+satmesh-data = { path = "../../../pipeline/packages/satmesh-data", editable = true }
+satmesh-eval = { path = "../../../pipeline/packages/satmesh-eval", editable = true }
+satmesh-mesh = { path = "../../../pipeline/packages/satmesh-mesh", editable = true }
+satmesh-tiles = { path = "../../../pipeline/packages/satmesh-tiles", editable = true }
+xfeat-core = { path = "../../../third-party/xfeat-rt/runtime/packages/xfeat-core", editable = true }
+xfeat-ort = { path = "../../../third-party/xfeat-rt/backends/ort", editable = true }
+xfeat-pairs = { path = "../../../third-party/xfeat-rt/runtime/packages/xfeat-pairs", editable = true }
+xfeat-trt = { path = "../../../third-party/xfeat-rt/backends/tensorrt", editable = true }

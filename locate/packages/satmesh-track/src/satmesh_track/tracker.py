@@ -19,11 +19,13 @@ from itertools import pairwise
 import cv2
 import numpy as np
 import numpy.typing as npt
+from scipy.spatial.transform import Rotation
 
 from satmesh_core import EnuFrame
 from satmesh_eval.camera import (
     CameraPose,
     Intrinsics,
+    camera_centre_and_rotation,
     pose_from_camera_to_enu,
 )
 from satmesh_eval.localise import (
@@ -48,6 +50,7 @@ from satmesh_track.search import (
     SearchConfig,
     best_candidates,
     candidate_poses,
+    max_recovered_displacement_m,
     search_radius_m,
 )
 
@@ -55,9 +58,22 @@ NOMINAL_HFOV_DEG = (
     70.0  # a typical camera; the focal scan covers 0.7 to 1.5 times this focal length
 )
 FOCAL_SCAN_RELATIVE = np.arange(0.70, 1.5001, 0.01)
+FIRST_PHOTO_FOCAL_TRIES = (
+    0.8,
+    0.9,
+    1.0,
+    1.1,
+    1.2,
+)  # times the nominal focal; a pose solved at a wrong focal is biased
 MAX_RANGE_M = 500.0
 FIRST_SEARCH_HEIGHTS_M = (25.0, 50.0, 100.0)  # height ladder: a render up to 2 times higher matches
 MIN_FIXES_FOR_VELOCITY = 2
+HELD_FIXES_AS_PRIORS = 3  # earlier fixes tried as priors: a weak last fix misleads the next photo
+PRIOR_PULL_MAX_M = 30.0  # match basin measured on the Bexhill clip
+REFINE_BELOW_INLIERS = 150  # a fix with fewer inliers is re-rendered and solved again
+REFINE_ITERATIONS = (
+    2  # Render2Loc iterates render, match, PnP three times in all (arXiv 2302.06287)
+)
 UNKNOWN_PITCH_DEG = -35.0  # oblique: between the steepest and shallowest pitches tested
 
 
@@ -102,7 +118,7 @@ class TrackConfig:
 
     min_inliers: int = MINIMUM_INLIERS
     max_range_m: float = MAX_RANGE_M
-    max_failed_searches: int = 3
+    max_failed_searches: int = 10
     search: SearchConfig = SearchConfig()  # noqa: RUF009  # frozen
     lens: LensConfig = LensConfig()  # noqa: RUF009  # frozen
 
@@ -168,12 +184,12 @@ def track(photos: Sequence[PhotoImage], start: CameraPose, context: TrackingCont
     height, width = _common_size(photos)
     steps = _steps(photos)
     config = context.config
-    first_attempt = localise_at(photos[0], start, nominal_focal(width), context)
+    first_attempt = _first_attempt(photos[0], start, width, context)
     if first_attempt.estimate is None or first_attempt.estimate.inlier_count < config.min_inliers:
         msg = f"the first photo {photos[0].name} was not localised from the start pose"
         raise TrackingError(msg)
     focal = _scanned_focal(first_attempt, width, height)
-    fixes, searches = _follow(photos, steps, start, focal, context)
+    fixes, searches = _follow(photos, steps, first_attempt, focal, context)
     observations = [
         FrameObservations(
             fix.step,
@@ -248,6 +264,21 @@ def localise_at(
     return Attempt(correspondences, solve_pose(correspondences, intrinsics))
 
 
+def _first_attempt(
+    photo: PhotoImage, start: CameraPose, width: int, context: TrackingContext
+) -> Attempt:
+    """Localise the first photo at the start pose with several focal lengths; the most inliers win.
+
+    The lens is unknown, and a pose solved at a wrong focal is biased: rendered again at the
+    nominal focal it matches few features, though it is close to the truth.
+    """
+    attempts = [
+        localise_at(photo, start, relative * nominal_focal(width), context)
+        for relative in FIRST_PHOTO_FOCAL_TRIES
+    ]
+    return max(attempts, key=lambda a: 0 if a.estimate is None else a.estimate.inlier_count)
+
+
 def _scanned_focal(attempt: Attempt, width: int, height: int) -> float:
     """The focal length with the lowest reprojection error over the scan, on the inliers."""
     assert attempt.estimate is not None  # noqa: S101  # checked by the caller
@@ -276,7 +307,7 @@ def _reprojection_rms(
 def _follow(
     photos: Sequence[PhotoImage],
     steps: list[int],
-    start: CameraPose,
+    first: Attempt,
     focal: float,
     context: TrackingContext,
 ) -> tuple[list[_Fix], list[SearchEvent]]:
@@ -285,8 +316,11 @@ def _follow(
     config = context.config
     failed_in_a_row = 0
     for index, photo in enumerate(photos):
-        prior = start if not fixes else _predicted(fixes, steps[index], context.scene.area)
-        attempt = localise_at(photo, prior, focal, context)
+        if not fixes:
+            attempt = first  # localised by `track` over several focal lengths
+        else:
+            stages = _prior_stages(fixes, steps[index], context.scene.area)
+            attempt = _first_acceptable(photo, stages, focal, context)
         relocalised = False
         if not solved(attempt, config) and fixes:
             attempt, event = _search(photo, steps[index], fixes, focal, context)
@@ -323,15 +357,96 @@ def solved(attempt: Attempt, config: TrackConfig) -> bool:
     return attempt.estimate is not None and attempt.estimate.inlier_count >= config.min_inliers
 
 
-def _predicted(fixes: list[_Fix], step: int, area: EnuFrame) -> CameraPose:
-    """Constant velocity from the last two fixes, scaled by the photos since the last one."""
+def _predicted(
+    fixes: list[_Fix], step: int, area: EnuFrame, *, turning: bool = False
+) -> CameraPose:
+    """Constant velocity from the last two fixes, scaled by the photos since the last one.
+
+    With `turning` the camera also keeps its angular velocity: the rotation between the last two
+    fixes, scaled the same way, is applied again (a yaw or gimbal move of several degrees a photo
+    leaves the heading basin of the match in two photos).
+    """
     last = fixes[-1]
     if len(fixes) < MIN_FIXES_FOR_VELOCITY:
         return pose_from_camera_to_enu(area, last.estimate.centre_enu, last.estimate.camera_to_enu)
     before = fixes[-2]
-    velocity = (last.estimate.centre_enu - before.estimate.centre_enu) / (last.step - before.step)
+    span = last.step - before.step
+    velocity = (last.estimate.centre_enu - before.estimate.centre_enu) / span
     centre = last.estimate.centre_enu + velocity * (step - last.step)
-    return pose_from_camera_to_enu(area, centre, last.estimate.camera_to_enu)
+    rotation = last.estimate.camera_to_enu
+    if turning:
+        turn = Rotation.from_matrix(last.estimate.camera_to_enu @ before.estimate.camera_to_enu.T)
+        advance = Rotation.from_rotvec(turn.as_rotvec() * (step - last.step) / span)
+        rotation = advance.as_matrix() @ last.estimate.camera_to_enu
+    return pose_from_camera_to_enu(area, centre, rotation)
+
+
+def _prior_stages(fixes: list[_Fix], step: int, area: EnuFrame) -> list[list[CameraPose]]:
+    """Priors to try in turn, each stage only if the one before found no pose.
+
+    First the constant-velocity prediction and the last fix held (velocity noise misleads weak
+    views). Then the prediction that also keeps the angular velocity, and the earlier fixes held:
+    a yaw or gimbal move of several degrees a photo leaves the heading basin in two photos, and an
+    earlier, stronger fix often still renders close enough to match. Trying them last keeps a wrong
+    prior from beating a right one.
+    """
+    held = [
+        pose_from_camera_to_enu(area, fix.estimate.centre_enu, fix.estimate.camera_to_enu)
+        for fix in reversed(fixes[-HELD_FIXES_AS_PRIORS:])
+    ]
+    if len(fixes) < MIN_FIXES_FOR_VELOCITY:
+        return [held[:1], held[1:]] if len(held) > 1 else [held]
+    return [
+        [_predicted(fixes, step, area), held[0]],
+        [_predicted(fixes, step, area, turning=True), *held[1:]],
+    ]
+
+
+def _first_acceptable(
+    photo: PhotoImage, stages: list[list[CameraPose]], focal: float, context: TrackingContext
+) -> Attempt:
+    """The first stage's fix that solves and lies near its prior; else an unsolved attempt."""
+    first: Attempt | None = None
+    for priors in stages:
+        attempt = _iterated(photo, best_attempt(photo, priors, focal, context), focal, context)
+        first = first or attempt
+        if solved(attempt, context.config) and _stayed_near(attempt, priors, context):
+            return attempt
+    assert first is not None  # noqa: S101  # stages is never empty
+    return Attempt(first.correspondences, None)  # a fix far from every prior is not trusted
+
+
+def _stayed_near(attempt: Attempt, priors: list[CameraPose], context: TrackingContext) -> bool:
+    """Whether the fix lies within the basin of one of the priors.
+
+    A wrong match on a repeating scene lands far from where the render was made.
+    """
+    assert attempt.estimate is not None  # noqa: S101  # checked by the caller
+    centres = [camera_centre_and_rotation(p, context.scene.area)[0] for p in priors]
+    return any(
+        float(np.linalg.norm(attempt.estimate.centre_enu - c)) <= PRIOR_PULL_MAX_M for c in centres
+    )
+
+
+def _iterated(
+    photo: PhotoImage, attempt: Attempt, focal: float, context: TrackingContext
+) -> Attempt:
+    """Re-render at a weak fix's own pose and solve again while that finds more inliers."""
+    for _ in range(REFINE_ITERATIONS):
+        estimate = attempt.estimate
+        if not solved(attempt, context.config) or estimate is None:
+            break
+        if estimate.inlier_count >= REFINE_BELOW_INLIERS:
+            break
+        area = context.scene.area
+        prior = pose_from_camera_to_enu(area, estimate.centre_enu, estimate.camera_to_enu)
+        again = localise_at(photo, prior, focal, context)
+        if not solved(again, context.config) or again.estimate is None:
+            break
+        if again.estimate.inlier_count <= estimate.inlier_count:
+            break
+        attempt = again
+    return attempt
 
 
 def _typical_step_m(fixes: list[_Fix]) -> float:
@@ -360,15 +475,32 @@ def _search(
         )
     )
     radius = search_radius_m(config.search, _typical_step_m(fixes), step - last.step)
-    candidates = candidate_poses(
-        config.search,
+    search = config.search
+    heights = [f * height_above_ground for f in search.height_factors]
+    centre = last.estimate.centre_enu[:2]
+    nearby = candidate_poses(  # a small yaw or gimbal move, the common cause of a lost photo
+        search,
         scene.area,
         scene.ground_height,
-        last.estimate.centre_enu[:2],
+        centre,
         radius,
-        [f * height_above_ground for f in config.search.height_factors],
-        last_pose.pitch_deg,
+        heights,
+        [last_pose.pitch_deg + o for o in search.local_pitch_offsets_deg],
+        [last_pose.heading_deg + o for o in search.local_heading_offsets_deg],
+        search.local_spacing_m,
     )
+    turned = candidate_poses(  # a turn of any size, at the last pitch
+        search,
+        scene.area,
+        scene.ground_height,
+        centre,
+        radius,
+        heights,
+        [last_pose.pitch_deg],
+        list(np.arange(search.heading_count) * 360.0 / search.heading_count),
+        search.spacing_m,
+    )
+    candidates = nearby + turned
     height, width = photo.rgb.shape[:2]
     best = best_candidates(
         config.search,
@@ -380,7 +512,21 @@ def _search(
         config.max_range_m,
     )
     chosen = best_attempt(photo, best, focal, context)
+    if solved(chosen, config) and not _plausible_recovery(chosen, fixes, step, config):
+        chosen = Attempt(chosen.correspondences, None)  # a wrong match on a repeating scene
     return chosen, SearchEvent(photo.name, radius, len(candidates), solved(chosen, config))
+
+
+def _plausible_recovery(
+    attempt: Attempt, fixes: list[_Fix], step: int, config: TrackConfig
+) -> bool:
+    """Whether a recovered fix lies within reach of the last fix (judged from two fixes on)."""
+    assert attempt.estimate is not None  # noqa: S101  # checked by the caller
+    if len(fixes) < MIN_FIXES_FOR_VELOCITY:
+        return True
+    last = fixes[-1]
+    reach = max_recovered_displacement_m(config.search, _typical_step_m(fixes), step - last.step)
+    return float(np.linalg.norm(attempt.estimate.centre_enu - last.estimate.centre_enu)) <= reach
 
 
 def _outcomes(

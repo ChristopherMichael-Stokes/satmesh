@@ -24,7 +24,7 @@ import numpy.typing as npt
 from satmesh_core import EnuFrame
 from satmesh_eval.camera import CameraPose, pose_from_camera_to_enu, pose_from_enu
 from satmesh_eval.perspective import GroundExtent
-from satmesh_track.retrieval import MegaLocDescriber
+from satmesh_locate.megaloc import MegaLocDescriber
 from satmesh_track.search import GroundHeight, best_candidates, candidate_poses
 from satmesh_track.tracker import (
     FIRST_SEARCH_HEIGHTS_M,
@@ -167,7 +167,9 @@ def start_near(
         centre_east_north,
         radius_m,
         FIRST_SEARCH_HEIGHTS_M,
-        UNKNOWN_PITCH_DEG,
+        [UNKNOWN_PITCH_DEG],
+        list(np.arange(search.heading_count) * 360.0 / search.heading_count),
+        search.spacing_m,
     )
     height, width = photo.rgb.shape[:2]
     best = best_candidates(

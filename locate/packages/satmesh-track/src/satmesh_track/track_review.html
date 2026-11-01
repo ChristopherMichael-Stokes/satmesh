@@ -27,7 +27,11 @@ svg{width:100%;height:auto;display:block}
 .strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px}
 .strip figure{margin:0;flex:0 0 auto;border:2px solid transparent;border-radius:4px}
 .strip figure.sel{border-color:var(--accent)}
-.strip img{height:110px;display:block;border-radius:3px}
+.strip img{height:150px;display:block;border-radius:3px;cursor:pointer}
+#big{display:none;flex-direction:column;gap:6px}#big img{width:100%;height:auto;display:block;border-radius:3px}
+#big .cap{font-family:var(--mono);font-size:.8rem;color:var(--muted)}
+.refline{fill:none;stroke:var(--warn);stroke-width:1.5;stroke-dasharray:5 4}.refdot{fill:none;stroke:var(--warn);stroke-width:1.5}
+.resid{stroke:var(--warn);stroke-width:1;opacity:.6}
 .strip figcaption{font-family:var(--mono);font-size:.7rem;color:var(--muted)}
 .key{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--muted)}
 .key i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
@@ -36,8 +40,9 @@ svg{width:100%;height:auto;display:block}
 <h1>Track Review</h1>
 <section class="read">
 <p><b>Question:</b> did the photos follow one sensible path, and is the camera's lens determined?</p>
-<p><b>Plan view:</b> each dot is a photo at its recovered position (east right, north up, metres from the scene origin), the short line points where the camera looks. <span style="color:var(--good)">Green</span> tracked, teal found again by the local search after a lost track, red dropped as a wrong frame. A lost photo has no dot. Click a dot, a thumbnail or a table row to find the same photo in all three.</p>
+<p><b>Plan view:</b> each dot is a photo at its recovered position (east right, north up, metres from the scene origin), the short line points where the camera looks. With a reference log, the dashed orange path and hollow dots are the logged positions and the thin lines join each photo to its logged position. <span style="color:var(--good)">Green</span> tracked, teal found again by the local search after a lost track, red dropped as a wrong frame. A lost photo has no dot. Click a dot, a thumbnail or a table row to find the same photo in all three.</p>
 <p><b>Lens:</b> focal length with its standard deviation, radial terms k1 and k2 of the OpenCV model, at the photos' original size. A standard deviation of the focal length above about 1 % means the photos did not determine it well (straight-down views over flat ground cannot).</p>
+<p id="contrast"></p>
 <p class="warn" id="warnings"></p>
 </section>
 <div class="card"><svg id="plan" role="img" aria-label="Plan view of the recovered camera path"></svg>
@@ -45,32 +50,38 @@ svg{width:100%;height:auto;display:block}
 <h2>Lens</h2>
 <div class="scroll"><table><tbody id="lens"></tbody></table></div>
 <h2>Photos</h2>
+<div class="card" id="big"><img id="bigimg" alt=""><div class="cap" id="bigcap"></div></div>
 <div class="strip" id="strip"></div>
-<div class="scroll"><table><thead><tr><th>Photo</th><th>Status</th><th class="n">Inliers</th><th class="n">Residual px</th><th class="n">East m</th><th class="n">North m</th><th class="n">Height m</th></tr></thead><tbody id="rows"></tbody></table></div>
+<div class="scroll"><table><thead><tr><th>Photo</th><th>Status</th><th class="n">Inliers</th><th class="n">Residual px</th><th class="n">East m</th><th class="n">North m</th><th class="n">Height m</th><th class="n ref">Off log m</th><th class="n ref">Height off log m</th></tr></thead><tbody id="rows"></tbody></table></div>
 <h2>Local searches</h2>
 <div class="scroll"><table><thead><tr><th>Photo</th><th class="n">Radius m</th><th class="n">Renders</th><th>Result</th></tr></thead><tbody id="searches"></tbody></table></div>
 </main>
 <script>
 const D=__DATA__;
 const $=id=>document.getElementById(id);
+const R=D.reference;
 const fx=(x,d=2)=>x===null||x===undefined?"–":x.toFixed(d);
 $("warnings").textContent=D.warnings.join(" ");
+if(R){$("contrast").innerHTML=`<b>Against the logged track</b> (${R.compared} photos): horizontal distance median ${fx(R.horizontal_median_m,1)} m, maximum ${fx(R.horizontal_max_m,1)} m; height differs from the log by a constant ${fx(R.height_offset_m,1)} m (datum), with a median spread of ${fx(R.height_residual_median_m,1)} m around it. A logged position is itself only good to a few metres.`}
+else document.querySelectorAll(".ref").forEach(e=>e.style.display="none");
 $("lens").innerHTML=D.lens.map(([k,v])=>`<tr><th>${k}</th><td class=n>${v}</td></tr>`).join("");
 $("searches").innerHTML=D.searches.length?D.searches.map(s=>`<tr><td>${s.photo}</td><td class=n>${s.radius_m.toFixed(0)}</td><td class=n>${s.renders}</td><td>${s.recovered?"found":"not found"}</td></tr>`).join(""):"<tr><td colspan=4>none</td></tr>";
 let cur=null;
-function select(i){cur=i;[...$("rows").children].forEach((r,j)=>r.classList.toggle("sel",j===i));[...$("strip").children].forEach((f,j)=>f.classList.toggle("sel",j===i));document.querySelectorAll("#plan .dot").forEach(d=>d.setAttribute("r",+d.dataset.i===i?9:6))}
-$("rows").innerHTML=D.photos.map((p,i)=>`<tr data-i="${i}"><td>${p.name}</td><td>${p.status}</td><td class=n>${p.inliers}</td><td class=n>${fx(p.rmse)}</td><td class=n>${fx(p.east,1)}</td><td class=n>${fx(p.north,1)}</td><td class=n>${fx(p.height,1)}</td></tr>`).join("");
+function select(i){cur=i;const p=D.photos[i];$("big").style.display="flex";$("bigimg").src=p.thumb;$("bigimg").alt=p.name;$("bigcap").textContent=`${p.name}: ${p.status}, ${p.inliers} inliers`+(p.residual_m!=null?`, ${p.residual_m.toFixed(1)} m from the log`:"");[...$("rows").children].forEach((r,j)=>r.classList.toggle("sel",j===i));[...$("strip").children].forEach((f,j)=>f.classList.toggle("sel",j===i));document.querySelectorAll("#plan .dot").forEach(d=>d.setAttribute("r",+d.dataset.i===i?9:6))}
+$("rows").innerHTML=D.photos.map((p,i)=>`<tr data-i="${i}"><td>${p.name}</td><td>${p.status}</td><td class=n>${p.inliers}</td><td class=n>${fx(p.rmse)}</td><td class=n>${fx(p.east,1)}</td><td class=n>${fx(p.north,1)}</td><td class=n>${fx(p.height,1)}</td><td class="n ref">${fx(p.residual_m,1)}</td><td class="n ref">${fx(p.height_residual_m,1)}</td></tr>`).join("");
 $("strip").innerHTML=D.photos.map((p,i)=>`<figure data-i="${i}"><img alt="${p.name}" src="${p.thumb}"><figcaption>${p.name}</figcaption></figure>`).join("");
 [...$("rows").children,...$("strip").children].forEach(e=>e.onclick=()=>select(+e.dataset.i));
 const placed=D.photos.filter(p=>p.east!==null);
+const logged=D.photos.filter(p=>p.ref_east!=null);
 if(placed.length){
- const xs=placed.map(p=>p.east),ys=placed.map(p=>p.north),pad=20;
+ const xs=[...placed.map(p=>p.east),...logged.map(p=>p.ref_east)],ys=[...placed.map(p=>p.north),...logged.map(p=>p.ref_north)],pad=20;
  const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
  const span=Math.max(x1-x0,y1-y0,1),W=640,H=640,s=(W-2*pad)/span;
  const px=x=>pad+(x-x0)*s,py=y=>H-pad-(y-y0)*s;
  $("plan").setAttribute("viewBox",`0 0 ${W} ${H}`);
- let g=`<polyline class="arrow" points="${placed.map(p=>px(p.east)+","+py(p.north)).join(" ")}" stroke="var(--line)"/>`;
- D.photos.forEach((p,i)=>{if(p.east===null)return;
+ let g=logged.length?`<polyline class="refline" points="${logged.map(p=>px(p.ref_east)+","+py(p.ref_north)).join(" ")}"/>`:"";
+ g+=`<polyline class="arrow" points="${placed.map(p=>px(p.east)+","+py(p.north)).join(" ")}" stroke="var(--line)"/>`;
+ D.photos.forEach((p,i)=>{if(p.ref_east!=null&&p.east!==null)g+=`<line class="resid" x1="${px(p.east)}" y1="${py(p.north)}" x2="${px(p.ref_east)}" y2="${py(p.ref_north)}"/>`;if(p.ref_east!=null)g+=`<circle class="refdot" cx="${px(p.ref_east)}" cy="${py(p.ref_north)}" r="4"/>`;if(p.east===null)return;
   const ax=px(p.east)+14*p.fx,ay=py(p.north)-14*p.fy;
   g+=`<line class="arrow" x1="${px(p.east)}" y1="${py(p.north)}" x2="${ax}" y2="${ay}" stroke="var(--muted)"/><circle class="dot ${p.status}" data-i="${i}" cx="${px(p.east)}" cy="${py(p.north)}" r="6"><title>${p.name}: ${p.status}, ${p.inliers} inliers</title></circle><text class="lbl" x="${px(p.east)+8}" y="${py(p.north)-8}">${i+1}</text>`});
  $("plan").innerHTML=g;

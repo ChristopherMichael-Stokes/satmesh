@@ -14,7 +14,6 @@ members = [
     "satmesh-eval",
     "satmesh-mesh",
     "satmesh-tiles",
-    "satmesh-track",
 ]
 
 [manifest.dependency-groups]
@@ -485,23 +484,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/81/0a/dca642ca173d2bfecd8f243ddf63343a0bc232c386a0723da4bed952e0ea/geoutils-0.2.5.tar.gz", hash = "sha256:b22a3fa33a2e3a835cc760d37ad9e234d10bf172604e7ecc23be749a921b2661", size = 4200245, upload-time = "2026-01-28T01:12:21.14Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ab/8a/111ce1673baedc5669c40e9bc6e162daded9c2c490314abd32b824023a12/geoutils-0.2.5-py3-none-any.whl", hash = "sha256:5745c76d5f9a2010be40a5680d7232b38d4eb194f52c3418603e110cc0991b59", size = 177294, upload-time = "2026-01-28T01:12:19.074Z" },
-]
-
-[[package]]
-name = "gtsam"
-version = "4.3.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-    { name = "pytest" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ea/8f/03cfd3eb2accebbc8485bbca86f1c0cef20c98b1c2d249d92adb8b2b5e5a/gtsam-4.3.0-cp313-cp313-macosx_10_15_universal2.whl", hash = "sha256:3cd8641d6b9221b9c9be85b9314d7f1c8626f011b46f46691c9f6bc58f3ed020", size = 46960994, upload-time = "2026-09-19T01:05:30.267Z" },
-    { url = "https://files.pythonhosted.org/packages/16/89/c6cf2ffb73fcc71903c9d8ab51c308338f1d62d763c8d0ea8a96cc392ccf/gtsam-4.3.0-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:a3f22e6286f835db8b0a976523727c8a0c322c77c81a5df4373829a7b8302840", size = 33311461, upload-time = "2026-09-19T01:05:32.911Z" },
-    { url = "https://files.pythonhosted.org/packages/f5/a5/2a56815aeae9eef1cdf621ec8fd176d14208ed166eeb78cf10f5ee96875d/gtsam-4.3.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:79cabafb5fc5507dd2494ce0b825130b8b7a75b2a88c3ff0b2a6eb5dd8496209", size = 34582264, upload-time = "2026-09-19T01:05:46.53Z" },
-    { url = "https://files.pythonhosted.org/packages/80/1b/c73a8afcd8bdd4cce0249156b57483aa533bd8ff0aef4e93659940bfdb0a/gtsam-4.3.0-cp314-cp314-macosx_10_15_universal2.whl", hash = "sha256:2c8f923c2f656fcd14c1f556e77f39b173ada8d80b3a9fcd984b28e4ac0f7542", size = 46963753, upload-time = "2026-09-19T01:05:49.288Z" },
-    { url = "https://files.pythonhosted.org/packages/31/04/d7a1085af82c2c5df6b300c9704ab4bfb643faad784002f4c960cf343d53/gtsam-4.3.0-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:ea131e113f481935cfda54f800a4ce31b6b57ff91f9252fe8c5d68573dfb7fee", size = 33335355, upload-time = "2026-09-19T01:05:52.844Z" },
-    { url = "https://files.pythonhosted.org/packages/0d/92/75dad2ea19448d0189d13568d200370a98ae5e344f5e487e6340eada5f24/gtsam-4.3.0-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:fe92f984580ecb04eb0c41a0f9626fbb8993d490b0fca1a8d5e57a6a7677d5c3", size = 34589249, upload-time = "2026-09-19T01:05:55.628Z" },
 ]
 
 [[package]]
@@ -1634,7 +1616,6 @@ dependencies = [
     { name = "satmesh-eval" },
     { name = "satmesh-mesh" },
     { name = "satmesh-tiles" },
-    { name = "satmesh-track" },
     { name = "typer" },
 ]
 
@@ -1649,7 +1630,6 @@ requires-dist = [
     { name = "satmesh-eval", editable = "packages/satmesh-eval" },
     { name = "satmesh-mesh", editable = "packages/satmesh-mesh" },
     { name = "satmesh-tiles", editable = "packages/satmesh-tiles" },
-    { name = "satmesh-track", editable = "packages/satmesh-track" },
     { name = "typer", specifier = ">=0.27.3" },
 ]
 
@@ -1805,29 +1785,6 @@ requires-dist = [
     { name = "satmesh-data", editable = "packages/satmesh-data" },
     { name = "satmesh-mesh", editable = "packages/satmesh-mesh" },
     { name = "scipy", specifier = ">=1.18.1" },
-]
-
-[[package]]
-name = "satmesh-track"
-version = "0.1.0"
-source = { editable = "packages/satmesh-track" }
-dependencies = [
-    { name = "gtsam" },
-    { name = "numpy" },
-    { name = "onnxruntime" },
-    { name = "opencv-python-headless" },
-    { name = "satmesh-core" },
-    { name = "satmesh-eval" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "gtsam", specifier = ">=4.3.0" },
-    { name = "numpy", specifier = ">=2.5.4" },
-    { name = "onnxruntime", specifier = ">=1.31.1" },
-    { name = "opencv-python-headless", specifier = ">=5.0.0.93" },
-    { name = "satmesh-core", editable = "packages/satmesh-core" },
-    { name = "satmesh-eval", editable = "packages/satmesh-eval" },
 ]
 
 [[package]]

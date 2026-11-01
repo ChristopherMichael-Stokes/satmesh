@@ -1,0 +1,21 @@
+[project]
+name = "satmesh-locate"
+version = "0.1.0"
+description = "Place retrieval for the photo-only first fix: MegaLoc descriptors of rendered views, ranked against a photo."
+requires-python = ">=3.13"
+dependencies = [
+  "numpy>=2.5.4",
+  "opencv-python-headless>=5.0.0.93",
+  "typer>=0.27.3",
+]
+
+[project.scripts]
+satmesh-locate = "satmesh_locate.cli:app"
+
+[project.optional-dependencies]
+cpu = ["onnxruntime>=1.31.1"]
+gpu = ["onnxruntime-gpu[cuda,cudnn]>=1.31.1"]
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14.0"]
+build-backend = "uv_build"

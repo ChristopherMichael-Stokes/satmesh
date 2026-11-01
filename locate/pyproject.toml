@@ -1,0 +1,29 @@
+[dependency-groups]
+dev = [
+  "hypothesis>=6.140.0",
+  "pytest>=9.1.1",
+  "ty>=0.0.91",
+]
+
+[tool.ty.environment]
+python-version = "3.13"
+
+[tool.ty.rules]
+all = "error"
+
+[tool.ty.analysis]
+respect-type-ignore-comments = false
+
+[tool.uv]
+# onnxruntime and onnxruntime-gpu both install the module `onnxruntime`. The pipeline packages and
+# xfeat-ort require the CPU wheel unconditionally; it is wanted only under the `cpu` extra
+override-dependencies = ["onnxruntime>=1.31.1; extra == 'cpu'"]
+conflicts = [
+  [
+    { package = "satmesh-locate", extra = "cpu" },
+    { package = "satmesh-locate", extra = "gpu" },
+  ],
+]
+
+[tool.uv.workspace]
+members = ["packages/*"]

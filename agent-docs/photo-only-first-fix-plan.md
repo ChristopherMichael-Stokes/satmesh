@@ -11,6 +11,9 @@ Evidence: `photo-only-first-fix-priors.md`. Context: `photo-only-two-stage-recip
 runs, 2.5 km timings). Owner direction 2026-11-01: the feed is video; pitch, roll and altitude
 can be estimated from it, heading mostly cannot; a human may pass inexact values in a config;
 the imagery warp is kept for areas with no DSM; more UK footage is wanted as a held-out test.
+Sufficient altitude means the horizon is visible looking ahead, at least about 50 m. Work stays on
+the GPU where possible; the `cpu` variant of `locate/` is tested once per change to
+`satmesh-locate`.
 
 ## Design
 

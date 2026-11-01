@@ -37,6 +37,10 @@ drives level 1, level 2 and the hypotheses with `satmesh-locate` and per-stage t
 | `megaloc_query.py ROOT PHOTO` | describes both grids, the photo, writes `ROOT/places.json` (top 6 places 100 m apart) | `uncommitted/envs/ortgpu` |
 | `e2e_track.py ROOT FRAMES REFERENCE_CSV` | refines each place (585 renders), tracks 12 frames from any fix, picks the winner, tracks the clip, writes `ROOT/track/` and `track_timings.json`; needs `XFEAT_MODEL_DIR` | pipeline |
 | `e2e_report.py ROOT THUMBS OUT` | the timing report page (published as an artifact) | `python3 -I` |
+| `render_cells.py level1\|level2` | renders coarse or fine cells (env `STORE`, `OUT`, `LIMIT`, `COARSE_HEADING_STEP`, `HEADING_CENTRE`, `HEADING_HALF_WIDTH`, `HEIGHTS`) to chunked `renders_*.npy` and `meta.npy` (east, north, ground, height, heading, pitch) | locate |
+| `rank_cells.py` | replaced by `satmesh-locate` | |
+| `twostage.py ROOT PHOTO FRAMES REFERENCE_CSV SCRATCH [--no-track]` | level 1, level 2, hypotheses and tracking, with timers | plain python3 |
+| `prior_queries.py`, `prior_describe.py DIR`, `prior_experiments.py` (env `AREA=bexhill\|area25`) | the prior and fusion experiments of `photo-only-first-fix-priors.md` | locate |
 | `truth.py`, `megaloc_eval.py`, `megaloc_eval2.py`, `hypotheses.py` | truth poses from a track, truth-cell rank per pitch, hypotheses for named frames (`hypotheses.py f075 f085`) | pipeline / ortgpu |
 | `coarse_to_fine.py`, `two_level.py` | level-1 recall and the two-level search on the cached descriptors | ortgpu |
 | `ref_poses.py`, `flat_reduction.py`, `topdown_reduction.py` | the imagery-only trial | pipeline |
@@ -65,7 +69,12 @@ to 70 s of the clip, 1920 x 1080); logged track `telemetry.csv` and per-frame `r
 | `bexhill/megaloc`, `megaloc_p50` | renders `renders_*.npy`, `db_descriptors.npy`, `meta.npy`, `truth.json`, `tops*.json`, `hypotheses*.json` | 14.6 GB | grid 220 to 250 s and descriptors 218 s each |
 | `bexhill/run1` to `run7`, `refs/` | tracks of the clip (run7 is the last seeded run), imagery-only poses and outputs | small | minutes |
 | `bexhill-e2e/` | store, `grid35`, `grid50` (renders and descriptors 14 GB), `track/`, `track_before_gate/`, `pipeline_timings.json`, `track_timings*.json`, `e2e_report.html`, `thumbs/` | 14 GB | the end-to-end run, 23 min |
-| `envs/ortgpu` | the GPU environment | a few GB | the recipe above |
+| `bexhill/megaloc/queries.npy`, `truth_all.json` | MegaLoc descriptors of the 110 frames; tracker poses of 97 frames in the Bexhill store ENU (`prior_queries.py`) | small | seconds |
+| `bexhill25/` | the 2.5 km store (813 MB); `level1_h12/` with 14,520 coarse renders (12 headings), `descriptors.npy`, `meta.npy` | about 2 GB | store 407 s, grid 126 s render and 145 s describe |
+| `area25/f001`, `area25/f075` | `places.json` and `twostage_timings.json` of the 2.5 km runs | small | 9 min each |
+| `bexhill-twostage/`, `bexhill-moved/` | frame 1 two-stage runs, before and after the move: `places.json`, `track/` (97 poses, identical), `track_timings.json` | small | 13 min |
+| `recall/f040`, `f075`, `f085` | `places.json` and timings of the Bexhill recall runs (no tracking) | small | 7 min each |
+| `envs/ortgpu` | the old GPU environment, replaced by `locate/` | a few GB | recipe in git history of this doc; safe to delete |
 
 Candidates to delete when disk is short, not deleted: the `renders_*.npy` files of all four grids
 (the
@@ -73,6 +82,14 @@ descriptors are enough for ranking; regenerate by `render_grid.py`).
 
 ## Traps found
 
+- `satmesh-track --start "50.8585, 0.4501" --radius-m 150` (and 400) finds no fix on Bexhill frames
+  1 to 12, as the default start search did on the clip before; the scratch drivers seed the
+  first fix from the grid instead.
+- `uv sync` in `locate/` swaps `onnxruntime` and `onnxruntime-gpu` with the extra named; every
+  `uv sync` and `uv run` there names `--extra cpu` or `--extra gpu` (and `--extra tensorrt` for
+  the matcher).
+- `tail -f FILE` in a monitor started before FILE exists exits at once; start the writer first.
+- In zsh `VAR=x time cmd` is a parse error; use `env VAR=x cmd` or `export`.
 - A pose solved at a wrong focal is biased: it re-renders at the nominal focal with few inliers, so
   `track` localises its first photo at five focals and seeds the loop with that attempt.
 - Extra priors let wrong fixes through on repeating scenes (a 108-inlier fix 88 m off in the
@@ -135,36 +152,10 @@ Store `uncommitted/photo-only/bexhill25/store` (nw 50.8707, 0.4323; se 50.8483, 
   of the Bexhill store's (50.857977 against 50.859711 north), so a truth pose from one store must be
   moved into the other before distances mean anything.
 
-## Next stage: the two-stage pipeline, then larger areas
+## Next stage
 
-Owner, 2026-11-01: work on the two-stage (coarse then fine) pipeline and include larger areas by a
-slow
-increase in scope; do not run anything expected to take more than one hour in total.
-
-1. Build level 1 (coarse views) and level 2 (fine views rendered and described on demand around the
-   top places) as one procedure, with hints optional (heading window, heights). Design and
-   environments first: it crosses the pipeline and the GPU environment today; production code in
-   `satmesh-track` needs a plan for the owner (a GPU `onnxruntime` dependency, the hypothesis
-   selection, a CLI shape).
-2. Prove it on Bexhill: level 1 from the cached grids, level 2 on demand, time it end to end against
-   the flat grid (23 min set-up, 8 of 8 frames in the top 6).
-3. Ladder of areas, each step only if the one before is good and fits the hour:
-
-| Area | Level 1 views (about 1,000 a km2, 20 ms a view) | Level 1 time | Store build (linear from Bexhill, unmeasured) | Needs |
-| --- | ---: | ---: | ---: | --- |
-| Bexhill 1.8 km2 | 1,800 | 40 s | 102 s | built |
-| 2.5 km square (6 km2) | 6,000 | 2 min | about 6 min | downloads: ask |
-| 5 km square (25 km2) | 25,000 | 8 min | about 24 min | downloads (EA lidar 100 to 500 MB a 5 km square): ask |
-| 10 km x 10 km (100 km2) | 100,000 | 33 min | about 95 min, over the hour | downloads, far-field detail if RAM binds |
-
-   Level 2 adds 3,000 to 33,000 views a photo (1 to 11 min). The 10 km square exceeds one hour by
-its
-   store build alone; split it into steps and ask the owner before starting it.
-
-4. At each step measure: recall of the true place against the number of candidate places (K), the
-   time per stage, and RAM and GPU memory of the scene.
-
-Rules that apply: ask before any download; plan first for design forks; no commit or push unless
-asked;
-announce each long process with its log and how to stop it; a test on a slice before any run over
-ten minutes.
+The plan with priors, fusion and the imagery-warp check is `photo-only-first-fix-plan.md`
+(stages F1 to F6, awaiting the owner). The measured scale ladder is above; its next rung is the
+5 km square, which needs the owner's yes for downloads. Rules that apply: ask before any
+download; plan first for design forks; no push; announce each long process with its log and how to
+stop it; a test on a slice before any run over ten minutes; no run over one hour.

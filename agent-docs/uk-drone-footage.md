@@ -135,3 +135,36 @@ Scratch for this work: footage and thumbnails in `uncommitted/photo-only/footage
 (`Bexhill_Cemetery.webm`, `subs.vtt`, `thumbs/`); models in `uncommitted/models/xfeat-rt/`
 (symlinks to both FP32 and FP16 exports; `XFEAT_MODEL_DIR` points there); TensorRT engines in
 `~/.cache/xfeat-rt/tensorrt`.
+
+## Candidates for held-out tests, found 2026-11-01
+
+Found by a read-only search of Commons pages; no video was watched or downloaded. No page states
+altitude, camera pitch, lens or telemetry. Latitudes and longitudes marked (memory) are unverified,
+about 1 km. Owner wants clips with the horizon visible looking ahead, at least about 50 m above
+ground, in places other than East Sussex; the owner reviews the list before any download.
+
+| # | Clip (`commons.wikimedia.org/wiki/File:` ...) | Place | Licence | Length, size | Concern |
+| --- | --- | --- | --- | --- | --- |
+| 1 | `Hergest_Court,_Swydd_Henffordd_-_Herefordshire,_England.webm` (YouTube TLrkaTgnIGM) | Kington, Herefordshire, 52.192325, -3.052707 (page) | CC BY 3.0 | 174 s, 3840x2160, 281 MB | edited montage with cuts and music |
+| 2 | `Kenilworth_Castle_drone_Footage_.webm` (YouTube hV33SeFzBdg) | Kenilworth, about 52.348, -1.583 (memory) | CC BY 3.0, reviewed 2023-05-30 | 65 s, 3840x2026, 96 MB | castle-centred, possible orbit |
+| 3 | `Penshaw_Monument_Autumn_Sunset.webm` (Vimeo 195281590) | Penshaw Hill, Sunderland, about 54.856, -1.523 (memory) | CC BY 3.0 | 73 s, 1920x1080, 12 MB | sunset grade, low bitrate |
+| 4 | `Old_Sarum_Salisbury_drone_footage.webm` (YouTube lcoUa0BjUgY) | Old Sarum, about 51.093, -1.801 (memory) | CC BY 3.0, page says licence review needed | 102 s, 1920x1080, 91 MB | check YouTube shows CC BY; likely an orbit |
+| 5 | `Exmoor_ponies_(Equus_ferus_caballus)_in_Somerset.webm` | Mendip near Shipham, about 51.32, -2.82 (memory) | CC BY 3.0 | 88 s, 1920x1080, 33 MB | cut sections, probably low |
+| 6 | `Drone_footage_of_St_James'_Church,_Seacroft.webm` (earlier list) | Leeds | CC0 | 94 s, 1080p | Phantom-style wide lens; backup |
+
+- Outside England, if needed: `Edinburgh_Aerial.webm` (CC BY-SA 4.0, 90 s, 1080p, Scotland, so
+  no EA lidar; the page does not say drone) and `Mynydd_Parys.webm` (CC BY-SA 4.0, 91 s, 1080p,
+  Anglesey, Welsh lidar).
+- Rejected this pass: Royal Sovereign Lighthouse (sea only), Stanton Drew and Ashen Hill Barrow
+  (640x480), Liverpool city tour (not stated as drone), foreign clips, Co-Curate South Shields
+  (Standard YouTube Licence), the East Sussex cluster (Bexhill, Pevensey, Herstmonceux, Northeye),
+  an Eastern Bay Link clip (720p, OGL), an AFC Bournemouth FPV interior clip, the University of
+  Edinburgh stock clips (8 to 30 s).
+- Searches that found nothing: Internet Archive and stock sites (commercial only); Zenodo and
+  Kaggle drone video with DJI SRT in the UK (Kaggle `kmader/drone-videos` page not opened,
+  Sheffield ORDA record gave HTTP 403); UAV geo-localisation datasets (UAV-VisLoc is China);
+  Flickr; YouTube Creative Commons filter (not searchable from the agent); councils, universities
+  and the Environment Agency (still photos only). Commons "Drone videos from England" holds 35
+  files, 15 of them Bexhill or Pevensey.
+- Telemetry: none stated anywhere. Truth would be the start location, or `.SRT` files if the
+  uploaders supply them.

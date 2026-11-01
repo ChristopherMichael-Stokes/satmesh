@@ -140,3 +140,13 @@ rebuilt by the recipes above and the scripts and can be left to vanish.
   flagged as a position jump and rejected (sharp-turn flight with photos 8 to 16 removed: photo 17
   rejected, photo 18 relocalised). Passing true sequence indices (EXIF order, not built) removes
   this.
+- A `tensorrt_matcher` called from a pool thread segfaults (exit 139, no traceback): the CUDA
+  context is bound to the creating thread. Ranking with one worker runs inline.
+- `XFEAT_MODEL_DIR` for the CLI default must hold the FP16 exports as well as the FP32 ones;
+  `uncommitted/models/xfeat-rt/` does (symlinks).
+- The method report is an artifact (<https://claude.ai/artifact/Mx84i999Ew5JnzXLrrGvd9>, private).
+  Its sources are in `uncommitted/photo-only/report/` (`template.html`, `build.py`, JSON, images,
+  `scripts/`, and `examples/` with the sharp-turn flight, the corrupted flight and each run's
+  output). Rebuild: `python3 -I build.py DIR`, publish `report.html`. The palette validator could
+  not run (Node 10 installed, it needs 15 or newer); slots 1 to 3 of the reference palette were
+  used as documented.

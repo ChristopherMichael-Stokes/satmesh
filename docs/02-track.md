@@ -1,11 +1,12 @@
 # Poses and lens from photos
 
-`satmesh track` takes photos in the order they were taken and a tile store of the area, and writes
-where each photo was taken from and what lens took them. No logged poses and no calibration are
-needed.
+`satmesh-track` (in the `locate/` workspace) takes photos in the order they were taken and a tile
+store of the area, and writes where each photo was taken from and what lens took them. No logged
+poses and no calibration are needed.
 
 ```text
-uv run satmesh track PHOTOS --store STORE --out OUT [--start "LAT, LON" --radius-m 150]
+uv run --extra gpu --extra tensorrt satmesh-track PHOTOS --store STORE --out OUT \
+  [--start "LAT, LON" --radius-m 150] [--reference LOG.csv]
 ```
 
 - Photos are read in file-name order (`2.jpg` before `10.jpg`) and are reduced to 1280 px on the
@@ -26,7 +27,7 @@ uv run satmesh track PHOTOS --store STORE --out OUT [--start "LAT, LON" --radius
 | `poses.jsonl` | One line per located photo: latitude, longitude, ellipsoidal height, heading, pitch, roll and the estimated lens. Same format as the pose file of `satmesh eval localise`, so a track can be scored against logged poses |
 | `calibration.json` | Focal length (pixels, original photo size) with its standard deviation, radial terms k1 and k2, field of view, covariance, warnings |
 | `report.json` | Per photo: tracked, found again after a search, dropped as a wrong frame, or lost; inliers and residual |
-| `review.html` | Plan view of the path, lens table, photo strip and table |
+| `review.html` | Plan view of the path, lens table, photo strip with a full-width viewer, photo table; with `--reference`, the logged path and per-photo residuals |
 
 ## Limits
 

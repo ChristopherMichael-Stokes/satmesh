@@ -7,15 +7,17 @@ finest ground sample distance the sources support, enhanced by classical process
 
 | Path          | uv workspace | Holds                                                              |
 | ------------- | ------------ | ------------------------------------------------------------------ |
-| `pipeline/`   | yes          | `satmesh-core` (AOI, metric CRS, tile geometry, GSD), `satmesh-data` (Esri tiles, EA DTM and DSM, tile mosaic), `satmesh-mesh` (grid TIN, skirts, GLB), `satmesh-tiles` (georeferenced node store, tiler, 3D Tiles, Gazebo and area GLB exporters), `satmesh-eval` (height and smoothness scores, pipeline check, imagery offset, camera visibility, photo localisation harness), `satmesh-track` (camera poses and lens calibration from ordered photos: tracker, local and global search, GTSAM lens graph), `satmesh-cli` (`satmesh` command) |
+| `pipeline/`   | yes          | `satmesh-core` (AOI, metric CRS, tile geometry, GSD), `satmesh-data` (Esri tiles, EA DTM and DSM, tile mosaic), `satmesh-mesh` (grid TIN, skirts, GLB), `satmesh-tiles` (georeferenced node store, tiler, 3D Tiles, Gazebo and area GLB exporters), `satmesh-eval` (height and smoothness scores, pipeline check, imagery offset, camera visibility, photo localisation harness), `satmesh-cli` (`satmesh` command) |
 | `ml/`         | yes          | `satmesh-height` (PixTransform, area-to-point kriging, their compositions, the GeoTIFF contract with `pipeline/`, `satmesh-height` command; PyTorch) |
+| `locate/`     | yes          | `satmesh-locate` (MegaLoc descriptors on ONNX Runtime and the ranking of places over a directory of rendered views, `satmesh-locate` command) and `satmesh-track` (camera poses and lens calibration from ordered photos: tracker, local and global search, GTSAM lens graph, `satmesh-track` command). It depends on the `pipeline/` packages by path. The `cpu` and `gpu` extras install `onnxruntime` or `onnxruntime-gpu`, declared as a uv conflict, so sync with exactly one (`make setup LOCATE_VARIANT=cpu|gpu`, default `gpu`, which also installs the `tensorrt` extra) |
 | `agent-docs/` | no           | Docs written by and for agents: briefs, plans, research reports    |
 | `docs/`       | no           | Human-facing docs                                                  |
 | `docker/`     | no           | Images for tools no wheel ships: `gdal-ecw` converts ECW to GeoTIFF |
 | `third-party/` | no          | Git submodule `xfeat-rt` (XFeat and LighterGlue inference): `satmesh-eval` depends on its `xfeat-core`, `xfeat-pairs` and `xfeat-ort` by path; its `xfeat-trt` is the `tensorrt` extra of `satmesh-eval` (NVIDIA GPU; about 4.7 GB of wheels, `make setup` installs it); its exported ONNX models (FP32 for CPU, FP16 for TensorRT) are build outputs, read from `XFEAT_MODEL_DIR` |
 | root          | no           | Shared checks (`prek.toml`), `ruff.toml`, `Makefile`, `TODO.md`    |
 
-- Each workspace has its own `uv.lock` and `.venv`. Members live at
+- Each workspace has its own `uv.lock` and `.venv`. `locate/` has conflicting extras: `uv sync` and
+  `uv run` there always name `--extra cpu` or `--extra gpu`. Members live at
   `<workspace>/packages/<dist-name>/src/<module>/` and are picked up by the `packages/*` glob.
 - `ml/` holds models whose dependencies conflict with `pipeline/`. Workspaces meet through files:
   `pipeline/` writes GeoTIFF inputs with a JSON sidecar, `satmesh-height` writes the refined height
@@ -76,18 +78,19 @@ Run from the repo root unless a workspace is named.
 | All checks                   | `make check`                                            |
 | Checks for one workspace     | `uvx prek@0.5.7 run --all-files pipeline/`              |
 | Update hook revisions        | `make update-hooks` (skips releases under 7 days old)   |
-| Types in one workspace       | `uv run --frozen ty check` from `pipeline/` or `ml/`    |
+| Types in one workspace       | `uv run --frozen ty check` from `pipeline/`, `ml/` or `locate/`    |
 | Add a dependency to a member | `uv add --package <dist-name> <dep>` from the workspace |
 | All tests                    | `make test` (pipeline and ml)                           |
 | Contract between workspaces  | `make test-contract` (pipeline writes, ml refines, pipeline reads) |
 | Refine a DSM from the contract | `uv run satmesh-height refine INPUT_DIR OUTPUT_DIR --variant {P0,A,B,C,C+B} --training-extent-m M [--seeds N ...] [--steps N]` from `ml/` |
+| Rank places for a photo      | `uv run --extra gpu satmesh-locate RENDERS_DIR PHOTO OUT.json [--places 6 --separation-m 100 --device {auto,cpu,cuda}]` from `locate/` (`MEGALOC_MODEL` names the ONNX graph; `RENDERS_DIR` holds `meta.npy` and `renders_*.npy`) |
 | Build the GDAL ECW image     | `make gdal-ecw-image` (about 3 min, 552 MB)             |
 | Build a tile store           | `uv run satmesh build --nw "LAT, LON" --se "LAT, LON" --store DIR` from `pipeline/` |
 | Export a store               | `uv run satmesh export {3dtiles,gazebo,glb} --store DIR ...` from `pipeline/` |
 | Correct imagery position     | `uv run satmesh correct --store DIR` from `pipeline/` (downloads EA point clouds) |
 | Score a store                | `uv run satmesh eval {heights,smoothness,visibility} --store DIR --nw "LAT, LON" --se "LAT, LON"` from `pipeline/` |
 | Localise photos              | `uv run satmesh eval localise PHOTOS --poses FILE.jsonl --store DIR [--reference surface --reference flat ...] [--matcher {xfeat,sift}] [--backend {tensorrt,onnx}] [--out DIR]` from `pipeline/` (XFeat needs `XFEAT_MODEL_DIR`, one directory holding the FP32 and `_fp16` exports); writes `report.json` and `review.html` |
-| Poses and lens from photos   | `uv run satmesh track PHOTOS --store DIR [--start "LAT, LON" --radius-m M] [--megaloc-model F] [--backend {tensorrt,onnx}] [--out DIR]` from `pipeline/` (XFeat needs `XFEAT_MODEL_DIR`, one directory holding the FP32 and `_fp16` exports; without `--start` the MegaLoc ONNX graph is read from `MEGALOC_MODEL`); writes `poses.jsonl`, `calibration.json`, `report.json`, `review.html` |
+| Poses and lens from photos   | `uv run --extra gpu --extra tensorrt satmesh-track PHOTOS --store DIR [--start "LAT, LON" --radius-m M] [--reference LOG.csv] [--megaloc-model F] [--backend {tensorrt,onnx}] [--out DIR]` from `locate/` (XFeat needs `XFEAT_MODEL_DIR`, one directory holding the FP32 and `_fp16` exports; without `--start` the MegaLoc ONNX graph is read from `MEGALOC_MODEL`); writes `poses.jsonl`, `calibration.json`, `report.json`, `review.html` |
 | Esri-to-EA imagery offset    | `uv run satmesh eval offset --aerial EA.tif --nw "LAT, LON" --se "LAT, LON" --zoom 19` from `pipeline/` |
 | Texture detail vs EA aerial  | `uv run satmesh eval texture --aerial EA.tif --nw "LAT, LON" --se "LAT, LON" --zoom 19` from `pipeline/` |
 | Eval on a 100 m slice        | `make eval-slice` (builds a store, then runs the three store checks; needs network) |

@@ -5,10 +5,11 @@ summary: Candidate real drone videos from England with open licences for use as 
 the owner's photos in `satmesh track`: Wikimedia Commons clips by one Bexhill-on-Sea uploader (CC
 BY-SA 3.0, 4K, 2022 to 2024), Hergest Court and two East Sussex castles. Bexhill Cemetery is
 downloaded and probed: 4K VP9 at 29.97 fps, 98 s, with a 1 Hz DJI telemetry track (GPS, height,
-speeds) that the earlier search missed.
+speeds) that the earlier search missed. Also the plan for the real-footage test and the
+area-size scaling trial.
 answers: Which open-licence drone videos of England could stand in for the owner's photos; where
 were they filmed; what licences do they carry; is telemetry available; what was rejected and why;
-what has to be checked before use; what the downloaded clip holds
+what has to be checked before use; what the downloaded clip holds; what the real-footage test and the area-size trial consist of
 ---
 
 # UK drone footage candidates
@@ -97,3 +98,40 @@ size Commons lists), CC BY-SA 3.0, Alexis Markwick (Dr-Mx), filmed 2022-01-14.
   Shadows change fast on the orbit and the grave rows repeat.
 - Next: pick frames (1 to 2 a second), build the store for the area (EA lidar covers Bexhill), run
   `satmesh track` with `--start` from the telemetry.
+
+## Next: the real-footage test and the area-size trial
+
+Owner, 2026-10-31: build the map and test on this clip next; keep 4,096 keypoints on TensorRT; if
+the first results look promising, find how far the area size can be pushed.
+
+Test steps:
+
+1. Frames at 1 to 2 a second from the 3840 x 2160 clip, in time order with consecutive names
+   (file-name ordering has no gaps then); best range is frames 3 to 14 of the 5 s thumbnails
+   (15 to 70 s), the whole clip is cut-free.
+2. Parse `subs.vtt` to a table (time, longitude, latitude, satellites, distance from home, height
+   above take-off, speeds). GPS is the start for `--start --radius-m 100` and a coarse track.
+3. Store around 50.858 N, 0.4506 E: EA lidar surface (coverage of Bexhill to be confirmed) plus Esri
+   imagery, then `satmesh correct`.
+4. `satmesh track FRAMES --store DIR --start "50.8580, 0.4506" --radius-m 100` with the TensorRT
+   default; read `review.html`.
+5. Judge by eye on fixed frames, then compare the track and height with the telemetry (about 10 m
+   horizontal, height is above take-off, not above the ellipsoid; no attitude is logged).
+
+Expected trouble: a standard to moderately wide lens (about 80 degrees) with little distortion, so
+k1 and k2 are weakly constrained; repetitive grave rows; shadows changing on the orbit; imagery and
+lidar dates differ from January 2022; the 1 m mesh-error assumption is first measured here.
+
+Area-size trial (proposed, not started; waits for the owner's go after the Bexhill result):
+ladder Bexhill area, then 2.5, 5 and 10 km squares around it, each with a store build and a
+`--start` run. Measure per rung, in this order of expected failure: scene load time and RAM (961
+leaves took 8 s and 5 GB, RAM is the likely wall; far-field parent tiles are the fix), renderer
+VRAM and render time, the store-wide first fix (about 7,800 renders for a slice-sized grid; needs
+MegaLoc on the GPU, which has no TensorRT or CUDA path yet), and lost-track search cost (grows with
+the square of the missed steps). Check accuracy against telemetry at each rung. Esri fetches at 30
+requests/s; EA lidar is 100 to 500 MB per 5 km square.
+
+Scratch for this work: footage and thumbnails in `uncommitted/photo-only/footage/bexhill-cemetery/`
+(`Bexhill_Cemetery.webm`, `subs.vtt`, `thumbs/`); models in `uncommitted/models/xfeat-rt/`
+(symlinks to both FP32 and FP16 exports; `XFEAT_MODEL_DIR` points there); TensorRT engines in
+`~/.cache/xfeat-rt/tensorrt`.

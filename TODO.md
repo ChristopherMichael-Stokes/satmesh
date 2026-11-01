@@ -6,8 +6,10 @@
       render and recover the pose, with flat, bare-earth and full-surface references compared;
       the `satmesh eval localise` command, report and review page work on synthetic photos; the
       real photos remain
-- [ ] Recover photo poses and camera calibration from the photos alone (`satmesh track`, built):
-      try the surrogate drone footage, then run the real photos through it
+- [ ] Recover photo poses and camera calibration from the photos alone (`satmesh-track`, built):
+      the surrogate drone footage (a Bexhill clip with GPS telemetry) is tracked from a first fix found
+      with no position given; next make that first fix search coarse then fine, widen the area in
+      steps up to 10 km x 10 km, then run the real photos through it
 - [ ] Add building and tree height to the build from pretrained models (Geopose and RS3DAda for
       buildings, CHMv2 for trees) laid onto the coarse elevation, with a land-cover segmentation
       that keeps ground flat and cleans up roofs, walls and tree crowns; judge it by eye on fixed

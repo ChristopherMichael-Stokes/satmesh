@@ -34,6 +34,8 @@ from satmesh_track.search import GroundHeight
 MISSING_VIEW_SCORE = -9.0
 HEADING_KEY_DECIMALS = 6  # headings are lattice multiples; rounding absorbs float noise in sums
 COARSE_LEVEL, FINE_LEVEL = 1, 2
+UNRENDERED_SIMILARITY = -2.0  # below every cosine, so a view that was not rendered is never ranked
+HEADING_REACH_TOLERANCE_DEG = 1e-9
 
 
 class Position(NamedTuple):
@@ -63,6 +65,8 @@ class LevelGrid:
     heights_m: tuple[float, ...]
     pitches_deg: tuple[float, ...]
     headings_deg: tuple[float, ...]
+    rendered_headings: dict[Position, tuple[float, ...]] | None = None
+    """The headings rendered at each position; `None` renders all of `headings_deg` everywhere."""
 
     @property
     def views_per_position(self) -> int:
@@ -73,6 +77,21 @@ class LevelGrid:
     def view_count(self) -> int:
         """Views of the whole level."""
         return len(self.positions) * self.views_per_position
+
+    @property
+    def render_count(self) -> int:
+        """Views rendered over the whole level."""
+        if self.rendered_headings is None:
+            return self.view_count
+        per_heading = len(self.heights_m) * len(self.pitches_deg)
+        return per_heading * sum(len(headings) for headings in self.rendered_headings.values())
+
+    def render_flags(self, position: Position) -> list[bool]:
+        """For each view of `views_at(position)`, whether it is rendered."""
+        if self.rendered_headings is None:
+            return [True] * self.views_per_position
+        rendered = {_heading_key(heading) for heading in self.rendered_headings[position]}
+        return [_heading_key(view.heading_deg) in rendered for view in self.views_at(position)]
 
     def views_at(self, position: Position) -> Iterator[View]:
         """The views of one position in grid order."""
@@ -228,13 +247,50 @@ def level_two(
             for place in places
         )
     )
+    positions = in_scene(points, ground_height)
+    headings_deg = heading_lattice(config.heading_step_deg, priors.heading_deg, 0.0)
     return LevelGrid(
         FINE_LEVEL,
         config.fine_spacing_m,
-        in_scene(points, ground_height),
+        positions,
         values_in_window(config.fine_heights_m, priors.height_m),
         values_in_window(config.fine_pitches_deg, priors.pitch_deg),
-        heading_lattice(config.heading_step_deg, priors.heading_deg, 0.0),
+        headings_deg,
+        None
+        if config.fine_heading_steps is None
+        else {
+            position: _headings_near_places(
+                position,
+                headings_deg,
+                places,
+                config.fine_radius_m,
+                config.fine_heading_steps * config.heading_step_deg,
+            )
+            for position in positions
+        },
+    )
+
+
+def _headings_near_places(
+    position: Position,
+    headings_deg: Sequence[float],
+    places: Sequence[Place],
+    radius_m: float,
+    reach_deg: float,
+) -> tuple[float, ...]:
+    """The headings within `reach_deg` of the heading of a place within `radius_m` of `position`."""
+    near = [
+        place
+        for place in places
+        if math.hypot(position.east_m - place.east, position.north_m - place.north) <= radius_m
+    ]
+    return tuple(
+        heading
+        for heading in headings_deg
+        if any(
+            angle_difference_deg(heading, place.heading) <= reach_deg + HEADING_REACH_TOLERANCE_DEG
+            for place in near
+        )
     )
 
 

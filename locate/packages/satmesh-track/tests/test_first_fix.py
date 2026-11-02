@@ -14,6 +14,7 @@ from satmesh_eval.perspective import GroundExtent, render
 from satmesh_locate.events import (
     Candidates,
     CellBatch,
+    Event,
     EventWriter,
     FusionWindow,
     Interval,
@@ -228,6 +229,62 @@ def test_a_run_that_finds_nothing_writes_a_coherent_event_stream(tmp_path: Path)
         assert sum(t for t in place.frame_similarities if t is not None) == pytest.approx(
             place.similarity, abs=1e-5
         )
+
+
+SCREEN_MIN_MATCHES = 28
+FULL_REFINEMENT_VIEWS = 3  # one position and heading, three heights
+SCREENING_VIEWS = 1  # the place's own height
+
+
+def verification_results(matcher, config: FirstFixConfig) -> list[VerificationResult]:
+    photos = [
+        PhotoImage(f"f{index}.png", scene.photograph(scene.pose_at(-20.0, -60.0, 10.0 * index)))
+        for index in range(2)
+    ]
+    store = town_store()
+    events: list[Event] = []
+    with pytest.raises(TrackingError):
+        first_fix(
+            photos,
+            store,
+            CountingDescriber(),
+            TrackingContext(store.scene, matcher),
+            config=config,
+            emit=events.append,
+        )
+    return [e for e in events if isinstance(e, VerificationResult)]
+
+
+def test_a_place_whose_screening_poses_match_too_few_features_is_dropped_after_screening() -> None:
+    config = TINY_RUN.model_copy(
+        update={
+            "refine_height_factors": (0.7, 1.0, 1.3),
+            "refine_screen_min_matches": SCREEN_MIN_MATCHES,
+        }
+    )
+
+    results = verification_results(no_matches, config)
+
+    assert results
+    assert {e.refine_views for e in results} == {SCREENING_VIEWS}
+    assert not any(e.accepted for e in results)
+
+
+def test_a_place_that_passes_screening_is_refined_in_full() -> None:
+    def many_matches(_image_a, _image_b) -> Matches:
+        return Matches(np.zeros((SCREEN_MIN_MATCHES, 2)), np.zeros((SCREEN_MIN_MATCHES, 2)))
+
+    config = TINY_RUN.model_copy(
+        update={
+            "refine_height_factors": (0.7, 1.0, 1.3),
+            "refine_screen_min_matches": SCREEN_MIN_MATCHES,
+        }
+    )
+
+    results = verification_results(many_matches, config)
+
+    assert results
+    assert {e.refine_views for e in results} == {FULL_REFINEMENT_VIEWS}
 
 
 @pytest.mark.skipif(

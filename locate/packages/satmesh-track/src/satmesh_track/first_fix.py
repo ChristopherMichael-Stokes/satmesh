@@ -59,6 +59,7 @@ from satmesh_locate.events import (
 from satmesh_locate.megaloc import MegaLocDescriber
 from satmesh_locate.places import Cells, Place, top_places
 from satmesh_track.grid import (
+    UNRENDERED_SIMILARITY,
     LevelGrid,
     Position,
     candidate_mask,
@@ -71,7 +72,7 @@ from satmesh_track.grid import (
     view_index,
 )
 from satmesh_track.priors import FULL_CIRCLE_DEG, FirstFixConfig
-from satmesh_track.search import best_candidates, candidate_poses
+from satmesh_track.search import best_candidates, candidate_match_counts, candidate_poses
 from satmesh_track.store_scene import StoreScene
 from satmesh_track.tracker import (
     PhotoImage,
@@ -414,7 +415,7 @@ def _ranked_level(  # noqa: PLR0913 (grid, scoring, places kept, priors, setup, 
 ) -> list[Place]:
     """Render, describe and score a level's views, then keep its best separated places."""
     candidates = candidate_mask(grid, priors.heading_deg)
-    with run.stage(f"level {grid.level}: render and describe", grid.view_count) as split:
+    with run.stage(f"level {grid.level}: render and describe", grid.render_count) as split:
         scored = _scored_views(grid, candidates, scoring, setup=setup, run=run, split=split)
     with run.stage(f"level {grid.level}: rank", grid.view_count):
         count, separation_m = places
@@ -466,8 +467,11 @@ def _scored_views(  # noqa: PLR0913 (grid, candidates, scoring, setup, run, spli
     for chunk in batched(grid.positions, positions_per_chunk, strict=False):
         started = time.perf_counter()
         renders = []
+        rendered = []
         for position in chunk:
-            renders.extend(_rendered_views(grid, position, setup))
+            flags = grid.render_flags(position)
+            renders.extend(_rendered_views(grid, position, flags, setup))
+            rendered.extend(flags)
             cells.add(
                 [
                     Cell(
@@ -480,7 +484,10 @@ def _scored_views(  # noqa: PLR0913 (grid, candidates, scoring, setup, run, spli
             )
         split.render_seconds += time.perf_counter() - started
         started = time.perf_counter()
-        similarity = scoring.queries @ setup.describer.describe(renders).T
+        similarity = np.full(
+            (len(scoring.queries), len(rendered)), UNRENDERED_SIMILARITY, dtype=np.float32
+        )
+        similarity[:, rendered] = scoring.queries @ setup.describer.describe(renders).T
         split.describe_seconds += time.perf_counter() - started
         chunk_scores = fused_scores(similarity, grid.headings_deg, scoring.lattice_offsets)
         best = np.where(candidate_views, chunk_scores.reshape(len(chunk), per_position), -np.inf)
@@ -506,9 +513,9 @@ def _scored_views(  # noqa: PLR0913 (grid, candidates, scoring, setup, run, spli
 
 
 def _rendered_views(
-    grid: LevelGrid, position: Position, setup: _Setup
+    grid: LevelGrid, position: Position, flags: Sequence[bool], setup: _Setup
 ) -> list[npt.NDArray[np.uint8]]:
-    """The renders of one position's views, at the render size and the tracker's nominal focal."""
+    """The renders of one position's flagged views, at the render size and the nominal focal."""
     config, scene = setup.config, setup.store_scene.scene
     width, height = config.render_width_px, config.render_height_px
     intrinsics = pinhole(width, height, nominal_focal(width))
@@ -525,7 +532,8 @@ def _rendered_views(
             ),
             max_range_m,
         ).rgb
-        for view in grid.views_at(position)
+        for view, flagged in zip(grid.views_at(position), flags, strict=True)
+        if flagged
     ]
 
 
@@ -541,10 +549,74 @@ def _selected(cells: Cells, mask: npt.NDArray[np.bool_]) -> Cells:
 
 
 def _verified(rank: int, place: Place, setup: _Setup, run: _Run) -> Hypothesis:
-    """Refine a place by a local match search, localise the first photo there and track."""
+    """Screen a place, then refine it by a local match search, localise the first photo, track."""
     started_s = run.seconds()
     run.emit(VerificationStart(time_s=started_s, rank=rank))
+    config = setup.config
+    verify = setup.images[: config.verify_photos]
+    screened_views = _views_matched_if_hopeless(place, setup)
+    if screened_views is None:
+        hypothesis, refined_s = _refined_and_tracked(rank, place, setup, verify, run)
+    else:
+        hypothesis, refined_s = (
+            Hypothesis(rank, place, screened_views, 0, 0, len(verify), 0.0, None),
+            run.seconds(),
+        )
+    run.emit(
+        VerificationResult(
+            time_s=run.seconds(),
+            rank=rank,
+            inliers=hypothesis.first_photo_inliers,
+            frames_tracked=hypothesis.photos_tracked,
+            frames_total=hypothesis.photos_verified,
+            accepted=_accepted(hypothesis, config),
+            refine_views=hypothesis.renders,
+            refine_seconds=refined_s - started_s,
+            track_seconds=run.seconds() - refined_s,
+        )
+    )
+    return hypothesis
+
+
+def _views_matched_if_hopeless(place: Place, setup: _Setup) -> int | None:
+    """The views the screening matched if no pose of its subset reaches the setting; else None.
+
+    The subset is every position of the refinement at the place's own height and pitch, with all
+    the heading offsets. Always None when the setting is off.
+    """
     config, context = setup.config, setup.context
+    if config.refine_screen_min_matches is None:
+        return None
+    photo = setup.images[0]
+    height, width = photo.rgb.shape[:2]
+    poses = candidate_poses(
+        context.config.search,
+        context.scene.area,
+        context.scene.ground_height,
+        np.array([place.east, place.north]),
+        config.refine_radius_m,
+        [place.height],
+        [place.pitch],
+        [place.heading + offset for offset in config.refine_heading_offsets_deg],
+        config.refine_spacing_m,
+    )
+    counts = candidate_match_counts(
+        context.config.search,
+        photo.rgb,
+        poses,
+        context.scene.render,
+        context.matcher,
+        pinhole(width, height, nominal_focal(width)),
+        context.config.max_range_m,
+    )
+    return len(poses) if max(counts, default=0) < config.refine_screen_min_matches else None
+
+
+def _refined_and_tracked(
+    rank: int, place: Place, setup: _Setup, verify: Sequence[PhotoImage], run: _Run
+) -> tuple[Hypothesis, float]:
+    """The place's hypothesis after the full refinement and tracking, and when refining ended."""
+    context = setup.context
     photo = setup.images[0]
     poses = _refinement_poses(place, setup)
     height, width = photo.rgb.shape[:2]
@@ -560,7 +632,6 @@ def _verified(rank: int, place: Place, setup: _Setup, run: _Run) -> Hypothesis:
     )
     attempt = best_attempt(photo, best, focal, context)
     refined_s = run.seconds()
-    verify = setup.images[: config.verify_photos]
     inliers = 0 if attempt.estimate is None else attempt.estimate.inlier_count
     pose, tracked, median_inliers = None, 0, 0.0
     if solved(attempt, context.config) and attempt.estimate is not None:
@@ -571,20 +642,7 @@ def _verified(rank: int, place: Place, setup: _Setup, run: _Run) -> Hypothesis:
     hypothesis = Hypothesis(
         rank, place, len(poses), inliers, tracked, len(verify), median_inliers, pose
     )
-    run.emit(
-        VerificationResult(
-            time_s=run.seconds(),
-            rank=rank,
-            inliers=hypothesis.first_photo_inliers,
-            frames_tracked=hypothesis.photos_tracked,
-            frames_total=hypothesis.photos_verified,
-            accepted=_accepted(hypothesis, config),
-            refine_views=len(poses),
-            refine_seconds=refined_s - started_s,
-            track_seconds=run.seconds() - refined_s,
-        )
-    )
-    return hypothesis
+    return hypothesis, refined_s
 
 
 def _refinement_poses(place: Place, setup: _Setup) -> list[CameraPose]:

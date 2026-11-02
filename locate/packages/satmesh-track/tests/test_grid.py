@@ -128,6 +128,56 @@ def test_level_two_takes_the_fine_lattice_around_each_place_within_the_priors() 
     assert set(grid.headings_deg) == {330, 0, 30}
 
 
+def test_level_two_renders_the_headings_near_the_places_that_reach_each_position() -> None:
+    config = CONFIG.model_copy(update={"fine_heading_steps": 1})
+    north_place = Place(315.0, 315.0, 5.0, 90.0, 90.0, -35.0, 0.9)
+    far_place = Place(35.0, 35.0, 5.0, 90.0, 270.0, -35.0, 0.8)
+
+    grid = level_two(config, BOUNDS, ground, NO_PRIORS, [north_place, far_place])
+
+    assert grid.rendered_headings is not None
+    for position in grid.positions:
+        near_north = math.hypot(position.east_m - 315.0, position.north_m - 315.0) <= 250.0
+        near_far = math.hypot(position.east_m - 35.0, position.north_m - 35.0) <= 250.0
+        expected = set()
+        if near_north:
+            expected |= {60.0, 90.0, 120.0}
+        if near_far:
+            expected |= {240.0, 270.0, 300.0}
+        assert set(grid.rendered_headings[position]) == expected
+    per_heading = len(grid.heights_m) * len(grid.pitches_deg)
+    assert grid.render_count == per_heading * sum(len(h) for h in grid.rendered_headings.values())
+    assert grid.render_count < grid.view_count
+
+
+def test_render_flags_mark_the_views_at_the_rendered_headings_in_grid_order() -> None:
+    config = CONFIG.model_copy(update={"fine_heading_steps": 0})
+    place = Place(315.0, 315.0, 5.0, 90.0, 90.0, -35.0, 0.9)
+    grid = level_two(config, BOUNDS, ground, NO_PRIORS, [place])
+    position = grid.positions[0]
+
+    flags = grid.render_flags(position)
+    views = list(grid.views_at(position))
+
+    assert len(flags) == len(views) == grid.views_per_position
+    assert [v.heading_deg for v, flagged in zip(views, flags, strict=True) if flagged] == [90.0] * (
+        len(grid.heights_m) * len(grid.pitches_deg)
+    )
+
+
+def test_without_a_step_limit_level_two_renders_every_view() -> None:
+    place = Place(315.0, 315.0, 5.0, 90.0, 90.0, -35.0, 0.9)
+
+    grid = level_two(CONFIG, BOUNDS, ground, NO_PRIORS, [place])
+
+    assert grid.rendered_headings is None
+    assert grid.render_count == grid.view_count
+    assert all(
+        grid.render_flags(position) == [True] * grid.views_per_position
+        for position in grid.positions
+    )
+
+
 def test_offsets_round_to_the_heading_lattice() -> None:
     assert lattice_offsets_deg([0.0, 14.0, 16.0, -46.0], 30.0) == (0.0, 0.0, 30.0, -60.0)
 

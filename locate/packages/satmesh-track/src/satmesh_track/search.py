@@ -109,12 +109,27 @@ def best_candidates(  # noqa: PLR0913, PLR0917 (photo, candidates, render, match
     max_range_m: float,
 ) -> list[CameraPose]:
     """The `top_k` candidates whose renders share the most matches with the photo."""
+    counts = candidate_match_counts(
+        config, photo, candidates, render, matcher, intrinsics, max_range_m
+    )
+    order = np.argsort(counts)[::-1][: config.top_k]
+    return [candidates[i] for i in order]
+
+
+def candidate_match_counts(  # noqa: PLR0913, PLR0917 (photo, candidates, render, matcher, camera and range)
+    config: SearchConfig,
+    photo: npt.NDArray[np.uint8],
+    candidates: Sequence[CameraPose],
+    render: Renderer,
+    matcher: Matcher,
+    intrinsics: Intrinsics,
+    max_range_m: float,
+) -> list[int]:
+    """The number of matches between the photo and the render of each candidate, in order."""
     match_photo = match_against(matcher, photo)
     renders = (render(intrinsics, pose, max_range_m).rgb for pose in candidates)
     workers = config.ranking_workers if supports_concurrent_calls(matcher) else 1
-    counts = _match_counts(match_photo, renders, workers)
-    order = np.argsort(counts)[::-1][: config.top_k]
-    return [candidates[i] for i in order]
+    return _match_counts(match_photo, renders, workers)
 
 
 def _match_counts(

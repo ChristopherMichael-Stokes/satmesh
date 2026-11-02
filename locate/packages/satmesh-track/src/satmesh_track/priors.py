@@ -63,6 +63,9 @@ class FirstFixConfig(BaseModel):
     fine_radius_m: float = Field(default=250.0, ge=0.0)
     fine_heights_m: tuple[float, ...] = Field(default=(40.0, 55.0, 72.0, 90.0, 110.0), min_length=1)
     fine_pitches_deg: tuple[float, ...] = Field(default=(-35.0, -50.0), min_length=1)
+    fine_heading_steps: int | None = Field(default=None, ge=0)
+    """Level 2 renders only headings within this many lattice steps of a level 1 place's heading,
+    for positions near it; `None` renders every heading."""
     final_places: int = Field(default=6, ge=1)
     final_separation_m: float = Field(default=100.0, ge=0.0)
     refine_radius_m: float = Field(default=70.0, ge=0.0)
@@ -72,6 +75,11 @@ class FirstFixConfig(BaseModel):
     refine_heading_offsets_deg: tuple[float, ...] = Field(
         default=(-30.0, -15.0, 0.0, 15.0, 30.0), min_length=1
     )
+    refine_screen_min_matches: int | None = Field(default=None, ge=1)
+    """A place is dropped before its full refinement when no pose of a screening subset (every
+    position at the place's height and pitch, all heading offsets) matches the first photo with
+    this many features; `None` refines every place in full. Over 20 places on three scenarios the
+    subset's best count was at most 24 for places later rejected, at least 32 for accepted ones."""
     verify_photos: int = Field(default=12, ge=1)
     min_tracked_photos: int = Field(default=6, ge=1)
 

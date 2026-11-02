@@ -25,13 +25,33 @@ with F3).
   (`photo-only-first-fix-f7-results.md`). F4, F5, F6 next.
 - F7 follow-ups (owner decisions, none measured; counts from the wrong-prior run of 2026-11-02,
   465 s: pass 1 138 s of which 106 s verification, pass 2 327 s of which 212 s level 2):
-  1. MegaLoc in FP16 on TensorRT (plan to be written; inference is 53 % of a run).
-  2. Drop a hopeless place early in verification; verification is a fixed 105 s a pass for six
+  1. MegaLoc in FP16 on TensorRT: done 2026-11-02 (`megaloc-fp16-tensorrt-results.md`; the 2.5 km
+     frame 1 run fell from 531 to 350 s with the same fix).
+  2. Drop a hopeless place early in verification (done as an opt-in setting 2026-11-02:
+     `photo-only-first-fix-speedup-results.md`); verification is a fixed 105 s a pass for six
      places, and the Process tab shows why: refine (585 renders matched, 16 to 18 s a place) is
      nearly all of it, tracking is 1 s, so the early exit has to act inside the refine.
-  3. Widen the heading in steps (45, 90, 180 degrees) instead of straight to the full circle.
+  3. Widen the heading in steps (45, 90, 180 degrees) instead of straight to the full circle
+     (measured and removed: 12 s saved or 62 s lost).
   4. Restrict level 2 headings to a few lattice steps around each level 1 place's best heading
-     (level 2 searches all 12 at every fine position today).
+     (level 2 searches all 12 at every fine position by default). Built as an opt-in setting
+     2026-11-02: 37 % faster on the 2.5 km run.
+- Queued 2026-11-02 (owner), after the held-out run (`photo-only-first-fix-speedup-results.md`):
+  1. Why Penshaw finds no fix: every candidate straddles the monument but level 2 views are at pitch
+     -35 degrees and refinement reaches only +-10, against a shallow true pitch; test a pitch grid
+     matching the photos, then a pitch estimate (F5).
+  2. Render range: `MAX_RANGE_M` is now 1000 m (was 500, the far field and horizon rendered black);
+     the full track tests were stopped part-way and not rerun; check the first-fix outcome on all
+     clips with it.
+  3. Tracking speed: Kenilworth takes about 30 s a photo after the fix, probably the local search
+     (hundreds of candidate renders and matches per lost photo); cut the candidate count or pre-screen
+     them, and find why the constant-velocity prediction fails on the orbit.
+  4. Heuristics for the first fix that hold on every development clip, then on the owner's own clips;
+     the opt-in speedups stay off.
+  5. Monitor: show the tracking updates on the main page after the initial fix. The convergence
+     graph at the bottom was dropped 2026-11-02.
+  6. `satmesh-track` writing the first-photo-against-render image itself (now
+     `demo/make_fix_views.sh`, scratch).
 - Owner approved PyTorch and GeoCalib for F5 and store downloads for the held-out clips;
   Hergest Court is the sealed clip (`decisions.md`).
 

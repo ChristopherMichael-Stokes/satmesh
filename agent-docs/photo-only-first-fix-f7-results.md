@@ -112,3 +112,23 @@ Standalone, 512 synthetic 640 x 360 frames through the describer (real flow conf
   start the run under py-spy.
 - `pkill -f` and `pgrep -f` with a pattern in the same command line matches the shell running it
   (exit 144); use `ps -eo pid,args | grep "[p]attern"` and kill the pid.
+
+## Wrong-prior run (U4 demo), stage times
+
+Bexhill 1.5 km store, frame 1, heading 88+-15 (about 60 degrees off), 150 m circle; 465 s, fix
+17.1 m from the tracker pose (rank 1, 388 inliers). Pass 1 failed and the heading widened to 180.
+
+| Pass | Level 1 | Level 2 | Verification | Total |
+| --- | ---: | ---: | ---: | ---: |
+| 1, heading 88+-15 | 2.4 s (84 views) | 23.9 s (1,360 views) | 105.8 s | 138 s |
+| 2, heading +-180 | 6.3 s (336 views) | 212.1 s (12,600 views) | 105.3 s | 327 s |
+
+- The position circle shrinks level 1 only, which is 1 to 2 % of the run. Level 2 costs by views a
+  position (120 with no heading, height or pitch prior), and verification is about 105 s a pass for
+  six places whatever the verdicts.
+- Verification per place (Process tab, 1.5 km store, right priors): refine 16 to 18 s (585 renders
+  matched to the first photo), tracking 1 s for a solved place and 0 s for a rejected one.
+- The ladder went from +-15 straight to +-180. Run d of F3 (60 degrees off, +-45 window) verified
+  in one pass, so a +-45 step would have saved about 100 s here.
+- Follow-ups (owner decisions, none measured) are listed in `photo-only-first-fix-plan.md`; the
+  MegaLoc FP16 and TensorRT plan is `megaloc-fp16-tensorrt-plan.md`.

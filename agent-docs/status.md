@@ -72,16 +72,30 @@ checkpoint; keep it to current state only.
   31 GB uv cache (`uv cache clean` would re-download the TensorRT wheels). WSL does not compact its
   disk by default; `wsl --manage DISTRO --set-sparse true` (WSL 2.7.13 here) reclaims automatically,
   with a corruption caveat on older releases.
-- Pushing: three new local commits (`70a92e4`, `a387327`, `2e05669`) are also unpushed. Everything
-  since (tracker changes, `--reference`, docs) is staged and uncommitted.
+- Pushing: 11 local commits are unpushed, up to the make targets for `satmesh-track` and
+  `satmesh-monitor` (2026-11-02). Nothing else of the photo-only work is uncommitted.
 - Photo-only first fix (`photo-only-first-fix-plan.md`): F1, F2 and F3 done
   (`photo-only-first-fix-f1-f2-results.md`, `photo-only-first-fix-f3-results.md`: packaged
   prior-aware first fix, winners 14 to 19 m from the tracker's poses on Bexhill and the 2.5 km
   store). F7 done (`photo-only-first-fix-f7-results.md`: MegaLoc inference is 53 % of the run;
   preparing the next batch during the GPU run took the 2.5 km no-prior first fix from 573 to 531 s,
-  outputs identical; FP16 not tried). Next F4, F5, F6. Owner approved PyTorch and GeoCalib (F5), and
-  store downloads around the held-out clip locations (stores not built yet). `satmesh-track` lives
-  in `locate/`.
+  outputs identical). The MegaLoc FP16 TensorRT engine is done
+  (`megaloc-fp16-tensorrt-results.md`: 2.5 km frame 1 531 to 350 s, frame 75 746 to 465 s, same
+  poses and places; built once offline with `satmesh-locate-export`; M6, the render and describe
+  overlap, was tried and rejected: 350 to 347 s, rendering slows as much as describe is hidden).
+  After the engine the 2.5 km frame 1 run is 358 to 404 s (`photo-only-first-fix-speedup-results.md`);
+  two opt-in settings, `fine_heading_steps = 1` and `refine_screen_min_matches = 28`, bring it to
+  about 237 s on Bexhill but were overfit there: on the held-out clips Old Sarum agrees, Kenilworth
+  loses its fix, so the defaults stay exhaustive (stepped heading widening was removed). Held-out
+  run (3 km stores built for Old Sarum, Kenilworth, Penshaw): defaults find the fix on Old Sarum
+  (333 s) and Kenilworth (818 s) and none on Penshaw, whose candidates sit at the monument but at
+  pitch -35 degrees against a shallow true pitch. Render range raised 500 to 1000 m (track tests
+  not rerun). Order set by the owner 2026-11-02: housekeeping (CPU-variant test pass, demo make
+  target, fix-view image in the tool), then speed (tracker search, level 1,
+  repeated screening renders, heuristics valid on every clip), then F4, F5 (pitch estimate, which
+  Penshaw needs), F6 (sealed Hergest Court run) and the 5 and 10 km scale steps; queue in
+  `photo-only-first-fix-plan.md` Progress. Owner approved PyTorch and GeoCalib (F5).
+  `satmesh-track` lives in `locate/`.
 - Held-out footage (`uk-drone-footage.md`): Hergest Court is the sealed test; Old Sarum, Kenilworth
   and Penshaw (from 38 s) are development clips; all four are downloaded under
   `uncommitted/photo-only/footage/` with contact sheets. Decision in `decisions.md`.
@@ -93,8 +107,14 @@ checkpoint; keep it to current state only.
 
 ## Running
 
-Nothing. The regions work (R0) and the E2 slice are built and uncommitted; the new files are staged
-(`git add`) and nothing is committed. Scratch the height work reads (E2 slice and blind comparison):
+Two monitors, safe to stop (find the pid with `ps -eo pid,args | grep "[s]atmesh-monitor"`, then
+`kill PID`; `pkill -f` matches its own shell): port 8765 serves the wrong-prior run
+`uncommitted/photo-only/f7/u4-wrong`, port 8766 the Process tab demo `f7/process-demo`; logs
+`f7/monitor.log` and `f7/monitor2.log`. Otherwise nothing.
+
+The regions work (R0) and the E2 slice are built and uncommitted; the new files are staged
+(`git add`) and nothing is committed. Scratch the height work reads (E2 slice and blind
+comparison):
 `uncommitted/e2/` (inputs, pred, cond, krige, ckpt, `e2lib.py`, `train.py`, `infer.py`),
 `uncommitted/blind/` (site, store, data, GLB tiles, `key.json`) and `uncommitted/regions/` (Sana'a
 and Shibam stores and GLBs, `migrate_records.py`). The model environments the E2 and blind scripts

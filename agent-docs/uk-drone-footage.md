@@ -184,6 +184,9 @@ Commons, licences read from the Commons API (all CC BY 3.0). No telemetry or sub
 
 - Roles (`decisions.md`, 2026-11-02): Hergest Court is sealed (frozen settings, one run, stretches
   chosen beforehand); the other three are development clips.
-- Start locations from the pages or memory, unverified to about 1 km: Kenilworth 52.348, -1.583;
-  Old Sarum 51.093, -1.801; Penshaw 54.856, -1.523; Hergest Court from its Commons page.
-- Stores for these areas are approved but not built; EA lidar coverage is unchecked.
+- Start locations: Kenilworth 52.348, -1.583 and Old Sarum 51.093, -1.801 (from memory, within
+  about 0.5 km of the sites); Penshaw Monument 54.8831, -1.4809 (web search; the earlier
+  54.856, -1.523 from memory was 4 km off); Hergest Court from its Commons page.
+- 3 km stores built 2026-11-02 around each site under `uncommitted/photo-only/heldout/` (Penshaw as
+  `penshaw-2`; `penshaw` is the wrong-area store). Trimmed 1 fps frames start at 4 s (Kenilworth,
+  Old Sarum) and 38 s (Penshaw); frame 0 is poor on every clip.

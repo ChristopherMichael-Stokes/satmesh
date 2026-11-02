@@ -7,9 +7,23 @@
       the `satmesh eval localise` command, report and review page work on synthetic photos; the
       real photos remain
 - [ ] Recover photo poses and camera calibration from the photos alone (`satmesh-track`, built):
-      the surrogate drone footage (a Bexhill clip with GPS telemetry) is tracked from a first fix found
-      with no position given; next make that first fix search coarse then fine, widen the area in
-      steps up to 10 km x 10 km, then run the real photos through it
+      the first fix is found with no position given, in about 6 to 24 minutes on a 3 km area, on
+      Bexhill, Old Sarum and Kenilworth; it finds nothing on Penshaw (a sunset clip looking out
+      to the horizon). The quick-search settings tuned on Bexhill failed on Kenilworth and stay off
+- [ ] Housekeeping on that work, tonight where the machine is free: run the CPU-variant tests
+      once, a make target for the demo runs, the first-photo-against-render image written by the
+      tool itself, and the tracker tests rerun after the render range change (500 to 1000 m)
+- [ ] Speed up the first fix and the tracker: the 3 to 4 seconds a photo spent tracking each
+      candidate place, the 30 seconds a photo after the fix on Kenilworth (hundreds of renders per
+      lost photo), the coarse search over the whole area, and the renders repeated in the
+      screening; quick-search shortcuts only if they hold on every clip, then on your own clips
+- [ ] Make the first fix work on Penshaw: the candidates are all at the monument but searched at a
+      steep pitch while the photo looks across the horizon, so search shallower pitches and estimate
+      the pitch and roll from the photos (a pretrained model, GeoCalib); show the tracking
+      updates on the monitor page after the first fix
+- [ ] Check the first fix on footage without a surface model: verify by the satellite imagery
+      warped to the candidate view, then the sealed Hergest Court clip (one run, no tuning), then
+      larger areas (5 km, then 10 km square; the downloads need your go)
 - [ ] Add building and tree height to the build from pretrained models (Geopose and RS3DAda for
       buildings, CHMv2 for trees) laid onto the coarse elevation, with a land-cover segmentation
       that keeps ground flat and cleans up roofs, walls and tree crowns; judge it by eye on fixed
@@ -44,6 +58,8 @@
 
 ## Needs you
 
+- [ ] Go-ahead for the 5 km store download and the sealed Hergest Court run, when the first fix
+      is ready for them
 - [ ] Supply photographs with known camera positions for the real-photo localisation test
       (required before the first release)
 

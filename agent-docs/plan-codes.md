@@ -22,6 +22,8 @@ to read about it.
 | F5c | Terrain past about 6 km (open) | `risks.md` |
 | F6 | Evaluation harness: height, smoothness, visibility, offset, texture scores | `f6-plan.md`, `f6-results.md` |
 | F7 | Real-photo localisation test, required before v1 | `decisions.md` |
+| F1 to F7 in the first-fix plan | Photo-only first fix: yaw offsets (F1), fused frames (F2), prior-aware search (F3), imagery-warp verification (F4), pitch and roll estimators (F5), held-out UK footage (F6), profile and optimise (F7); not the old F series above | `photo-only-first-fix-plan.md` |
+| M0 to M6 | MegaLoc FP16 and TensorRT stages (M6, the render and describe overlap, rejected) | `megaloc-fp16-tensorrt-plan.md` |
 | E1 | Smoother, hole-free elevation by classical processing (not started) | `status.md` |
 | E2, E2b | Lidar-referenced imagery position correction; towns and woodland with lean | `e2-results.md`, `e2b-results.md` |
 | C1 to C6, T0 to T2 | E2b build stages and opening measurements | `e2b-results.md` |

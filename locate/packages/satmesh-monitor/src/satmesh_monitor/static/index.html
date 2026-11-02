@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>satmesh monitor</title>
+  <link rel="stylesheet" href="/static/maplibre-gl.css">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/maplibre-gl.js"></script>
+  <script type="module" src="/static/main.js"></script>
+</head>
+<body>
+  <header>
+    <h1>satmesh monitor</h1>
+    <span id="status" class="chip">loading</span>
+    <span id="area" class="muted"></span>
+  </header>
+  <main>
+    <div id="map"></div>
+    <aside>
+      <section id="photo-panel" hidden>
+        <h2>Photo</h2>
+        <img id="photo" alt="">
+      </section>
+      <section>
+        <h2>Priors</h2>
+        <ul id="priors" class="plain"></ul>
+      </section>
+      <section>
+        <h2>Coverage</h2>
+        <div id="legend"></div>
+        <p class="muted keys">
+          <span class="key level-1"></span> level 1 place
+          <span class="key level-2"></span> level 2 place
+          <span class="key verdict accepted"></span> accepted
+          <span class="key verdict rejected"></span> rejected
+          <span class="key verdict running"></span> running
+          <span class="key verdict queued"></span> queued
+        </p>
+      </section>
+      <section>
+        <h2>Progress</h2>
+        <ol id="stages" class="plain"></ol>
+      </section>
+    </aside>
+  </main>
+  <footer>
+    <svg id="convergence" role="img" aria-label="Candidate spread against time"></svg>
+    <div class="controls">
+      <button id="play" type="button">Play</button>
+      <button type="button" data-speed="1" class="active">1x</button>
+      <button type="button" data-speed="10">10x</button>
+      <button type="button" data-speed="60">60x</button>
+      <input id="scrubber" type="range" min="0" max="0" value="0" aria-label="Time">
+      <span id="clock">0:00 / 0:00</span>
+      <button id="live" type="button">End</button>
+    </div>
+  </footer>
+</body>
+</html>

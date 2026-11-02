@@ -1,6 +1,8 @@
 minimum_prek_version = "0.5.7"
 default_install_hook_types = ["pre-commit"]
 default_language_version = { python = "3.13" }
+# vendored upstream release, kept byte-identical
+exclude = '(^|/)static/maplibre-gl\.(js|css)$'
 
 [[repos]]
 repo = "builtin"

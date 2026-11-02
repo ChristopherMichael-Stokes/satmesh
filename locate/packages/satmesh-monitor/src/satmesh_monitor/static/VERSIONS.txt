@@ -1,0 +1,5 @@
+maplibre-gl 5.24.0 (released 2026-04-24)
+https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js
+https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css
+https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/LICENSE.txt
+License: BSD-3-Clause (LICENSE.txt)

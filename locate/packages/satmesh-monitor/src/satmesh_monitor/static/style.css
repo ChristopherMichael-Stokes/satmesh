@@ -1,0 +1,106 @@
+:root {
+  --bg: #f4f5f7;
+  --panel: #ffffff;
+  --text: #1c1f24;
+  --muted: #5d6570;
+  --line: #d4d8de;
+  --accent: #2c6fdb;
+  --level-1: #3b82f6;
+  --level-2: #e11d9c;
+  --accepted: #16a34a;
+  --rejected: #dc2626;
+  --running: #f59e0b;
+  --queued: #9aa0a6;
+  --series: #1d4ed8;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161a;
+    --panel: #1d2026;
+    --text: #e6e8eb;
+    --muted: #9aa3ae;
+    --line: #343942;
+    --accent: #6ea0ff;
+    --series: #7aa7ff;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 system-ui, sans-serif;
+}
+
+header { display: flex; align-items: baseline; gap: 12px; padding: 8px 16px; }
+h1 { margin: 0; font-size: 16px; }
+h2 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.muted { color: var(--muted); }
+.chip { padding: 1px 8px; border-radius: 10px; background: var(--accent); color: #fff; font-size: 12px; }
+
+main { display: grid; grid-template-columns: 1fr 320px; gap: 12px; padding: 0 16px; min-height: 0; }
+#map { min-height: 300px; border: 1px solid var(--line); border-radius: 6px; }
+aside { overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+aside section { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
+#photo { width: 100%; display: block; border-radius: 4px; }
+.plain { margin: 0; padding: 0; list-style: none; }
+
+.legend-bar { height: 12px; border-radius: 3px; }
+.legend-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.legend-rendered { margin-top: 6px; display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+.swatch.rendered { width: 12px; height: 12px; background: #9aa0a6; }
+.keys { font-size: 12px; line-height: 2; }
+.key { display: inline-block; width: 11px; height: 11px; margin-left: 8px; border-radius: 50%; vertical-align: -1px; }
+.key.level-1 { background: var(--level-1); }
+.key.level-2 { background: var(--level-2); border-radius: 2px; }
+.key.verdict { background: transparent; border: 3px solid; }
+.key.accepted { border-color: var(--accepted); }
+.key.rejected { border-color: var(--rejected); }
+.key.running { border-color: var(--running); }
+.key.queued { border-color: var(--queued); }
+
+.stage { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; padding: 3px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.stage-name { font-weight: 600; }
+.stage-time { grid-column: 1 / -1; color: var(--muted); font-variant-numeric: tabular-nums; }
+.stage.running .stage-name::before { content: "\25B6  "; color: var(--running); }
+.stage.done .stage-name::before { content: "\2713  "; color: var(--accepted); }
+
+footer { padding: 8px 16px 12px; display: grid; gap: 6px; }
+#convergence { width: 100%; height: 150px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+.grid { stroke: var(--line); stroke-width: 1; }
+.axis-text { fill: var(--muted); font-size: 11px; }
+.series { fill: none; stroke: var(--series); stroke-width: 2; }
+.series.future { opacity: 0.25; }
+.dot { fill: var(--series); }
+.cursor { stroke: var(--muted); stroke-dasharray: 3 3; }
+
+.controls { display: flex; gap: 8px; align-items: center; }
+.controls input[type="range"] { flex: 1; }
+button { font: inherit; padding: 3px 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); color: var(--text); cursor: pointer; }
+button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+#clock { font-variant-numeric: tabular-nums; min-width: 90px; text-align: right; }
+
+.candidate .disc {
+  width: 24px; height: 24px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-weight: 700; font-size: 12px; color: #fff;
+  background: var(--level-1); border: 3px solid #fff; box-shadow: 0 0 0 1px #000;
+}
+.candidate.level-2 .disc { background: var(--level-2); border-radius: 4px; }
+.candidate.accepted .disc { border-color: var(--accepted); }
+.candidate.rejected .disc { border-color: var(--rejected); }
+.candidate.running .disc { border-color: var(--running); }
+.candidate.queued .disc { border-color: var(--queued); }
+.candidate .label {
+  position: absolute; top: 28px; left: 50%; transform: translateX(-50%);
+  white-space: nowrap; padding: 0 5px; border-radius: 3px;
+  background: rgba(0, 0, 0, 0.75); color: #fff; font-size: 11px;
+}
+.fix path { fill: #22d3ee; stroke: #000; stroke-width: 1.5; }

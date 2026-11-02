@@ -99,6 +99,8 @@ come at 20 requests per second by default; `--esri-requests-per-second` changes 
 
 Poses and lens from ordered photos: [docs/02-track.md](docs/02-track.md).
 
+Watching a first-fix run on a map: [docs/03-monitor.md](docs/03-monitor.md).
+
 ## Research results
 
 The build above is the shipped baseline. These results come from England, where Environment Agency

@@ -77,17 +77,19 @@ checkpoint; keep it to current state only.
 - Photo-only first fix (`photo-only-first-fix-plan.md`): F1, F2 and F3 done
   (`photo-only-first-fix-f1-f2-results.md`, `photo-only-first-fix-f3-results.md`: packaged
   prior-aware first fix, winners 14 to 19 m from the tracker's poses on Bexhill and the 2.5 km
-  store). Next F7 (profile), then F4, F5, F6. Owner approved PyTorch and GeoCalib (F5), and store
-  downloads around the held-out clip locations (nothing downloaded yet). `satmesh-track` lives in
-  `locate/`.
+  store). F7 done (`photo-only-first-fix-f7-results.md`: MegaLoc inference is 53 % of the run;
+  preparing the next batch during the GPU run took the 2.5 km no-prior first fix from 573 to 531 s,
+  outputs identical; FP16 not tried). Next F4, F5, F6. Owner approved PyTorch and GeoCalib (F5), and
+  store downloads around the held-out clip locations (stores not built yet). `satmesh-track` lives
+  in `locate/`.
 - Held-out footage (`uk-drone-footage.md`): Hergest Court is the sealed test; Old Sarum, Kenilworth
   and Penshaw (from 38 s) are development clips; all four are downloaded under
   `uncommitted/photo-only/footage/` with contact sheets. Decision in `decisions.md`.
 - Live map monitor (`photo-only-live-ui-plan.md`): U0, U1 and U2 done (`satmesh_locate.events`,
   `satmesh-monitor` with replay and live follow, `docs/03-monitor.md`; a real run was watched live).
-  U3 (priors drawn on the map) is out of the first version; U4 (fusion and ladder views) is next.
-- Staged and uncommitted: the F7 row, the monitor and first-fix plans, the F1 and F2 results,
-  the events module and its tests, `locate/` pydantic dependency, decisions, this file.
+  U3 (priors drawn on the map) is out of the first version. U4 done: fused frames with their
+  offsets and per-frame scores, and a block per search pass with the widening ladder; shown on a
+  heading prior 60 degrees off (fix 17.1 m from the tracker after one widening).
 
 ## Running
 

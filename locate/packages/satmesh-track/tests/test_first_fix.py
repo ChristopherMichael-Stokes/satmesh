@@ -15,6 +15,7 @@ from satmesh_locate.events import (
     Candidates,
     CellBatch,
     EventWriter,
+    FusionWindow,
     Interval,
     PositionPrior,
     PriorRelaxed,
@@ -216,6 +217,17 @@ def test_a_run_that_finds_nothing_writes_a_coherent_event_stream(tmp_path: Path)
     assert sum(1 for state, _, _ in states if state == "rendered") == planned
     assert sum(1 for state, _, _ in states if state == "described") == planned
     assert set(states.values()) == {1}
+    windows = [e for e in events if isinstance(e, FusionWindow)]
+    assert len(windows) == 1  # the same offsets serve every pass
+    assert windows[0].frames[0].photo == "f0.png"
+    assert windows[0].frames[0].yaw_offset_deg == 0.0
+    coarse = next(e for e in events if isinstance(e, Candidates) and e.level == 1)
+    for place in coarse.places:
+        assert place.frame_similarities is not None
+        assert len(place.frame_similarities) == len(windows[0].frames)
+        assert sum(t for t in place.frame_similarities if t is not None) == pytest.approx(
+            place.similarity, abs=1e-5
+        )
 
 
 @pytest.mark.skipif(

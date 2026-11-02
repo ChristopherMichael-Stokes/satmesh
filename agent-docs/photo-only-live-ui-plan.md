@@ -20,7 +20,9 @@ until the search converges on the fix. Plan first. Related: `photo-only-first-fi
   events and final places only.
 - U1 done 2026-11-02 (`satmesh-monitor`), U2 done the same day: a real Bexhill frame 1 run with a wrong
   heading prior was followed live (cells, relaxed prior, rejected and accepted places, the fix arrow).
-  Owner chose the web stack below and a read-only first version; U3 stays out. U4 is next.
+  Owner chose the web stack below and a read-only first version; U3 stays out.
+- U4 built 2026-11-02: `fusion_window` event, per-frame `frame_similarities` on candidates, and the
+  fused-frames and search-passes panels; shown on a run with the heading prior 60 degrees off.
 - U1 built 2026-11-02: `locate/packages/satmesh-monitor` (replay and live tail of `events.jsonl`,
   basemap from the local Esri cache, coverage, places, verification states, fix, prior shapes,
   convergence strip, progress, scrubber); MapLibre GL JS 5.24.0 vendored. Rendered headlessly on

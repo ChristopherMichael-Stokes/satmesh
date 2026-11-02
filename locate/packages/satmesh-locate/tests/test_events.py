@@ -12,6 +12,8 @@ from satmesh_locate.events import (
     Event,
     EventWriter,
     Fix,
+    FusionFrame,
+    FusionWindow,
     GridLevel,
     Interval,
     PositionPrior,
@@ -45,6 +47,13 @@ def a_run() -> list[Event]:
             photos=["f001.jpg"],
             levels=[GridLevel(level=1, spacing_m=280.0, positions=121, views=7260)],
         ),
+        FusionWindow(
+            time_s=0.5,
+            frames=[
+                FusionFrame(photo="f001.jpg", yaw_offset_deg=0.0, lattice_offset_deg=0.0),
+                FusionFrame(photo="f003.jpg", yaw_offset_deg=14.2, lattice_offset_deg=0.0),
+            ],
+        ),
         StageStart(time_s=0.1, stage="level 1: render", units=7260),
         CellBatch(
             time_s=1.0,
@@ -64,6 +73,7 @@ def a_run() -> list[Event]:
                     heading_deg=30.0,
                     pitch_deg=-35.0,
                     similarity=0.21,
+                    frame_similarities=[0.1, None, 0.11],
                 )
             ],
         ),

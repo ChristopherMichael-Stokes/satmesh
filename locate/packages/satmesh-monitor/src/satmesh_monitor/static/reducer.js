@@ -22,11 +22,20 @@ function relaxed(priors, event) {
   return priors[key] && { ...priors, [key]: { ...priors[key], half_width: event.half_width_after } };
 }
 
+function newPass(index, priors, startS) {
+  return { index, priors, startS, endS: null, candidates: new Map(), verification: new Map(), relaxation: null };
+}
+
 function applyEvent(state, event) {
+  const pass = state.passes[state.passes.length - 1];
   switch (event.kind) {
     case "run_start":
       state.start = event;
       state.priors = event.priors;
+      state.passes.push(newPass(1, event.priors, event.time_s));
+      break;
+    case "fusion_window":
+      state.fusion = event;
       break;
     case "stage_start":
       state.stages.push({ stage: event.stage, units: event.units, startS: event.time_s, endS: null });
@@ -41,27 +50,37 @@ function applyEvent(state, event) {
       break;
     case "candidates":
       state.candidates.set(event.level, event.places);
+      pass.candidates.set(event.level, event.places);
       state.spread.push({ timeS: event.time_s, spreadM: spatialSpread(event.places), count: event.places.length });
       break;
     case "verification_start":
       state.verification.set(event.rank, { status: "running" });
+      pass.verification.set(event.rank, { status: "running" });
       break;
-    case "verification_result":
-      state.verification.set(event.rank, {
+    case "verification_result": {
+      const result = {
         status: event.accepted ? "accepted" : "rejected",
         inliers: event.inliers,
         framesTracked: event.frames_tracked,
         framesTotal: event.frames_total,
-      });
+      };
+      state.verification.set(event.rank, result);
+      pass.verification.set(event.rank, result);
       break;
+    }
     case "prior_relaxed":
       state.priors = relaxed(state.priors, event) ?? state.priors;
+      pass.endS = event.time_s;
+      pass.relaxation = event;
+      state.verification = new Map();
+      state.passes.push(newPass(pass.index + 1, state.priors, event.time_s));
       break;
     case "fix":
       state.fix = event;
       break;
     case "run_end":
       state.ended = { ok: event.ok, timeS: event.time_s };
+      pass.endS = event.time_s;
       break;
   }
 }
@@ -75,6 +94,8 @@ export function stateAt(events, timeS) {
     cells: new Map(),
     candidates: new Map(),
     verification: new Map(),
+    passes: [],
+    fusion: null,
     spread: [],
     fix: null,
     ended: null,

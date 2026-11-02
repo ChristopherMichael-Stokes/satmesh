@@ -21,7 +21,8 @@ with F3).
 ## Progress
 
 - F1, F2 and F3 done 2026-11-02 (`photo-only-first-fix-f1-f2-results.md`,
-  `photo-only-first-fix-f3-results.md`). F7 next, then F4, F5, F6.
+  `photo-only-first-fix-f3-results.md`). F7 done 2026-11-02
+  (`photo-only-first-fix-f7-results.md`). F4, F5, F6 next.
 - Owner approved PyTorch and GeoCalib for F5 and store downloads for the held-out clips;
   Hergest Court is the sealed clip (`decisions.md`).
 

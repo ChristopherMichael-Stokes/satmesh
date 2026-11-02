@@ -22,6 +22,13 @@ Open `http://127.0.0.1:8765/`. The monitor only reads: it changes nothing in the
 - **Convergence:** the spread of the candidate places (RMS distance from their centroid, log scale)
   against time.
 - **Progress:** each stage with its start, end, elapsed time and unit count.
+- **Fused frames:** the frames whose similarities level 1 sums, with each frame's heading offset
+  from the first (estimated, and on the 30 degree heading lattice). Under them one row per level 1
+  place: each frame's similarity at the place's heading plus that frame's offset, and their sum,
+  which is the score the places are ranked on.
+- **Search passes:** one block per pass of the search: the priors it ran with, its best level 1 and
+  level 2 places, how its places verified, and the widening that followed when nothing verified
+  (heading first, then pitch, then area). The last block ends with the fix.
 - **Photo:** the first photo of the run, when `--photos` names the directory holding it.
 - **Timeline:** a scrubber, play and pause at 1x, 10x and 60x. The map shows the run as it stood at
   the chosen time. A run that is still growing is followed live until the scrubber is moved back;

@@ -1,5 +1,5 @@
 import { createMap } from "./map.js";
-import { formatClock, renderConvergence, renderLegend, renderPriors, renderProgress } from "./panels.js";
+import { formatClock, renderConvergence, renderFusion, renderLadder, renderLegend, renderPriors, renderProgress } from "./panels.js";
 import { similarityRange, stateAt } from "./reducer.js";
 
 const POLL_INTERVAL_MS = 1000;
@@ -54,6 +54,8 @@ function draw() {
   renderPriors($("priors"), state.priors);
   renderProgress($("stages"), state);
   renderLegend($("legend"), range);
+  renderFusion($("fusion"), state, (name) => `/api/photo/${encodeURIComponent(name)}`);
+  renderLadder($("ladder"), state);
   if (spreadCache.count !== events.length) {
     spreadCache = { count: events.length, series: stateAt(events, Infinity).spread };
   }

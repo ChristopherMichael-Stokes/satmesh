@@ -5,19 +5,21 @@ import pytest
 
 from satmesh_eval.perspective import GroundExtent
 from satmesh_locate.events import Interval, PositionPrior, Priors
-from satmesh_locate.places import Place
+from satmesh_locate.places import Cells, Place
 from satmesh_track.grid import (
     MISSING_VIEW_SCORE,
     LevelGrid,
     Position,
     candidate_mask,
     coarse_heights_m,
+    frame_similarities,
     fused_scores,
     heading_lattice,
     lattice_offsets_deg,
     level_one,
     level_two,
     values_in_window,
+    view_index,
 )
 from satmesh_track.priors import NO_PRIORS, FirstFixConfig
 
@@ -173,3 +175,40 @@ def test_only_views_inside_the_heading_prior_are_candidates() -> None:
 
     assert mask.tolist() == [True, True, False, False] * 4
     assert candidate_mask(grid, None).all()
+
+
+def test_frame_similarities_are_the_terms_of_the_fused_score_of_that_view() -> None:
+    headings = (0.0, 180.0)
+    similarity = np.array([[0.1, 0.2, 0.3, 0.4], [0.5, 0.6, 0.7, 0.8]], dtype=np.float32)
+    offsets = (0.0, 180.0)
+    fused = fused_scores(similarity, headings, offsets)
+
+    terms = [frame_similarities(similarity, headings, offsets, view) for view in range(4)]
+
+    assert terms[0] == pytest.approx([0.1, 0.6])  # frame 1 at heading 0 + 180, same position
+    assert terms[3] == pytest.approx([0.4, 0.7])  # second position, heading 180 + 180 wraps to 0
+    assert [math.fsum(x for x in t if x is not None) for t in terms] == pytest.approx(fused)
+
+
+def test_a_frame_whose_view_was_not_rendered_has_no_similarity_term() -> None:
+    similarity = np.array([[0.1, 0.2], [0.5, 0.6]], dtype=np.float32)
+
+    assert frame_similarities(similarity, (0.0, 90.0), (0.0, 90.0), 1) == [
+        pytest.approx(0.2),
+        None,
+    ]
+
+
+def test_a_place_finds_the_grid_index_of_its_view() -> None:
+    cells = Cells(
+        east=np.array([0.0, 0.0, 70.0]),
+        north=np.array([0.0, 0.0, 0.0]),
+        ground=np.array([5.0, 5.0, 5.0]),
+        height=np.array([90.0, 110.0, 90.0]),
+        heading=np.array([0.0, 0.0, 0.0]),
+        pitch=np.array([-35.0, -35.0, -35.0]),
+    )
+
+    place = Place(70.0, 0.0, 5.0, 90.0, 0.0, -35.0, 0.3)
+
+    assert view_index(cells, place) == 2

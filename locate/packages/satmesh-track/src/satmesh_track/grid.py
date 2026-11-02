@@ -279,6 +279,43 @@ def fused_scores(
     return total.reshape(-1)
 
 
+def view_index(cells: Cells, place: Place) -> int:
+    """The grid-order index of the view a place was ranked from.
+
+    A place's pose values are copies of the grid's, so they compare equal exactly.
+    """
+    match = (
+        (cells.east == place.east)
+        & (cells.north == place.north)
+        & (cells.height == place.height)
+        & (cells.heading == place.heading)
+        & (cells.pitch == place.pitch)
+    )
+    return int(np.flatnonzero(match)[0])
+
+
+def frame_similarities(
+    similarity: npt.NDArray[np.float32],
+    headings_deg: Sequence[float],
+    lattice_offsets: Sequence[float],
+    view: int,
+) -> list[float | None]:
+    """Each frame's similarity to the view it contributes to the fused score of grid view `view`.
+
+    `similarity` holds one row per frame and one column per view, as for `fused_scores`.
+    """
+    count = len(headings_deg)
+    position_start, heading_index = view - view % count, view % count
+    column = {_heading_key(heading): index for index, heading in enumerate(headings_deg)}
+    sources = [
+        column.get(_heading_key(headings_deg[heading_index] + offset)) for offset in lattice_offsets
+    ]
+    return [
+        None if source is None else float(similarity[frame, position_start + source])
+        for frame, source in enumerate(sources)
+    ]
+
+
 def candidate_mask(grid: LevelGrid, heading_prior: Interval | None) -> npt.NDArray[np.bool_]:
     """Views that may be the first photo's: those whose heading lies in the prior's window.
 

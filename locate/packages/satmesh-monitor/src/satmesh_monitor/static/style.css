@@ -45,7 +45,7 @@ h2 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing
 .muted { color: var(--muted); }
 .chip { padding: 1px 8px; border-radius: 10px; background: var(--accent); color: #fff; font-size: 12px; }
 
-main { display: grid; grid-template-columns: 1fr 320px; gap: 12px; padding: 0 16px; min-height: 0; }
+main { display: grid; grid-template-columns: 1fr 380px; gap: 12px; padding: 0 16px; min-height: 0; }
 #map { min-height: 300px; border: 1px solid var(--line); border-radius: 6px; }
 aside { overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
 aside section { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
@@ -104,3 +104,22 @@ button.active { background: var(--accent); border-color: var(--accent); color: #
   background: rgba(0, 0, 0, 0.75); color: #fff; font-size: 11px;
 }
 .fix path { fill: #22d3ee; stroke: #000; stroke-width: 1.5; }
+
+.fusion-frames { display: flex; gap: 4px; margin-bottom: 6px; }
+.fusion-frame { margin: 0; flex: 1; min-width: 0; }
+.fusion-frame img { width: 100%; display: block; border-radius: 3px; }
+.fusion-frame figcaption { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1.2; }
+.fusion-scores { width: 100%; table-layout: auto; border-collapse: collapse; font-size: 11px; font-variant-numeric: tabular-nums; }
+.fusion-scores th { text-align: left; font-weight: 500; white-space: nowrap; }
+.fusion-scores .num { text-align: right; }
+.fusion-scores td.total { font-weight: 700; border-left: 1px solid var(--line); }
+.fusion-scores tr + tr > * { border-top: 1px solid var(--line); }
+.pass { padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.pass-title { font-weight: 700; }
+.verdict.accepted { color: var(--accepted); }
+.verdict.rejected { color: var(--rejected); }
+.verdict.running { color: var(--running); }
+.relaxed { margin-top: 3px; color: var(--running); font-weight: 600; }
+#photo { max-height: 150px; object-fit: cover; }
+.key.prior-area { background: rgba(255, 176, 0, 0.25); border: 2px solid #ffb000; }
+.key.prior-heading { background: #ff6b3d; border-radius: 0; height: 3px; vertical-align: 3px; }

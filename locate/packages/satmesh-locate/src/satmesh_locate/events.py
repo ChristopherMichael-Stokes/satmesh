@@ -75,7 +75,12 @@ class Cell(EventModel):
 
 
 class Candidate(EventModel):
-    """A ranked place: the pose of its best view and that view's similarity."""
+    """A ranked place: the pose of its best view and that view's similarity.
+
+    `frame_similarities` holds each fused frame's cosine to the view it contributes (frame i at
+    the candidate heading plus its lattice offset), in frame order, `None` where that view was
+    not rendered; `similarity` is their sum. Level 2 has one frame.
+    """
 
     rank: int = Field(ge=1)
     east_m: float
@@ -84,6 +89,7 @@ class Candidate(EventModel):
     heading_deg: float
     pitch_deg: float
     similarity: float
+    frame_similarities: list[float | None] | None = None
 
 
 class RunStart(EventModel):
@@ -98,6 +104,22 @@ class RunStart(EventModel):
     priors: Priors
     photos: list[str]
     levels: list[GridLevel]
+
+
+class FusionFrame(EventModel):
+    """A fused frame: its photo and its heading offset from the first, estimated and lattice."""
+
+    photo: str
+    yaw_offset_deg: float
+    lattice_offset_deg: float
+
+
+class FusionWindow(EventModel):
+    """The frames whose similarities level 1 sums, first frame first."""
+
+    kind: Literal["fusion_window"] = "fusion_window"
+    time_s: float = Field(ge=0.0)
+    frames: list[FusionFrame]
 
 
 class StageStart(EventModel):
@@ -188,6 +210,7 @@ class RunEnd(EventModel):
 
 type Event = Annotated[
     RunStart
+    | FusionWindow
     | StageStart
     | StageEnd
     | CellBatch

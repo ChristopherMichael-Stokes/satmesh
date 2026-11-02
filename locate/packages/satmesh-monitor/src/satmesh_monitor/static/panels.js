@@ -112,3 +112,96 @@ export function renderConvergence(svg, fullSeries, state, durationS) {
   nodes.push(caption);
   svg.replaceChildren(...nodes);
 }
+
+const SCORE_DECIMALS = 3;
+const OFFSET_DECIMALS = 1;
+const MISSING = "–";
+
+function signed(degrees) {
+  return `${degrees >= 0 ? "+" : "−"}${Math.abs(degrees).toFixed(OFFSET_DECIMALS)}°`;
+}
+
+function scoreCell(value) {
+  return element("td", "num", value === null ? MISSING : value.toFixed(SCORE_DECIMALS));
+}
+
+// The fused window: each frame with its heading offset from the first, then one row per level 1 place
+// whose cells are the frames' similarities and whose last cell is their sum (the score ranked on).
+export function renderFusion(container, state, photoUrl) {
+  const window = state.fusion;
+  if (!window) {
+    container.replaceChildren(element("p", "muted", "no frames fused"));
+    return;
+  }
+  const strip = element("div", "fusion-frames");
+  for (const [index, frame] of window.frames.entries()) {
+    const figure = element("figure", "fusion-frame");
+    const image = element("img");
+    image.src = photoUrl(frame.photo);
+    image.alt = frame.photo;
+    figure.append(
+      image,
+      element("figcaption", "", `${index + 1}  ${signed(frame.yaw_offset_deg)}  (lattice ${signed(frame.lattice_offset_deg)})`),
+    );
+    strip.append(figure);
+  }
+  const places = state.candidates.get(1) ?? [];
+  const table = element("table", "fusion-scores");
+  const head = element("tr");
+  head.append(element("th", "", "place"), ...window.frames.map((_, i) => element("th", "num", `f${i + 1}`)), element("th", "num", "sum"));
+  table.append(head);
+  for (const place of places) {
+    const row = element("tr");
+    row.append(
+      element("th", "", `#${place.rank} ${place.heading_deg.toFixed(0)}°`),
+      ...(place.frame_similarities ?? window.frames.map(() => null)).map(scoreCell),
+      element("td", "num total", place.similarity.toFixed(SCORE_DECIMALS)),
+    );
+    table.append(row);
+  }
+  const note = element("p", "muted", "frame i is scored at the place's heading plus its offset; the sum ranks the places");
+  container.replaceChildren(strip, places.length ? table : element("p", "muted", "level 1 not ranked yet"), note);
+}
+
+function priorsLine(priors) {
+  const parts = [];
+  if (priors.position) parts.push(`area r ${priors.position.radius_m.toFixed(0)} m`);
+  if (priors.heading_deg) parts.push(`heading ${priors.heading_deg.centre} ± ${priors.heading_deg.half_width}°`);
+  if (priors.pitch_deg) parts.push(`pitch ${priors.pitch_deg.centre} ± ${priors.pitch_deg.half_width}°`);
+  if (priors.height_m) parts.push(`height ${priors.height_m.centre} ± ${priors.height_m.half_width} m`);
+  return parts.length ? parts.join(", ") : "no priors";
+}
+
+function verdictText(rank, result) {
+  const detail = result.status === "running" ? "checking…" : `${result.framesTracked}/${result.framesTotal} tracked, ${result.inliers} inliers`;
+  return `#${rank} ${result.status}: ${detail}`;
+}
+
+// One block per pass of the search: the priors it ran with, what it found, how its places verified,
+// and the widening that followed.
+export function renderLadder(container, state) {
+  const blocks = state.passes.map((pass) => {
+    const block = element("li", "pass");
+    const finished = pass.endS !== null;
+    block.append(element("div", "pass-title", `pass ${pass.index}  ${formatClock(pass.startS)}${finished ? ` → ${formatClock(pass.endS)}` : " → …"}`));
+    block.append(element("div", "muted", priorsLine(pass.priors)));
+    const coarse = pass.candidates.get(1);
+    const fine = pass.candidates.get(2);
+    if (coarse) block.append(element("div", "", `level 1: best place ${coarse[0].similarity.toFixed(SCORE_DECIMALS)} at ${coarse[0].east_m.toFixed(0)}, ${coarse[0].north_m.toFixed(0)} m`));
+    if (fine) block.append(element("div", "", `level 2: ${fine.length} places, best ${fine[0].similarity.toFixed(SCORE_DECIMALS)}`));
+    for (const [rank, result] of [...pass.verification.entries()].sort((a, b) => a[0] - b[0])) {
+      block.append(element("div", `verdict ${result.status}`, verdictText(rank, result)));
+    }
+    if (pass.relaxation) {
+      const r = pass.relaxation;
+      const unit = r.prior === "heading" || r.prior === "pitch" ? "°" : " m";
+      block.append(element("div", "relaxed", `nothing verified: ${r.prior} widened ${r.half_width_before}${unit} → ${r.half_width_after}${unit}`));
+    }
+    return block;
+  });
+  if (state.fix) {
+    const last = blocks[blocks.length - 1];
+    last?.append(element("div", "verdict accepted", `fix: ${state.fix.east_m.toFixed(0)}, ${state.fix.north_m.toFixed(0)} m, heading ${state.fix.heading_deg.toFixed(0)}°, ${state.fix.inliers} inliers`));
+  }
+  container.replaceChildren(...blocks);
+}

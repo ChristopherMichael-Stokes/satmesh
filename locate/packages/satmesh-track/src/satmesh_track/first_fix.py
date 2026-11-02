@@ -44,6 +44,8 @@ from satmesh_locate.events import (
     CellBatch,
     Event,
     Fix,
+    FusionFrame,
+    FusionWindow,
     GridLevel,
     PriorRelaxed,
     Priors,
@@ -60,11 +62,13 @@ from satmesh_track.grid import (
     LevelGrid,
     Position,
     candidate_mask,
+    frame_similarities,
     fused_scores,
     lattice_offsets_deg,
     level_one,
     level_two,
     planned_fine_positions,
+    view_index,
 )
 from satmesh_track.priors import FULL_CIRCLE_DEG, FirstFixConfig
 from satmesh_track.search import best_candidates, candidate_poses
@@ -138,6 +142,11 @@ class Relaxation(NamedTuple):
 
 def ignore_event(_event: Event) -> None:
     """The event callable of a run nobody watches."""
+
+
+class _ScoredViews(NamedTuple):
+    scores: npt.NDArray[np.float64]  # fused score of every view, in grid order
+    similarity: npt.NDArray[np.float32]  # one row per fused frame, one column per view
 
 
 @dataclass
@@ -247,6 +256,7 @@ def first_fix(  # noqa: PLR0913 (photos, scene, describer, context, settings, ev
         frames = _fusion_frames(images, config)
         offsets = _frame_offsets(frames, context, config, run)
         frames = frames[: len(offsets)]
+        run.emit(_fusion_event(run, frames, offsets, config))
         setup = _Setup(
             images,
             store_scene,
@@ -398,12 +408,13 @@ def _ranked_level(  # noqa: PLR0913 (grid, scoring, places kept, priors, setup, 
     """Render, describe and score a level's views, then keep its best separated places."""
     candidates = candidate_mask(grid, priors.heading_deg)
     with run.stage(f"level {grid.level}: render and describe", grid.view_count) as split:
-        scores = _scored_views(grid, candidates, scoring, setup=setup, run=run, split=split)
+        scored = _scored_views(grid, candidates, scoring, setup=setup, run=run, split=split)
     with run.stage(f"level {grid.level}: rank", grid.view_count):
         count, separation_m = places
+        cells = grid.cells()
         best = top_places(
-            scores[candidates].astype(np.float32),
-            _selected(grid.cells(), candidates),
+            scored.scores[candidates].astype(np.float32),
+            _selected(cells, candidates),
             count,
             separation_m,
         )
@@ -411,7 +422,19 @@ def _ranked_level(  # noqa: PLR0913 (grid, scoring, places kept, priors, setup, 
             Candidates(
                 time_s=run.seconds(),
                 level=grid.level,
-                places=[_candidate(rank, place) for rank, place in enumerate(best, start=1)],
+                places=[
+                    _candidate(
+                        rank,
+                        place,
+                        frame_similarities(
+                            scored.similarity,
+                            grid.headings_deg,
+                            scoring.lattice_offsets,
+                            view_index(cells, place),
+                        ),
+                    )
+                    for rank, place in enumerate(best, start=1)
+                ],
             )
         )
     return best
@@ -425,12 +448,13 @@ def _scored_views(  # noqa: PLR0913 (grid, candidates, scoring, setup, run, spli
     setup: _Setup,
     run: _Run,
     split: _Split,
-) -> npt.NDArray[np.float64]:
-    """Each view's score, rendering and describing whole positions a chunk at a time."""
+) -> _ScoredViews:
+    """Each view's score and per-frame similarity, rendering and describing a chunk at a time."""
     cells = _CellBatcher(run, grid.level)
     per_position = grid.views_per_position
     candidate_views = candidates[:per_position]  # the same headings at every position
     scores = []
+    similarities = []
     positions_per_chunk = max(1, DESCRIBE_CHUNK_VIEWS // per_position)
     for chunk in batched(grid.positions, positions_per_chunk, strict=False):
         started = time.perf_counter()
@@ -465,8 +489,13 @@ def _scored_views(  # noqa: PLR0913 (grid, candidates, scoring, setup, run, spli
             ]
         )
         scores.append(chunk_scores)
+        similarities.append(similarity)
     cells.flush()
-    return np.concatenate(scores) if scores else np.zeros(0, dtype=np.float64)
+    if not scores:
+        return _ScoredViews(
+            np.zeros(0, dtype=np.float64), np.zeros((len(scoring.queries), 0), dtype=np.float32)
+        )
+    return _ScoredViews(np.concatenate(scores), np.concatenate(similarities, axis=1))
 
 
 def _rendered_views(
@@ -626,7 +655,7 @@ def _run_start(
     )
 
 
-def _candidate(rank: int, place: Place) -> Candidate:
+def _candidate(rank: int, place: Place, frame_similarities: list[float | None]) -> Candidate:
     return Candidate(
         rank=rank,
         east_m=place.east,
@@ -635,6 +664,24 @@ def _candidate(rank: int, place: Place) -> Candidate:
         heading_deg=place.heading,
         pitch_deg=place.pitch,
         similarity=place.similarity,
+        frame_similarities=frame_similarities,
+    )
+
+
+def _fusion_event(
+    run: _Run, frames: Sequence[PhotoImage], offsets: Sequence[float], config: FirstFixConfig
+) -> FusionWindow:
+    return FusionWindow(
+        time_s=run.seconds(),
+        frames=[
+            FusionFrame(photo=frame.name, yaw_offset_deg=offset, lattice_offset_deg=lattice)
+            for frame, offset, lattice in zip(
+                frames,
+                offsets,
+                lattice_offsets_deg(offsets, config.heading_step_deg),
+                strict=True,
+            )
+        ],
     )
 
 

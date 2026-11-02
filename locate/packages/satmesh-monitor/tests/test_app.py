@@ -142,3 +142,11 @@ def test_photos_are_not_served_without_a_photos_directory(tmp_path: Path) -> Non
     write_run(tmp_path, [run_start(["f001.jpg"])]).close()
 
     assert client_for(tmp_path).get("/api/photo/f001.jpg").status_code == 404
+
+
+def test_the_page_and_its_scripts_are_revalidated_on_every_load(tmp_path: Path) -> None:
+    (tmp_path / "run").mkdir()
+    client = client_for(tmp_path)
+
+    assert client.get("/").headers["Cache-Control"] == "no-cache"
+    assert client.get("/static/main.js").headers["Cache-Control"] == "no-cache"

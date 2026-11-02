@@ -10,6 +10,7 @@ installs `onnxruntime`, the `gpu` extra `onnxruntime-gpu`; the two cannot share 
 """
 
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 from enum import StrEnum
 from pathlib import Path
 
@@ -86,15 +87,30 @@ class MegaLocDescriber:
 
     def describe(self, images: Sequence[npt.NDArray[np.uint8]]) -> npt.NDArray[np.float32]:
         """Unit-length descriptors, one row per image, in the order given."""
-        rows = [
-            self._run([_prepared(image) for image in images[start : start + self._batch_size]])
+        batches = [
+            images[start : start + self._batch_size]
             for start in range(0, len(images), self._batch_size)
         ]
-        return np.concatenate(rows) if rows else np.zeros((0, DESCRIPTOR_SIZE), dtype=np.float32)
+        if not batches:
+            return np.zeros((0, DESCRIPTOR_SIZE), dtype=np.float32)
+        # a worker prepares batch n + 1 (OpenCV and numpy release the GIL) while the session runs n
+        with ThreadPoolExecutor(max_workers=1) as preparer:
+            upcoming = preparer.submit(_prepared_batch, batches[0])
+            rows = []
+            for following in [*batches[1:], None]:
+                batch = upcoming.result()
+                if following is not None:
+                    upcoming = preparer.submit(_prepared_batch, following)
+                rows.append(self._run(batch))
+        return np.concatenate(rows)
 
     def _run(self, batch: list[npt.NDArray[np.float32]]) -> npt.NDArray[np.float32]:
         output = self._session.run(None, {"images": np.stack(batch)})[0]
         return np.asarray(output, dtype=np.float32)
+
+
+def _prepared_batch(images: Sequence[npt.NDArray[np.uint8]]) -> list[npt.NDArray[np.float32]]:
+    return [_prepared(image) for image in images]
 
 
 def _prepared(image: npt.NDArray[np.uint8]) -> npt.NDArray[np.float32]:

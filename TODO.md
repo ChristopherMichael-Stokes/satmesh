@@ -2,10 +2,10 @@
 
 ## Next
 
-- [ ] Acceptance harness: render the mesh at a photo's camera pose, match the photo against the
-      render and recover the pose, with flat, bare-earth and full-surface references compared;
-      the `satmesh eval localise` command, report and review page work on synthetic photos; the
-      real photos remain
+- [x] Acceptance harness: render the mesh at a photo's camera pose, match the photo against the
+      render and recover the pose, with flat, bare-earth and full-surface references compared.
+      Proven on real footage: the Bexhill clip against its GPS log (98 of 110 frames at 3.5 m
+      median), and Old Sarum and Kenilworth, whose fixes and tracks were checked by eye
 - [ ] Recover photo poses and camera calibration from the photos alone (`satmesh-track`, built):
       the first fix is found with no position given, in about 6 to 24 minutes on a 3 km area, on
       Bexhill, Old Sarum and Kenilworth; it finds nothing on Penshaw (a sunset clip looking out
@@ -60,8 +60,6 @@
 
 - [ ] Go-ahead for the 5 km store download and the sealed Hergest Court run, when the first fix
       is ready for them
-- [ ] Supply photographs with known camera positions for the real-photo localisation test
-      (required before the first release)
 
 ## Done
 

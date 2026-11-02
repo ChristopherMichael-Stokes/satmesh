@@ -168,3 +168,22 @@ ground, in places other than East Sussex; the owner reviews the list before any 
   files, 15 of them Bexhill or Pevensey.
 - Telemetry: none stated anywhere. Truth would be the start location, or `.SRT` files if the
   uploaders supply them.
+
+## Downloaded for held-out tests (2026-11-02)
+
+Owner approved Old Sarum and Kenilworth ("okay, not great"), Hergest Court, and Penshaw from 38 s.
+Each is `uncommitted/photo-only/footage/NAME/clip.webm` with a contact sheet `sheet.jpg`; sizes match
+Commons, licences read from the Commons API (all CC BY 3.0). No telemetry or subtitles in any.
+
+| Directory | Clip | Probe | What the sheet shows |
+| --- | --- | --- | --- |
+| `kenilworth/` | Kenilworth Castle | 65 s, 3840 x 2026, 23.976 fps, 100.6 MB | one castle circled and descending; horizon in the first 10 s, then pitched 30 to 45 degrees down; no cuts; probably under 50 m for much of it |
+| `old-sarum/` | Old Sarum | 102 s, 1920 x 1080, 50 fps, 95.7 MB | continuous orbit of the earthworks; horizon and a distant town for the first 40 s, then lower and steeper; no cuts |
+| `hergest-court/` | Hergest Court | 173.6 s, 3840 x 2160, 29.97 fps, 295 MB | cut montage of one farm from several heights; a title card at the start and end (cut them); a clean horizon section at about 80 to 100 s; the continuous oblique runs last 25 to 50 s |
+| `penshaw/` | Penshaw Monument | 72.7 s, 1920 x 1080, 25 fps, 13 MB | 0 to 14 s close pass silhouetted on the sun, 14 to 38 s sun-facing swings, usable from about 38 s: wide view, camera high and backing away, 10 to 20 degrees down, horizon in the upper third, dark low-contrast ground |
+
+- Roles (`decisions.md`, 2026-11-02): Hergest Court is sealed (frozen settings, one run, stretches
+  chosen beforehand); the other three are development clips.
+- Start locations from the pages or memory, unverified to about 1 km: Kenilworth 52.348, -1.583;
+  Old Sarum 51.093, -1.801; Penshaw 54.856, -1.523; Hergest Court from its Commons page.
+- Stores for these areas are approved but not built; EA lidar coverage is unchecked.

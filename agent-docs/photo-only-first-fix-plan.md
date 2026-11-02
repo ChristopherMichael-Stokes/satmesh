@@ -1,7 +1,7 @@
 ---
 status: current
 topic: evaluation
-summary: Plan for a first fix from video with optional priors: intervals on heading, pitch and height, a feasible-set grid at level 1 and 2, several frames fused with estimated heading offsets, verification by mesh render or by the satellite imagery warped to the candidate view (for areas with no DSM), a widening ladder when a prior is wrong, native in the locate workspace; stages F1 to F6 with checks and time estimates, held-out UK footage, and the forks that wait for the owner.
+summary: Plan for a first fix from video with optional priors: intervals on heading, pitch and height, a feasible-set grid at level 1 and 2, several frames fused with estimated heading offsets, verification by mesh render or by the satellite imagery warped to the candidate view (for areas with no DSM), a widening ladder when a prior is wrong, native in the locate workspace; stages F1 to F7 with checks and time estimates, held-out UK footage, and the forks that wait for the owner.
 answers: How will the first fix use priors from video; what are the stages and what does each check; which new dependencies and forks wait for the owner; how will the technique be shown to transfer; what will run at 5 km and 10 km and for how long
 ---
 
@@ -14,6 +14,16 @@ the imagery warp is kept for areas with no DSM; more UK footage is wanted as a h
 Sufficient altitude means the horizon is visible looking ahead, at least about 50 m. Work stays on
 the GPU where possible; the `cpu` variant of `locate/` is tested once per change to
 `satmesh-locate`.
+
+Related: the live map monitor for human users, `photo-only-live-ui-plan.md` (its event emitter lands
+with F3).
+
+## Progress
+
+- F1, F2 and F3 done 2026-11-02 (`photo-only-first-fix-f1-f2-results.md`,
+  `photo-only-first-fix-f3-results.md`). F7 next, then F4, F5, F6.
+- Owner approved PyTorch and GeoCalib for F5 and store downloads for the held-out clips;
+  Hergest Court is the sealed clip (`decisions.md`).
 
 ## Design
 
@@ -45,7 +55,11 @@ the GPU where possible; the `cpu` variant of `locate/` is tested once per change
 | F4 Imagery-warp verification | the flat-ground and DEM warp as a second reference in the verifier, chosen by whether a DSM exists | on the Bexhill frames it reproduces the recorded failure (median 1 match); on a held-out clip at 100 m or more above ground with a horizon it gives inliers within 5 m of the mesh result | minutes, needs the F6 footage |
 | F5 Attitude estimators | GeoCalib for pitch and roll as intervals (adds PyTorch to `locate`) | on frames with a horizon: pitch and roll within 3 degrees of the tracker's; on frames without: its uncertainty flags them | minutes; fork below |
 | F6 Held-out UK footage | two or three clips from the review list, probed; start location and, if supplied, `.SRT` as truth; frozen settings from F3 | the same settings locate the first frame and track at least 80 % of the clip; tuned on Bexhill only | download and probe: ask first; run under 30 min each |
+| F7 Profile and optimise | following the `profile-optimise` skill (user-level, in `claude-config`): a sampling profile of the whole first fix on the 2.5 km run (render, readback, resize and normalise, MegaLoc, matching, tracking), then only the levers it supports: render and describe overlapped, resize and normalise on the GPU, MegaLoc on TensorRT FP16 or ONNX Runtime IO binding, batch size, numba or vectorised place ranking and fusion, preallocated buffers, caches for descriptors and fine renders | identical outputs (same winner, poses equal) on Bexhill frame 1 and the 2.5 km frames, with the profile before and after and each lever timed on a slice | profile minutes; each lever on a slice first |
 
+- F7 follows F3 so the profile is of the packaged pipeline, not the scratch scripts. The likely
+  costs (render and describe in sequence, a GPU to CPU round trip per render, ONNX Runtime CUDA
+  for MegaLoc, numpy ranking) come from reading the code and are unmeasured.
 - Altitude is not estimated at first. The measurement shows level 1 retrieval prefers database
   heights of 90 to 110 m for photos at 51 to 74 m, so a height prior only needs a lower bound; the
   single-image altitude models reach about +-30 % at best. The altitude estimators are revisited

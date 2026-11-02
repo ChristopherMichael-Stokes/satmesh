@@ -7,7 +7,7 @@ answers: What is the project state today; what is running; what awaits the owner
 
 # Status
 
-State as of 2026-11-01. Decisions are in `decisions.md`, open risks in `risks.md`, the document
+State as of 2026-11-02. Decisions are in `decisions.md`, open risks in `risks.md`, the document
 map in `INDEX.md`, the older narrative in `status-history.md`. Update this file at every
 checkpoint; keep it to current state only.
 
@@ -74,10 +74,20 @@ checkpoint; keep it to current state only.
   with a corruption caveat on older releases.
 - Pushing: three new local commits (`70a92e4`, `a387327`, `2e05669`) are also unpushed. Everything
   since (tracker changes, `--reference`, docs) is staged and uncommitted.
-- Photo-only first fix: the plan with priors, fusion and the imagery-warp check awaits the owner
-  (`photo-only-first-fix-plan.md`, evidence in `photo-only-first-fix-priors.md`). Forks: PyTorch and
-  GeoCalib in `locate/`, which UK clips to download as held-out footage, downloads for the 5 km store.
-  `satmesh-track` now lives in `locate/` (decision 2026-11-01).
+- Photo-only first fix (`photo-only-first-fix-plan.md`): F1, F2 and F3 done
+  (`photo-only-first-fix-f1-f2-results.md`, `photo-only-first-fix-f3-results.md`: packaged
+  prior-aware first fix, winners 14 to 19 m from the tracker's poses on Bexhill and the 2.5 km
+  store). Next F7 (profile), then F4, F5, F6. Owner approved PyTorch and GeoCalib (F5), and store
+  downloads around the held-out clip locations (nothing downloaded yet). `satmesh-track` lives in
+  `locate/`.
+- Held-out footage (`uk-drone-footage.md`): Hergest Court is the sealed test; Old Sarum, Kenilworth
+  and Penshaw (from 38 s) are development clips; all four are downloaded under
+  `uncommitted/photo-only/footage/` with contact sheets. Decision in `decisions.md`.
+- Live map monitor (`photo-only-live-ui-plan.md`): U0, U1 and U2 done (`satmesh_locate.events`,
+  `satmesh-monitor` with replay and live follow, `docs/03-monitor.md`; a real run was watched live).
+  U3 (priors drawn on the map) is out of the first version; U4 (fusion and ladder views) is next.
+- Staged and uncommitted: the F7 row, the monitor and first-fix plans, the F1 and F2 results,
+  the events module and its tests, `locate/` pydantic dependency, decisions, this file.
 
 ## Running
 

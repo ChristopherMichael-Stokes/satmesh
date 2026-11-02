@@ -2,7 +2,7 @@ PREK = uvx prek@0.5.7
 LOCATE_VARIANT ?= gpu
 LOCATE_EXTRAS = --extra $(LOCATE_VARIANT) $(if $(filter gpu,$(LOCATE_VARIANT)),--extra tensorrt)
 
-.PHONY: setup sync grids check test test-contract update-hooks gdal-ecw-image eval-slice smoke-regions megaloc-engine
+.PHONY: setup sync grids check test test-contract update-hooks gdal-ecw-image eval-slice smoke-regions megaloc-engine track monitor
 
 REGIONS ?=
 SLICE_STORE ?= $(CURDIR)/uncommitted/eval-slice
@@ -69,3 +69,14 @@ smoke-regions:
 megaloc-engine:
 	$(if $(MEGALOC_MODEL),,$(error set MEGALOC_MODEL to the MegaLoc ONNX graph))
 	cd locate && uv run --frozen $(LOCATE_EXTRAS) satmesh-locate-export $(MEGALOC_MODEL) $(MEGALOC_ENGINE_DIR)
+
+track:
+	$(if $(PHOTOS),,$(error set PHOTOS to the directory of photos, in the order taken))
+	$(if $(STORE),,$(error set STORE to the tile store directory))
+	$(if $(OUT),,$(error set OUT to the output directory))
+	cd locate && uv run --frozen $(LOCATE_EXTRAS) satmesh-track $(abspath $(PHOTOS)) --store $(abspath $(STORE)) --out $(abspath $(OUT)) $(TRACK_ARGS)
+
+monitor:
+	$(if $(RUN),,$(error set RUN to the run directory holding events.jsonl))
+	mkdir -p $(abspath $(RUN))
+	cd locate && uv run --frozen $(LOCATE_EXTRAS) satmesh-monitor $(abspath $(RUN)) $(if $(PHOTOS),--photos $(abspath $(PHOTOS))) --port $(or $(PORT),8765)

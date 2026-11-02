@@ -19,8 +19,6 @@ Open `http://127.0.0.1:8765/`. The monitor only reads: it changes nothing in the
 - **Places:** numbered markers per search level (circles for level 1, squares for level 2). Once
   places are checked, the outline shows queued, running, accepted or rejected, with inliers and
   tracked frames. The fix is an arrow pointing along its heading.
-- **Convergence:** the spread of the candidate places (RMS distance from their centroid, log scale)
-  against time.
 - **Progress:** each stage with its start, end, elapsed time and unit count.
 - **Fused frames:** the frames whose similarities level 1 sums, with each frame's heading offset
   from the first (estimated, and on the 30 degree heading lattice). Under them one row per level 1

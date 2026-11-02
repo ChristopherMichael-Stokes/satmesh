@@ -1,5 +1,5 @@
 import { createMap } from "./map.js";
-import { formatClock, renderConvergence, renderFusion, renderLadder, renderLegend, renderProcess, renderPriors, renderProgress } from "./panels.js";
+import { formatClock, renderFusion, renderLadder, renderLegend, renderProcess, renderPriors, renderProgress } from "./panels.js";
 import { similarityRange, stateAt } from "./reducer.js";
 
 const POLL_INTERVAL_MS = 1000;
@@ -20,7 +20,6 @@ let mapView = null;
 let lastFrameMs = null;
 let mapEventCount = -1;
 let mapRangeHigh;
-let spreadCache = { count: -1, series: [] };
 
 async function fetchMore() {
   const response = await fetch(`/api/events?after=${events.length}`);
@@ -57,10 +56,6 @@ function draw() {
   renderFusion($("fusion"), state, (name) => `/api/photo/${encodeURIComponent(name)}`);
   renderLadder($("ladder"), state);
   if (!$("process").hidden) renderProcess($("process"), state);
-  if (spreadCache.count !== events.length) {
-    spreadCache = { count: events.length, series: stateAt(events, Infinity).spread };
-  }
-  renderConvergence($("convergence"), spreadCache.series, state, durationS);
   $("clock").textContent = `${formatClock(timeS)} / ${formatClock(durationS)}`;
   $("status").textContent = state.ended
     ? state.ended.ok ? "finished, fix found" : "finished, no fix"

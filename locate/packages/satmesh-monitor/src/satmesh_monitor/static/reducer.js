@@ -4,16 +4,6 @@ export function cellKey(level, cell) {
   return `${level}:${cell.east_m}:${cell.north_m}`;
 }
 
-// Root-mean-square distance of the places from their centroid, metres.
-export function spatialSpread(places) {
-  if (places.length === 0) return 0;
-  const east = places.reduce((sum, p) => sum + p.east_m, 0) / places.length;
-  const north = places.reduce((sum, p) => sum + p.north_m, 0) / places.length;
-  const meanSquare =
-    places.reduce((sum, p) => sum + (p.east_m - east) ** 2 + (p.north_m - north) ** 2, 0) / places.length;
-  return Math.sqrt(meanSquare);
-}
-
 function relaxed(priors, event) {
   if (event.prior === "area") {
     return priors.position && { ...priors, position: { ...priors.position, radius_m: event.half_width_after } };
@@ -57,7 +47,6 @@ function applyEvent(state, event) {
     case "candidates":
       state.candidates.set(event.level, event.places);
       pass.candidates.set(event.level, event.places);
-      state.spread.push({ timeS: event.time_s, spreadM: spatialSpread(event.places), count: event.places.length });
       break;
     case "verification_start":
       state.verification.set(event.rank, { status: "running" });
@@ -107,7 +96,6 @@ export function stateAt(events, timeS) {
     passes: [],
     prelude: [],
     fusion: null,
-    spread: [],
     fix: null,
     ended: null,
   };

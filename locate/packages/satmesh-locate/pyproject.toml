@@ -12,11 +12,16 @@ dependencies = [
 
 [project.scripts]
 satmesh-locate = "satmesh_locate.cli:app"
+satmesh-locate-export = "satmesh_locate.megaloc_export:app"
 
 [project.optional-dependencies]
 cpu = ["onnxruntime>=1.31.1"]
 gpu = ["onnxruntime-gpu[cuda,cudnn]>=1.31.1"]
+tensorrt = ["onnx>=1.23.2", "xfeat-trt"]
 
 [build-system]
 requires = ["uv_build>=0.13.5,<0.14.0"]
 build-backend = "uv_build"
+
+[tool.uv.sources]
+xfeat-trt = { path = "../../../third-party/xfeat-rt/backends/tensorrt", editable = true }

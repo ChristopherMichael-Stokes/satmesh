@@ -2,13 +2,14 @@ PREK = uvx prek@0.5.7
 LOCATE_VARIANT ?= gpu
 LOCATE_EXTRAS = --extra $(LOCATE_VARIANT) $(if $(filter gpu,$(LOCATE_VARIANT)),--extra tensorrt)
 
-.PHONY: setup sync grids check test test-contract update-hooks gdal-ecw-image eval-slice smoke-regions
+.PHONY: setup sync grids check test test-contract update-hooks gdal-ecw-image eval-slice smoke-regions megaloc-engine
 
 REGIONS ?=
 SLICE_STORE ?= $(CURDIR)/uncommitted/eval-slice
 CONTRACT_DIR ?= $(CURDIR)/uncommitted/contract-test
 SLICE_AREA = --nw "53.922751, -2.004535" --se "53.921852, -2.003013"
 SMOKE_DIR ?= $(CURDIR)/uncommitted/smoke-regions
+MEGALOC_ENGINE_DIR ?= $(CURDIR)/uncommitted/models/megaloc
 DENVER_AREA = --nw "39.74845, -104.99559" --se "39.74755, -104.99441"
 SANAA_AREA = --nw "15.35545, 44.20654" --se "15.35455, 44.20746"
 
@@ -63,3 +64,8 @@ smoke-regions:
 	cd pipeline && uv run --frozen satmesh export glb --store $(SMOKE_DIR)/denver --out $(SMOKE_DIR)/denver.glb
 	cd pipeline && uv run --frozen satmesh build $(SANAA_AREA) --store $(SMOKE_DIR)/sanaa --cache-dir $(SMOKE_DIR)/cache
 	cd pipeline && uv run --frozen satmesh export glb --store $(SMOKE_DIR)/sanaa --out $(SMOKE_DIR)/sanaa.glb
+
+# FP16 TensorRT engine of the MegaLoc graph named by MEGALOC_MODEL, built once per export, TensorRT version and GPU; prints the .engine path to use as MEGALOC_MODEL
+megaloc-engine:
+	$(if $(MEGALOC_MODEL),,$(error set MEGALOC_MODEL to the MegaLoc ONNX graph))
+	cd locate && uv run --frozen $(LOCATE_EXTRAS) satmesh-locate-export $(MEGALOC_MODEL) $(MEGALOC_ENGINE_DIR)

@@ -20,6 +20,11 @@ uv run --extra gpu --extra tensorrt satmesh-track PHOTOS --store STORE --out OUT
   are compared with the first photo. The six best places are then matched in detail, and each
   that localises the first photo follows the first 12 photos; the place with the most photos
   followed wins. Renders are described as they are made; nothing is written to disk.
+- The MegaLoc model is either the ONNX graph or an FP16 TensorRT engine, which describes views
+  about five times faster on the GPU. Build the engine once per MegaLoc export, TensorRT version
+  and GPU with `satmesh-locate-export MODEL.onnx OUT_DIR` (from `locate/`, with the `tensorrt`
+  extra; about a minute) and point `MEGALOC_MODEL` at the `.engine` file it prints. The engine
+  needs an NVIDIA GPU; the `cpu` variant uses the ONNX graph.
 - Priors narrow the search: `--start` and `--radius-m` a circle for the position, `--heading`,
   `--pitch` and `--height` a centre and a half-width (`CENTRE+-HALF`, degrees or metres above the
   ground). Give each window about twice the expected error: a heading hint 30 degrees off, with

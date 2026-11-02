@@ -25,7 +25,7 @@ dependencies = [
 satmesh-track = "satmesh_track.cli:app"
 
 [project.optional-dependencies]
-tensorrt = ["xfeat-trt"]
+tensorrt = ["satmesh-locate[tensorrt]", "xfeat-trt"]
 
 [build-system]
 requires = ["uv_build>=0.13.5,<0.14.0"]

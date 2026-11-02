@@ -1718,17 +1718,23 @@ cpu = [
 gpu = [
     { name = "onnxruntime-gpu", extra = ["cuda", "cudnn"], marker = "extra == 'extra-14-satmesh-locate-gpu'" },
 ]
+tensorrt = [
+    { name = "onnx" },
+    { name = "xfeat-trt" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "numpy", specifier = ">=2.5.4" },
+    { name = "onnx", marker = "extra == 'tensorrt'", specifier = ">=1.23.2" },
     { name = "onnxruntime", marker = "extra == 'cpu'", specifier = ">=1.31.1" },
     { name = "onnxruntime-gpu", extras = ["cuda", "cudnn"], marker = "extra == 'gpu'", specifier = ">=1.31.1" },
     { name = "opencv-python-headless", specifier = ">=5.0.0.93" },
     { name = "pydantic", specifier = ">=2.14.1" },
     { name = "typer", specifier = ">=0.27.3" },
+    { name = "xfeat-trt", marker = "extra == 'tensorrt'", editable = "../third-party/xfeat-rt/backends/tensorrt" },
 ]
-provides-extras = ["cpu", "gpu"]
+provides-extras = ["cpu", "gpu", "tensorrt"]
 
 [[package]]
 name = "satmesh-mesh"
@@ -1829,6 +1835,7 @@ dependencies = [
 
 [package.optional-dependencies]
 tensorrt = [
+    { name = "satmesh-locate", extra = ["tensorrt"] },
     { name = "xfeat-trt" },
 ]
 
@@ -1842,6 +1849,7 @@ requires-dist = [
     { name = "satmesh-data", editable = "../pipeline/packages/satmesh-data" },
     { name = "satmesh-eval", editable = "../pipeline/packages/satmesh-eval" },
     { name = "satmesh-locate", editable = "packages/satmesh-locate" },
+    { name = "satmesh-locate", extras = ["tensorrt"], marker = "extra == 'tensorrt'", editable = "packages/satmesh-locate" },
     { name = "satmesh-mesh", editable = "../pipeline/packages/satmesh-mesh" },
     { name = "satmesh-tiles", editable = "../pipeline/packages/satmesh-tiles" },
     { name = "scipy", specifier = ">=1.18.1" },

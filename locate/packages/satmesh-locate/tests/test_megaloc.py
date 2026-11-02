@@ -25,6 +25,8 @@ needs_model = pytest.mark.skipif(
     MODEL_VARIABLE not in os.environ, reason=f"{MODEL_VARIABLE} not set"
 )
 UNIT_TOLERANCE = 1e-4  # float32 arithmetic through a transformer
+FP16_COSINE_FLOOR = 0.99  # worst cosine to the FP32 graph measured on 128 real renders: 0.9954
+ENGINE_BATCH = 4
 BATCH_TOLERANCE = 1e-3  # batch composition changes float32 summation order
 INPUT_PX = 322
 
@@ -77,3 +79,40 @@ def test_rank_puts_the_view_identical_to_the_photo_first(tmp_path: Path) -> None
     assert places[0]["east"] == 1000.0
     assert places[0]["similarity"] == pytest.approx(1.0, abs=UNIT_TOLERANCE)
     assert places[1]["similarity"] < places[0]["similarity"]
+
+
+@pytest.fixture(scope="module")
+def engine_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    if MODEL_VARIABLE not in os.environ:
+        pytest.skip(f"{MODEL_VARIABLE} not set")
+    pytest.importorskip("xfeat_trt")
+    from satmesh_locate.megaloc_export import export_fp16_engine  # noqa: PLC0415  # needs the tensorrt extra
+
+    return export_fp16_engine(
+        Path(os.environ[MODEL_VARIABLE]), tmp_path_factory.mktemp("engine"), ENGINE_BATCH
+    )
+
+
+@pytest.mark.skipif(not CUDA_INSTALLED, reason="needs the gpu extra")
+def test_engine_descriptors_follow_the_fp32_graph_and_do_not_depend_on_the_batch(
+    engine_path: Path,
+) -> None:
+    images = [noise_image(seed) for seed in range(ENGINE_BATCH + 1)]  # a full batch and a short one
+    engine = MegaLocDescriber(engine_path, Device.CUDA, batch_size=ENGINE_BATCH)
+    reference = MegaLocDescriber(Path(os.environ[MODEL_VARIABLE]), Device.CUDA)
+
+    together = engine.describe(images)
+    alone = engine.describe(images[-1:])
+    cosine = np.sum(together * reference.describe(images), axis=1)
+
+    assert np.allclose(np.linalg.norm(together, axis=1), 1.0, atol=UNIT_TOLERANCE)
+    assert np.all(cosine > FP16_COSINE_FLOOR)
+    assert np.allclose(together[-1], alone[0], atol=BATCH_TOLERANCE)
+
+
+@pytest.mark.skipif(not CUDA_INSTALLED, reason="needs the gpu extra")
+def test_an_engine_refuses_a_batch_size_it_was_not_built_for_and_the_cpu(engine_path: Path) -> None:
+    with pytest.raises(ValueError, match="at a time"):
+        MegaLocDescriber(engine_path, Device.CUDA, batch_size=ENGINE_BATCH + 1)
+    with pytest.raises(CudaUnavailableError, match="CUDA GPU"):
+        MegaLocDescriber(engine_path, Device.CPU)

@@ -6,12 +6,9 @@ from typing import Annotated
 
 import numpy as np
 import typer
-from loguru import logger
 
 from satmesh_cli.common import (
-    DEFAULT_CACHE_DIR,
     BackendOption,
-    CacheDirOption,
     MatcherChoice,
     StoreOption,
     XFeatBackend,
@@ -21,50 +18,79 @@ from satmesh_cli.common import (
 )
 from satmesh_cli.corners import LatLon, parse_lat_lon
 from satmesh_cli.reporting import run_log
-from satmesh_core import geodetic_to_ecef
-from satmesh_eval.camera import CameraPose
+from satmesh_core import EnuFrame, geodetic_to_ecef
+from satmesh_locate.events import EVENTS_FILE, EventWriter, Interval, PositionPrior
 from satmesh_locate.megaloc import MegaLocDescriber
-from satmesh_track.first_fix import (
-    GridConfig,
-    descriptor_cache_path,
-    find_start,
-    grid_descriptors,
-    grid_poses,
-    start_near,
-)
+from satmesh_track.first_fix import first_fix
 from satmesh_track.lens import LensConfig
 from satmesh_track.outputs import read_reference, write_outputs
 from satmesh_track.photos import list_photos, load_photo
-from satmesh_track.store_scene import StoreScene, load_store_scene
-from satmesh_track.tracker import (
-    PhotoImage,
-    TrackConfig,
-    TrackingContext,
-    TrackingError,
-    nominal_focal,
-    track,
+from satmesh_track.priors import FirstFixConfig, load_config, parse_interval, with_priors
+from satmesh_track.store_scene import load_store_scene
+from satmesh_track.tracker import TrackConfig, TrackingContext, TrackingError, track
+
+WINDOW_HELP = (
+    "Give about twice the expected error: a heading hint 30 degrees off, with the truth at the "
+    "window's edge, lost most of the recall."
 )
+RELAXED_HELP = "Dropped if no place verifies within it."
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 
 
 @app.command()
-def track_photos(  # noqa: PLR0913 (photos, store and seven settings)
+def track_photos(  # noqa: PLR0913 (photos, store and twelve settings)
     photos: Annotated[Path, typer.Argument(help="Directory of photos, in the order taken.")],
     store: StoreOption,
     *,
-    out: Annotated[Path, typer.Option(help="Directory for the four output files.")] = Path(
-        "track-report"
-    ),
+    out: Annotated[
+        Path, typer.Option(help="Directory for the output files and events.jsonl.")
+    ] = Path("track-report"),
+    priors: Annotated[
+        Path | None,
+        typer.Option(
+            help="TOML file of first-fix settings and priors; the options below override it."
+        ),
+    ] = None,
     start: Annotated[
         LatLon | None,
         typer.Option(
             parser=parse_lat_lon,
             metavar="LAT, LON",
-            help="Rough position of the first photo; searches only around it instead of the store.",
+            help="Rough position of the first photo: the centre of the position prior.",
         ),
     ] = None,
-    radius_m: Annotated[float, typer.Option(help="Search radius around --start.")] = 150.0,
+    radius_m: Annotated[
+        float,
+        typer.Option(
+            min=0.0, help=f"Radius of the position prior, metres. {WINDOW_HELP} {RELAXED_HELP}"
+        ),
+    ] = 150.0,
+    heading: Annotated[
+        Interval | None,
+        typer.Option(
+            parser=parse_interval,
+            metavar="CENTRE+-HALF",
+            help=f"Heading prior, degrees clockwise from north. {WINDOW_HELP} {RELAXED_HELP}",
+        ),
+    ] = None,
+    pitch: Annotated[
+        Interval | None,
+        typer.Option(
+            parser=parse_interval,
+            metavar="CENTRE+-HALF",
+            help=f"Pitch prior, degrees, negative looking down. {WINDOW_HELP} {RELAXED_HELP}",
+        ),
+    ] = None,
+    height: Annotated[
+        Interval | None,
+        typer.Option(
+            parser=parse_interval,
+            metavar="CENTRE+-HALF",
+            help="Height prior, metres above the ground: limits the fine search heights and raises "
+            "the coarse ones (90 and 110 m) when its lower end is above 90 m.",
+        ),
+    ] = None,
     mesh_error_m: Annotated[
         float, typer.Option(min=0.0, help="Assumed error of the mesh's heights, metres.")
     ] = LensConfig().mesh_error_m,
@@ -82,21 +108,27 @@ def track_photos(  # noqa: PLR0913 (photos, store and seven settings)
     ] = None,
     megaloc_model: Annotated[
         Path | None,
-        typer.Option(envvar="MEGALOC_MODEL", help="MegaLoc ONNX graph; needed without --start."),
+        typer.Option(envvar="MEGALOC_MODEL", help="MegaLoc ONNX graph of the first fix."),
     ] = None,
-    cache_dir: CacheDirOption = DEFAULT_CACHE_DIR,
 ) -> None:
-    """Recover each photo's pose and the camera's lens from the photos alone; writes four files."""
+    """Recover each photo's pose and the camera's lens from the photos alone; writes five files."""
     settings = {
         "photos": photos,
         "out": out,
+        "priors": priors,
         "start": start,
         "radius_m": radius_m,
+        "heading": heading,
+        "pitch": pitch,
+        "height": height,
         "mesh_error_m": mesh_error_m,
         "reference": reference,
         "matcher": matcher.value,
         "backend": backend.value,
     }
+    if megaloc_model is None:
+        msg = "the first fix needs --megaloc-model (or MEGALOC_MODEL)"
+        raise typer.BadParameter(msg)
     with reported_errors(TrackingError), run_log(store, "track", settings):
         loaded = [load_photo(path) for path in list_photos(photos)]
         images = [item.image for item in loaded]
@@ -104,18 +136,28 @@ def track_photos(  # noqa: PLR0913 (photos, store and seven settings)
         config = TrackConfig(lens=LensConfig(mesh_error_m=mesh_error_m))
         selected = build_matcher(matcher, backend, xfeat_models)
         context = TrackingContext(store_scene.scene, selected, config, log_photo_progress)
-        if start is not None:
-            ecef = np.array(geodetic_to_ecef().transform(start[1], start[0], 0.0))
-            centre = store_scene.scene.area.to_enu(ecef[None, :])[0][:2]
-            first_pose = start_near(images[0], centre, radius_m, context)
-        elif megaloc_model is not None:
-            first_pose = _store_wide_start(
-                images[0], store_scene, context, megaloc_model, cache_dir
+        fix_config = with_priors(
+            FirstFixConfig() if priors is None else load_config(priors),
+            position=None
+            if start is None
+            else _position_prior(start, radius_m, store_scene.scene.area),
+            heading_deg=heading,
+            pitch_deg=pitch,
+            height_m=height,
+        )
+        out.mkdir(parents=True, exist_ok=True)
+        events = out / EVENTS_FILE
+        events.unlink(missing_ok=True)  # a run's file holds that run only
+        with EventWriter(events) as writer:
+            fix = first_fix(
+                images,
+                store_scene,
+                MegaLocDescriber(megaloc_model),
+                context,
+                config=fix_config,
+                emit=writer.write,
             )
-        else:
-            msg = "searching the store needs --megaloc-model (or MEGALOC_MODEL), or give --start"
-            raise typer.BadParameter(msg)
-        result = track(images, first_pose, context)
+        result = track(images, fix.pose, context)
         logged = read_reference(reference) if reference is not None else []
         write_outputs(out, result, loaded, store_scene.scene.area, logged)
         counts = Counter(p.status.value for p in result.photos)
@@ -128,29 +170,8 @@ def track_photos(  # noqa: PLR0913 (photos, store and seven settings)
         typer.echo(out)
 
 
-def _store_wide_start(
-    photo: PhotoImage,
-    store_scene: StoreScene,
-    context: TrackingContext,
-    model: Path,
-    cache_dir: Path,
-) -> CameraPose:
-    """First fix with no prior: the MegaLoc-ranked grid over the whole store, descriptors cached."""
-    describer = MegaLocDescriber(model)
-    grid_config = GridConfig()
-    grid = grid_poses(grid_config, store_scene.bounds, store_scene.scene.ground_height)
-    height, width = photo.rgb.shape[:2]
-    cache = descriptor_cache_path(
-        cache_dir / "first-fix", store_scene.key, grid_config, (width, height), model
-    )
-    logger.info("describing {} grid renders (cached after the first run)", len(grid))
-    descriptors = grid_descriptors(
-        grid,
-        store_scene.scene,
-        describer,
-        (width, height),
-        nominal_focal(width),
-        cache,
-        context.config.max_range_m,
-    )
-    return find_start(photo, grid, descriptors, describer, context, grid_config.verify_top_k)
+def _position_prior(start: LatLon, radius_m: float, area: EnuFrame) -> PositionPrior:
+    """A circle around `start` in the store's ENU frame."""
+    ecef = np.array(geodetic_to_ecef().transform(start.lon, start.lat, 0.0))
+    east, north, _ = area.to_enu(ecef[None, :])[0]
+    return PositionPrior(east_m=float(east), north_m=float(north), radius_m=radius_m)

@@ -1,195 +1,663 @@
-"""The first photo's pose with no prior: rank a grid of renders by global descriptor, then verify.
+"""The first photo's pose from priors: a two-level place search, then verification by tracking.
 
-A grid of poses covers the scene: positions every `spacing_m`, several heights above the ground,
-headings every 90 degrees and two pitches. Each is rendered and described once (the descriptors
-are cached on disk, because describing thousands of renders takes tens of minutes on CPU). The
-first photo is described, the grid ranked by cosine similarity and the best `verify_top_k` are
-localised with the normal solve; the pose with the most inliers wins (photo-only P1: 16 of 18
-queries within 1 m on a 100 m grid, 17 of 18 on 50 m, one wrong fix in the latter).
+1. Yaw offsets: the heading change of the fused frames from the first, from XFeat matches
+   (`yaw.py`); a window whose offsets cannot be estimated falls back to the first photo alone.
+2. Level 1: coarse views over the set the priors allow (`grid.py`), rendered from the store and
+   described with MegaLoc in chunks as they are rendered, scored by the fused similarity of the
+   window's frames; the best `coarse_places` places `coarse_separation_m` apart survive.
+3. Level 2: fine views around those places, scored by the first photo alone; the best
+   `final_places` places `final_separation_m` apart survive.
+4. Verification: each place is refined by a local match search and localised; a solved place
+   tracks the first `verify_photos` photos and is accepted with `min_tracked_photos` tracked. The
+   most photos tracked, then the highest median inliers, wins.
 
-The height ladder 25, 50, 100 m follows from the scale gap: a render up to 2 times higher than the
-photo still matches, 4 times does not.
+When nothing is accepted the priors are relaxed one at a time, heading, then pitch, then position,
+and the search runs again. Every step reports to an event callable (`satmesh_locate.events`) whose
+times are seconds on one monotonic clock started with the run.
 """
 
-import hashlib
-import json
-from collections.abc import Sequence
-from dataclasses import asdict, dataclass
+import math
+import time
+from collections.abc import Callable, Generator, Sequence
+from contextlib import contextmanager
+from dataclasses import dataclass
 from itertools import batched
-from pathlib import Path
+from statistics import median
+from typing import Literal, NamedTuple
 
 import numpy as np
 import numpy.typing as npt
 
-from satmesh_core import EnuFrame
-from satmesh_eval.camera import CameraPose, pose_from_camera_to_enu, pose_from_enu
+from satmesh_core import ecef_to_geodetic
+from satmesh_eval.camera import (
+    CameraPose,
+    camera_centre_and_rotation,
+    pose_from_camera_to_enu,
+    pose_from_enu,
+)
 from satmesh_eval.perspective import GroundExtent
+from satmesh_locate.events import (
+    Bounds,
+    Candidate,
+    Candidates,
+    Cell,
+    CellBatch,
+    Event,
+    Fix,
+    GridLevel,
+    PriorRelaxed,
+    Priors,
+    RunEnd,
+    RunStart,
+    StageEnd,
+    StageStart,
+    VerificationResult,
+    VerificationStart,
+)
 from satmesh_locate.megaloc import MegaLocDescriber
-from satmesh_track.search import GroundHeight, best_candidates, candidate_poses
+from satmesh_locate.places import Cells, Place, top_places
+from satmesh_track.grid import (
+    LevelGrid,
+    Position,
+    candidate_mask,
+    fused_scores,
+    lattice_offsets_deg,
+    level_one,
+    level_two,
+    planned_fine_positions,
+)
+from satmesh_track.priors import FULL_CIRCLE_DEG, FirstFixConfig
+from satmesh_track.search import best_candidates, candidate_poses
+from satmesh_track.store_scene import StoreScene
 from satmesh_track.tracker import (
-    FIRST_SEARCH_HEIGHTS_M,
-    UNKNOWN_PITCH_DEG,
     PhotoImage,
-    Scene,
+    PhotoStatus,
     TrackingContext,
     TrackingError,
     best_attempt,
     nominal_focal,
     pinhole,
     solved,
+    track,
 )
+from satmesh_track.yaw import focal_for_field_of_view, window_offsets_deg
 
-FloatArray = npt.NDArray[np.float64]
-DESCRIPTOR_CACHE_SUFFIX = ".npz"
-CACHE_KEY_LENGTH = 16
-RENDERS_PER_CHUNK = 32  # renders held in memory while they are described
+DESCRIBE_CHUNK_VIEWS = 256  # renders held while described: about 180 MB at 640 x 360
+CELL_BATCH_INTERVAL_S = 0.1  # the monitor redraws at about 10 Hz
+FULL_PITCH_HALF_WIDTH_DEG = 90.0
+STAGE_YAW = "yaw offsets"
+STAGE_PHOTOS = "describe photos"
+STAGE_VERIFY = "verification"
 
-
-@dataclass(frozen=True)
-class GridConfig:
-    """Spacing and extent of the first-fix grid; the spacing follows from the P0 basin (70 m)."""
-
-    spacing_m: float = 70.0
-    heights_above_ground_m: tuple[float, ...] = (25.0, 50.0, 100.0)
-    pitches_deg: tuple[float, ...] = (-25.0, -45.0)
-    heading_count: int = 4
-    verify_top_k: int = 20
+type RelaxedPrior = Literal["heading", "pitch", "area"]
 
 
 @dataclass(frozen=True)
-class GridPose:
-    """A grid camera: area-ENU position over the ground, and its attitude."""
+class StageTime:
+    """Seconds a stage took; a level's render and describe stage also splits its time."""
 
-    east_m: float
-    north_m: float
-    ground_m: float
-    height_above_ground_m: float
-    heading_deg: float
-    pitch_deg: float
-
-    def camera_pose(self, area: EnuFrame) -> CameraPose:
-        """The pose in the area frame."""
-        centre = np.array([self.east_m, self.north_m, self.ground_m + self.height_above_ground_m])
-        return pose_from_enu(area, centre, self.heading_deg, self.pitch_deg, 0.0)
+    name: str
+    seconds: float
+    render_seconds: float = 0.0
+    describe_seconds: float = 0.0
 
 
-def grid_poses(
-    config: GridConfig, bounds: GroundExtent, ground_height: GroundHeight
-) -> list[GridPose]:
-    """Every grid pose over `bounds`; positions outside the scene are left out."""
-    east_values = np.arange(bounds.west_m, bounds.east_m + 1e-6, config.spacing_m)
-    north_values = np.arange(bounds.south_m, bounds.north_m + 1e-6, config.spacing_m)
-    headings = np.arange(config.heading_count) * 360.0 / config.heading_count
-    poses = []
-    for east in east_values:
-        for north in north_values:
-            try:
-                ground = ground_height(float(east), float(north))
-            except ValueError:
-                continue
-            for height in config.heights_above_ground_m:
-                for pitch in config.pitches_deg:
-                    poses.extend(
-                        GridPose(float(east), float(north), ground, height, float(h), pitch)
-                        for h in headings
-                    )
-    return poses
+@dataclass(frozen=True)
+class Hypothesis:
+    """A final place and its verification; `pose` is the first photo's pose if it localised."""
+
+    rank: int
+    place: Place
+    renders: int
+    first_photo_inliers: int
+    photos_tracked: int
+    photos_verified: int
+    median_inliers: float
+    pose: CameraPose | None
 
 
-def descriptor_cache_path(
-    directory: Path, scene_key: str, config: GridConfig, image_size: tuple[int, int], model: Path
-) -> Path:
-    """File name from everything the descriptors depend on, so a changed input never hits."""
-    identity = json.dumps(
-        [scene_key, asdict(config), image_size, model.name, model.stat().st_size], sort_keys=True
-    )
-    digest = hashlib.sha256(identity.encode()).hexdigest()[:CACHE_KEY_LENGTH]
-    return directory / f"first-fix-{digest}{DESCRIPTOR_CACHE_SUFFIX}"
+@dataclass(frozen=True)
+class FirstFix:
+    """The winning pose, its rank, every hypothesis of the last search, timings, priors used."""
+
+    pose: CameraPose
+    rank: int
+    hypotheses: tuple[Hypothesis, ...]
+    timings: tuple[StageTime, ...]
+    priors: Priors
 
 
-def grid_descriptors(  # noqa: PLR0913, PLR0917 (grid, scene, describer, image size, focal, cache path)
-    grid: Sequence[GridPose],
-    scene: Scene,
+class Relaxation(NamedTuple):
+    """One rung of the widening ladder: the prior relaxed and the priors after it."""
+
+    prior: RelaxedPrior
+    half_width_before: float
+    half_width_after: float
+    priors: Priors
+
+
+def ignore_event(_event: Event) -> None:
+    """The event callable of a run nobody watches."""
+
+
+@dataclass
+class _Split:
+    render_seconds: float = 0.0
+    describe_seconds: float = 0.0
+
+
+class _Run:
+    """The run's clock, its event callable and the times of its stages."""
+
+    def __init__(self, emit: Callable[[Event], None]) -> None:
+        self._emit = emit
+        self._started = time.monotonic()
+        self.timings: list[StageTime] = []
+
+    def seconds(self) -> float:
+        """Seconds since the run started."""
+        return time.monotonic() - self._started
+
+    def emit(self, event: Event) -> None:
+        """Pass one event on."""
+        self._emit(event)
+
+    @contextmanager
+    def stage(self, name: str, units: int) -> Generator[_Split]:
+        """Emit the stage's start and end and record its time."""
+        split = _Split()
+        started = self.seconds()
+        self.emit(StageStart(time_s=started, stage=name, units=units))
+        yield split
+        ended = self.seconds()
+        self.emit(StageEnd(time_s=ended, stage=name))
+        self.timings.append(
+            StageTime(name, ended - started, split.render_seconds, split.describe_seconds)
+        )
+
+
+class _CellBatcher:
+    """Cells of one level, emitted together at most every `CELL_BATCH_INTERVAL_S`."""
+
+    def __init__(self, run: _Run, level: int) -> None:
+        self._run = run
+        self._level = level
+        self._pending: list[Cell] = []
+        self._last_emit_s = run.seconds()
+
+    def add(self, cells: Sequence[Cell]) -> None:
+        """Queue cells, emitting the queue if the interval has passed."""
+        self._pending.extend(cells)
+        if self._run.seconds() - self._last_emit_s >= CELL_BATCH_INTERVAL_S:
+            self.flush()
+
+    def flush(self) -> None:
+        """Emit the queued cells, if any; at a stage's end, whatever the interval."""
+        if not self._pending:
+            return
+        self._last_emit_s = self._run.seconds()
+        self._run.emit(CellBatch(time_s=self._last_emit_s, level=self._level, cells=self._pending))
+        self._pending = []
+
+
+@dataclass(frozen=True)
+class _Setup:
+    """What every search attempt shares: inputs, the photos' descriptors and the frame offsets."""
+
+    images: Sequence[PhotoImage]
+    store_scene: StoreScene
+    describer: MegaLocDescriber
+    context: TrackingContext
+    config: FirstFixConfig
+    queries: npt.NDArray[np.float32]  # one MegaLoc descriptor per fused frame, frame 0 first
+    lattice_offsets: tuple[float, ...]  # the frames' heading offsets on the heading lattice
+
+
+class _Scoring(NamedTuple):
+    """The frames a level is scored with: their descriptors and lattice heading offsets."""
+
+    queries: npt.NDArray[np.float32]
+    lattice_offsets: tuple[float, ...]
+
+
+@dataclass(frozen=True)
+class _Found:
+    winner: Hypothesis
+    pose: CameraPose  # the winner's
+    hypotheses: tuple[Hypothesis, ...]
+
+
+def first_fix(  # noqa: PLR0913 (photos, scene, describer, context, settings, events)
+    images: Sequence[PhotoImage],
+    store_scene: StoreScene,
     describer: MegaLocDescriber,
-    image_size: tuple[int, int],
-    focal_px: float,
-    cache_path: Path,
-    max_range_m: float,
+    context: TrackingContext,
+    *,
+    config: FirstFixConfig,
+    emit: Callable[[Event], None] = ignore_event,
+) -> FirstFix:
+    """The first photo's pose within the priors of `config`, widened until a place verifies.
+
+    Raises:
+        TrackingError: no place verified, even with every prior relaxed.
+    """
+    run = _Run(emit)
+    run.emit(_run_start(run, images, store_scene, config))
+    try:
+        frames = _fusion_frames(images, config)
+        offsets = _frame_offsets(frames, context, config, run)
+        frames = frames[: len(offsets)]
+        setup = _Setup(
+            images,
+            store_scene,
+            describer,
+            context,
+            config,
+            _photo_descriptors(frames, describer, run),
+            lattice_offsets_deg(offsets, config.heading_step_deg),
+        )
+        found, priors = widened_search(
+            config.priors,
+            store_scene.bounds,
+            lambda priors: _search(priors, setup, run),
+            lambda relaxation: run.emit(_relaxed_event(run, relaxation)),
+        )
+    except TrackingError:
+        run.emit(RunEnd(time_s=run.seconds(), ok=False))
+        raise
+    run.emit(_fix_event(run, found, store_scene))
+    run.emit(RunEnd(time_s=run.seconds(), ok=True))
+    return FirstFix(found.pose, found.winner.rank, found.hypotheses, tuple(run.timings), priors)
+
+
+def widened_search[T](
+    priors: Priors,
+    bounds: GroundExtent,
+    search: Callable[[Priors], T | None],
+    on_relaxed: Callable[[Relaxation], None],
+) -> tuple[T, Priors]:
+    """Search with `priors`, then with each rung of the ladder until a search finds something.
+
+    Raises:
+        TrackingError: no search found anything; the message names every prior relaxed.
+    """
+    found = search(priors)
+    if found is not None:
+        return found, priors
+    tried: list[str] = []
+    for relaxation in relaxations(priors, bounds):
+        on_relaxed(relaxation)
+        tried.append(relaxation.prior)
+        found = search(relaxation.priors)
+        if found is not None:
+            return found, relaxation.priors
+    relaxed = f"; relaxed in turn: {', '.join(tried)}" if tried else ""
+    message = f"no place verified with the priors {priors.model_dump_json()}{relaxed}"
+    raise TrackingError(message)
+
+
+def relaxations(priors: Priors, bounds: GroundExtent) -> list[Relaxation]:
+    """The ladder: each prior that is set dropped in turn, heading, then pitch, then position.
+
+    Each rung keeps the relaxations before it. An area's half-width is the circle's radius, and
+    once relaxed the distance from its centre to the farthest corner of the store.
+    """
+    rungs: list[Relaxation] = []
+    current = priors
+    if (heading := current.heading_deg) is not None:
+        current = current.model_copy(update={"heading_deg": None})
+        rungs.append(Relaxation("heading", heading.half_width, FULL_CIRCLE_DEG / 2, current))
+    if (pitch := current.pitch_deg) is not None:
+        current = current.model_copy(update={"pitch_deg": None})
+        rungs.append(Relaxation("pitch", pitch.half_width, FULL_PITCH_HALF_WIDTH_DEG, current))
+    if current.position is not None:
+        circle = current.position
+        current = current.model_copy(update={"position": None})
+        farthest = max(
+            math.hypot(east - circle.east_m, north - circle.north_m)
+            for east in (bounds.west_m, bounds.east_m)
+            for north in (bounds.south_m, bounds.north_m)
+        )
+        rungs.append(Relaxation("area", circle.radius_m, farthest, current))
+    return rungs
+
+
+def _fusion_frames(images: Sequence[PhotoImage], config: FirstFixConfig) -> list[PhotoImage]:
+    """The photos fused at level 1: the first and every `fusion_frame_step`-th after it."""
+    return list(images[:: config.fusion_frame_step][: config.fusion_frames])
+
+
+def _frame_offsets(
+    frames: Sequence[PhotoImage], context: TrackingContext, config: FirstFixConfig, run: _Run
+) -> tuple[float, ...]:
+    """Heading offsets of the frames from the first; just the first if they cannot be estimated."""
+    with run.stage(STAGE_YAW, len(frames) - 1):
+        height, width = frames[0].rgb.shape[:2]
+        focal = focal_for_field_of_view(width, config.nominal_horizontal_fov_deg)
+        offsets = window_offsets_deg(
+            [frame.rgb for frame in frames],
+            context.matcher,
+            pinhole(width, height, focal).matrix(),
+            pitch_deg=config.assumed_pitch_deg,
+            method=config.yaw_method,
+            agreement_deg=config.yaw_agreement_deg,
+        )
+    return (0.0,) if offsets is None else offsets
+
+
+def _photo_descriptors(
+    frames: Sequence[PhotoImage], describer: MegaLocDescriber, run: _Run
 ) -> npt.NDArray[np.float32]:
-    """Descriptors of the renders at every grid pose, from the cache or built and cached."""
-    if cache_path.exists():
-        cached = np.load(cache_path)["descriptors"]
-        if len(cached) == len(grid):
-            return np.asarray(cached, dtype=np.float32)
-    width, height = image_size
-    intrinsics = pinhole(width, height, focal_px)
-    images = (
-        scene.render(intrinsics, pose.camera_pose(scene.area), max_range_m).rgb for pose in grid
+    with run.stage(STAGE_PHOTOS, len(frames)):
+        return describer.describe([frame.rgb for frame in frames])
+
+
+def _search(priors: Priors, setup: _Setup, run: _Run) -> _Found | None:
+    """One pass of level 1, level 2 and verification; None if no place is accepted."""
+    config, scene = setup.config, setup.store_scene
+    heading_margin = max(abs(offset) for offset in setup.lattice_offsets)
+    coarse_grid = level_one(config, scene.bounds, scene.scene.ground_height, priors, heading_margin)
+    coarse = _ranked_level(
+        coarse_grid,
+        _Scoring(setup.queries, setup.lattice_offsets),
+        (config.coarse_places, config.coarse_separation_m),
+        priors=priors,
+        setup=setup,
+        run=run,
     )
-    descriptors = np.concatenate(
-        [
-            describer.describe(list(chunk))
-            for chunk in batched(images, RENDERS_PER_CHUNK, strict=False)
-        ]
+    fine_grid = level_two(config, scene.bounds, scene.scene.ground_height, priors, coarse)
+    final = _ranked_level(
+        fine_grid,
+        _Scoring(setup.queries[:1], (0.0,)),
+        (config.final_places, config.final_separation_m),
+        priors=priors,
+        setup=setup,
+        run=run,
     )
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(cache_path, descriptors=descriptors.astype(np.float16))
-    return descriptors
+    with run.stage(STAGE_VERIFY, len(final)):
+        hypotheses = tuple(
+            _verified(rank, place, setup, run) for rank, place in enumerate(final, start=1)
+        )
+    accepted = [h for h in hypotheses if _accepted(h, setup.config)]
+    if not accepted:
+        return None
+    winner = max(accepted, key=lambda h: (h.photos_tracked, h.median_inliers))
+    assert winner.pose is not None  # noqa: S101  # an accepted hypothesis is localised
+    return _Found(winner, winner.pose, hypotheses)
 
 
-def find_start(  # noqa: PLR0913, PLR0917 (photo, grid, descriptors, describer, context)
-    photo: PhotoImage,
-    grid: Sequence[GridPose],
-    descriptors: npt.NDArray[np.float32],
-    describer: MegaLocDescriber,
-    context: TrackingContext,
-    verify_top_k: int,
-) -> CameraPose:
-    """The refined pose of the best verified candidate; raises `TrackingError` if none localises."""
-    similarity = descriptors @ describer.describe([photo.rgb])[0]
-    ranked = np.argsort(similarity)[::-1][:verify_top_k]
-    priors = [grid[i].camera_pose(context.scene.area) for i in ranked]
-    return _refined(photo, priors, context, f"the {verify_top_k} best-ranked renders")
+def _ranked_level(  # noqa: PLR0913 (grid, scoring, places kept, priors, setup, run)
+    grid: LevelGrid,
+    scoring: _Scoring,
+    places: tuple[int, float],
+    *,
+    priors: Priors,
+    setup: _Setup,
+    run: _Run,
+) -> list[Place]:
+    """Render, describe and score a level's views, then keep its best separated places."""
+    candidates = candidate_mask(grid, priors.heading_deg)
+    with run.stage(f"level {grid.level}: render and describe", grid.view_count) as split:
+        scores = _scored_views(grid, candidates, scoring, setup=setup, run=run, split=split)
+    with run.stage(f"level {grid.level}: rank", grid.view_count):
+        count, separation_m = places
+        best = top_places(
+            scores[candidates].astype(np.float32),
+            _selected(grid.cells(), candidates),
+            count,
+            separation_m,
+        )
+        run.emit(
+            Candidates(
+                time_s=run.seconds(),
+                level=grid.level,
+                places=[_candidate(rank, place) for rank, place in enumerate(best, start=1)],
+            )
+        )
+    return best
 
 
-def start_near(
-    photo: PhotoImage,
-    centre_east_north: FloatArray,
-    radius_m: float,
-    context: TrackingContext,
-) -> CameraPose:
-    """The first photo's pose when its position is known roughly: a local search at the ladder."""
-    search = context.config.search
-    candidates = candidate_poses(
-        search,
-        context.scene.area,
-        context.scene.ground_height,
-        centre_east_north,
-        radius_m,
-        FIRST_SEARCH_HEIGHTS_M,
-        [UNKNOWN_PITCH_DEG],
-        list(np.arange(search.heading_count) * 360.0 / search.heading_count),
-        search.spacing_m,
+def _scored_views(  # noqa: PLR0913 (grid, candidates, scoring, setup, run, split)
+    grid: LevelGrid,
+    candidates: npt.NDArray[np.bool_],
+    scoring: _Scoring,
+    *,
+    setup: _Setup,
+    run: _Run,
+    split: _Split,
+) -> npt.NDArray[np.float64]:
+    """Each view's score, rendering and describing whole positions a chunk at a time."""
+    cells = _CellBatcher(run, grid.level)
+    per_position = grid.views_per_position
+    candidate_views = candidates[:per_position]  # the same headings at every position
+    scores = []
+    positions_per_chunk = max(1, DESCRIBE_CHUNK_VIEWS // per_position)
+    for chunk in batched(grid.positions, positions_per_chunk, strict=False):
+        started = time.perf_counter()
+        renders = []
+        for position in chunk:
+            renders.extend(_rendered_views(grid, position, setup))
+            cells.add(
+                [
+                    Cell(
+                        east_m=position.east_m,
+                        north_m=position.north_m,
+                        state="rendered",
+                        similarity=None,
+                    )
+                ]
+            )
+        split.render_seconds += time.perf_counter() - started
+        started = time.perf_counter()
+        similarity = scoring.queries @ setup.describer.describe(renders).T
+        split.describe_seconds += time.perf_counter() - started
+        chunk_scores = fused_scores(similarity, grid.headings_deg, scoring.lattice_offsets)
+        best = np.where(candidate_views, chunk_scores.reshape(len(chunk), per_position), -np.inf)
+        cells.add(
+            [
+                Cell(
+                    east_m=position.east_m,
+                    north_m=position.north_m,
+                    state="described",
+                    similarity=float(score),
+                )
+                for position, score in zip(chunk, best.max(axis=1), strict=True)
+            ]
+        )
+        scores.append(chunk_scores)
+    cells.flush()
+    return np.concatenate(scores) if scores else np.zeros(0, dtype=np.float64)
+
+
+def _rendered_views(
+    grid: LevelGrid, position: Position, setup: _Setup
+) -> list[npt.NDArray[np.uint8]]:
+    """The renders of one position's views, at the render size and the tracker's nominal focal."""
+    config, scene = setup.config, setup.store_scene.scene
+    width, height = config.render_width_px, config.render_height_px
+    intrinsics = pinhole(width, height, nominal_focal(width))
+    max_range_m = setup.context.config.max_range_m
+    return [
+        scene.render(
+            intrinsics,
+            pose_from_enu(
+                scene.area,
+                np.array([position.east_m, position.north_m, position.ground_m + view.height_m]),
+                view.heading_deg,
+                view.pitch_deg,
+                0.0,
+            ),
+            max_range_m,
+        ).rgb
+        for view in grid.views_at(position)
+    ]
+
+
+def _selected(cells: Cells, mask: npt.NDArray[np.bool_]) -> Cells:
+    return Cells(
+        cells.east[mask],
+        cells.north[mask],
+        cells.ground[mask],
+        cells.height[mask],
+        cells.heading[mask],
+        cells.pitch[mask],
     )
+
+
+def _verified(rank: int, place: Place, setup: _Setup, run: _Run) -> Hypothesis:
+    """Refine a place by a local match search, localise the first photo there and track."""
+    run.emit(VerificationStart(time_s=run.seconds(), rank=rank))
+    config, context = setup.config, setup.context
+    photo = setup.images[0]
+    poses = _refinement_poses(place, setup)
     height, width = photo.rgb.shape[:2]
+    focal = nominal_focal(width)
     best = best_candidates(
-        search,
+        context.config.search,
         photo.rgb,
-        candidates,
+        poses,
         context.scene.render,
         context.matcher,
-        pinhole(width, height, nominal_focal(width)),
+        pinhole(width, height, focal),
         context.config.max_range_m,
     )
-    return _refined(photo, best, context, f"the {len(candidates)} renders within {radius_m:.0f} m")
+    attempt = best_attempt(photo, best, focal, context)
+    verify = setup.images[: config.verify_photos]
+    inliers = 0 if attempt.estimate is None else attempt.estimate.inlier_count
+    pose, tracked, median_inliers = None, 0, 0.0
+    if solved(attempt, context.config) and attempt.estimate is not None:
+        pose = pose_from_camera_to_enu(
+            context.scene.area, attempt.estimate.centre_enu, attempt.estimate.camera_to_enu
+        )
+        tracked, median_inliers = _tracked(verify, pose, context)
+    hypothesis = Hypothesis(
+        rank, place, len(poses), inliers, tracked, len(verify), median_inliers, pose
+    )
+    run.emit(
+        VerificationResult(
+            time_s=run.seconds(),
+            rank=rank,
+            inliers=hypothesis.first_photo_inliers,
+            frames_tracked=hypothesis.photos_tracked,
+            frames_total=hypothesis.photos_verified,
+            accepted=_accepted(hypothesis, config),
+        )
+    )
+    return hypothesis
 
 
-def _refined(
-    photo: PhotoImage, priors: Sequence[CameraPose], context: TrackingContext, searched: str
-) -> CameraPose:
-    attempt = best_attempt(photo, priors, nominal_focal(photo.rgb.shape[1]), context)
-    if not solved(attempt, context.config) or attempt.estimate is None:
-        msg = f"none of {searched} localised {photo.name}"
-        raise TrackingError(msg)
-    estimate = attempt.estimate
-    return pose_from_camera_to_enu(context.scene.area, estimate.centre_enu, estimate.camera_to_enu)
+def _refinement_poses(place: Place, setup: _Setup) -> list[CameraPose]:
+    """Poses around a place: nearby positions, heights, pitches and headings about its view."""
+    config, context = setup.config, setup.context
+    return candidate_poses(
+        context.config.search,
+        context.scene.area,
+        context.scene.ground_height,
+        np.array([place.east, place.north]),
+        config.refine_radius_m,
+        [factor * place.height for factor in config.refine_height_factors],
+        [place.pitch + offset for offset in config.refine_pitch_offsets_deg],
+        [place.heading + offset for offset in config.refine_heading_offsets_deg],
+        config.refine_spacing_m,
+    )
+
+
+def _tracked(
+    photos: Sequence[PhotoImage], start: CameraPose, context: TrackingContext
+) -> tuple[int, float]:
+    """Photos tracked or found again from `start`, and their median inliers; 0 if tracking fails."""
+    try:
+        result = track(photos, start, context)
+    except TrackingError:
+        return 0, 0.0
+    located = [
+        photo.inliers
+        for photo in result.photos
+        if photo.status in {PhotoStatus.TRACKED, PhotoStatus.RELOCALISED}
+    ]
+    return len(located), float(median(located)) if located else 0.0
+
+
+def _accepted(hypothesis: Hypothesis, config: FirstFixConfig) -> bool:
+    """Localised, and tracked through enough photos (all of them when fewer were given)."""
+    needed = min(config.min_tracked_photos, hypothesis.photos_verified)
+    return hypothesis.pose is not None and hypothesis.photos_tracked >= needed
+
+
+def _run_start(
+    run: _Run, images: Sequence[PhotoImage], store_scene: StoreScene, config: FirstFixConfig
+) -> RunStart:
+    """The first event: the store's frame and bounds, the priors, the photos and the grid plan.
+
+    Level 1 is planned without the fused frames' heading margin, which is not known yet, and
+    level 2 as the most positions the coarse places can bring.
+    """
+    bounds, scene = store_scene.bounds, store_scene.scene
+    longitude, latitude, _ = ecef_to_geodetic().transform(*scene.area.origin_ecef)
+    coarse = level_one(config, bounds, scene.ground_height, config.priors, 0.0)
+    fine = level_two(config, bounds, scene.ground_height, config.priors, [])
+    fine_positions = planned_fine_positions(config)
+    return RunStart(
+        time_s=run.seconds(),
+        origin_latitude_deg=latitude,
+        origin_longitude_deg=longitude,
+        bounds=Bounds(
+            east_min_m=bounds.west_m,
+            east_max_m=bounds.east_m,
+            north_min_m=bounds.south_m,
+            north_max_m=bounds.north_m,
+        ),
+        priors=config.priors,
+        photos=[image.name for image in images],
+        levels=[
+            GridLevel(
+                level=coarse.level,
+                spacing_m=coarse.spacing_m,
+                positions=len(coarse.positions),
+                views=coarse.view_count,
+            ),
+            GridLevel(
+                level=fine.level,
+                spacing_m=fine.spacing_m,
+                positions=fine_positions,
+                views=fine_positions * fine.views_per_position,
+            ),
+        ],
+    )
+
+
+def _candidate(rank: int, place: Place) -> Candidate:
+    return Candidate(
+        rank=rank,
+        east_m=place.east,
+        north_m=place.north,
+        height_m=place.height,
+        heading_deg=place.heading,
+        pitch_deg=place.pitch,
+        similarity=place.similarity,
+    )
+
+
+def _relaxed_event(run: _Run, relaxation: Relaxation) -> PriorRelaxed:
+    return PriorRelaxed(
+        time_s=run.seconds(),
+        prior=relaxation.prior,
+        half_width_before=relaxation.half_width_before,
+        half_width_after=relaxation.half_width_after,
+    )
+
+
+def _fix_event(run: _Run, found: _Found, store_scene: StoreScene) -> Fix:
+    """The winner's pose; height is above the ground, as in the candidates."""
+    scene = store_scene.scene
+    centre, _ = camera_centre_and_rotation(found.pose, scene.area)
+    ground = scene.ground_height(float(centre[0]), float(centre[1]))
+    return Fix(
+        time_s=run.seconds(),
+        east_m=float(centre[0]),
+        north_m=float(centre[1]),
+        height_m=float(centre[2]) - ground,
+        heading_deg=found.pose.heading_deg,
+        pitch_deg=found.pose.pitch_deg,
+        inliers=found.winner.first_photo_inliers,
+    )

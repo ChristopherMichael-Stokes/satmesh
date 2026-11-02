@@ -123,3 +123,21 @@ button.active { background: var(--accent); border-color: var(--accent); color: #
 #photo { max-height: 150px; object-fit: cover; }
 .key.prior-area { background: rgba(255, 176, 0, 0.25); border: 2px solid #ffb000; }
 .key.prior-heading { background: #ff6b3d; border-radius: 0; height: 3px; vertical-align: 3px; }
+
+header .tabs { margin-left: auto; display: flex; gap: 6px; }
+#process { display: block; overflow-y: auto; padding: 0 16px; }
+#process[hidden], #view-map[hidden] { display: none; }
+#view-map { display: grid; grid-template-columns: 1fr 380px; gap: 12px; min-height: 0; }
+.process-pass { border-left: 3px solid var(--accent); padding-left: 12px; margin: 12px 0; }
+.process-pass h3 { margin: 0; font-size: 14px; }
+.step { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; margin: 8px 0; }
+.step-title { font-weight: 700; }
+.step-text { font-size: 12px; }
+.step-metrics { font-size: 12px; font-variant-numeric: tabular-nums; margin: 4px 0; }
+.bar-row { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
+.bar-label { min-width: 110px; }
+.bar { height: 8px; background: var(--series); border-radius: 2px; }
+.step.running .bar { background: var(--running); }
+.verify-table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; margin-top: 6px; }
+.verify-table th { text-align: left; font-weight: 500; color: var(--muted); }
+.verify-table td, .verify-table th { padding: 1px 6px 1px 0; }

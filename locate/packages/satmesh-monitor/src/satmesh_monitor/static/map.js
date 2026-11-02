@@ -188,5 +188,5 @@ export function createMap(container, start) {
     syncMarkers(wanted);
   }
 
-  return { update };
+  return { update, resize: () => map.resize() };
 }

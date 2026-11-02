@@ -1,5 +1,5 @@
 import { createMap } from "./map.js";
-import { formatClock, renderConvergence, renderFusion, renderLadder, renderLegend, renderPriors, renderProgress } from "./panels.js";
+import { formatClock, renderConvergence, renderFusion, renderLadder, renderLegend, renderProcess, renderPriors, renderProgress } from "./panels.js";
 import { similarityRange, stateAt } from "./reducer.js";
 
 const POLL_INTERVAL_MS = 1000;
@@ -56,6 +56,7 @@ function draw() {
   renderLegend($("legend"), range);
   renderFusion($("fusion"), state, (name) => `/api/photo/${encodeURIComponent(name)}`);
   renderLadder($("ladder"), state);
+  if (!$("process").hidden) renderProcess($("process"), state);
   if (spreadCache.count !== events.length) {
     spreadCache = { count: events.length, series: stateAt(events, Infinity).spread };
   }
@@ -98,7 +99,16 @@ async function poll() {
   setTimeout(poll, POLL_INTERVAL_MS);
 }
 
+function showView(view) {
+  $("process").hidden = view !== "process";
+  $("view-map").hidden = view !== "map";
+  for (const tab of document.querySelectorAll("[data-view]")) tab.classList.toggle("active", tab.dataset.view === view);
+  if (view === "map") mapView.resize();
+  draw();
+}
+
 function wireControls() {
+  for (const tab of document.querySelectorAll("[data-view]")) tab.addEventListener("click", () => showView(tab.dataset.view));
   $("play").addEventListener("click", () => {
     if (!playing && timeS >= durationS) timeS = 0;
     setPlaying(!playing);

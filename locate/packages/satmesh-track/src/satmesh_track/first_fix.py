@@ -179,7 +179,14 @@ class _Run:
         self.emit(StageStart(time_s=started, stage=name, units=units))
         yield split
         ended = self.seconds()
-        self.emit(StageEnd(time_s=ended, stage=name))
+        self.emit(
+            StageEnd(
+                time_s=ended,
+                stage=name,
+                render_seconds=split.render_seconds or None,
+                describe_seconds=split.describe_seconds or None,
+            )
+        )
         self.timings.append(
             StageTime(name, ended - started, split.render_seconds, split.describe_seconds)
         )
@@ -535,7 +542,8 @@ def _selected(cells: Cells, mask: npt.NDArray[np.bool_]) -> Cells:
 
 def _verified(rank: int, place: Place, setup: _Setup, run: _Run) -> Hypothesis:
     """Refine a place by a local match search, localise the first photo there and track."""
-    run.emit(VerificationStart(time_s=run.seconds(), rank=rank))
+    started_s = run.seconds()
+    run.emit(VerificationStart(time_s=started_s, rank=rank))
     config, context = setup.config, setup.context
     photo = setup.images[0]
     poses = _refinement_poses(place, setup)
@@ -551,6 +559,7 @@ def _verified(rank: int, place: Place, setup: _Setup, run: _Run) -> Hypothesis:
         context.config.max_range_m,
     )
     attempt = best_attempt(photo, best, focal, context)
+    refined_s = run.seconds()
     verify = setup.images[: config.verify_photos]
     inliers = 0 if attempt.estimate is None else attempt.estimate.inlier_count
     pose, tracked, median_inliers = None, 0, 0.0
@@ -570,6 +579,9 @@ def _verified(rank: int, place: Place, setup: _Setup, run: _Run) -> Hypothesis:
             frames_tracked=hypothesis.photos_tracked,
             frames_total=hypothesis.photos_verified,
             accepted=_accepted(hypothesis, config),
+            refine_views=len(poses),
+            refine_seconds=refined_s - started_s,
+            track_seconds=run.seconds() - refined_s,
         )
     )
     return hypothesis

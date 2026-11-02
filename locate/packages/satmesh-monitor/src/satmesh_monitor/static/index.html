@@ -14,8 +14,13 @@
     <h1>satmesh monitor</h1>
     <span id="status" class="chip">loading</span>
     <span id="area" class="muted"></span>
+    <nav class="tabs">
+      <button type="button" data-view="map" class="active">Map</button>
+      <button type="button" data-view="process">Process</button>
+    </nav>
   </header>
-  <main>
+  <main id="process" hidden></main>
+  <main id="view-map">
     <div id="map"></div>
     <aside>
       <section id="photo-panel" hidden>

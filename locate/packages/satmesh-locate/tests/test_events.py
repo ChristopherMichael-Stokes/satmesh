@@ -60,7 +60,7 @@ def a_run() -> list[Event]:
             level=1,
             cells=[Cell(east_m=0.0, north_m=0.0, state="described", similarity=0.21)],
         ),
-        StageEnd(time_s=2.0, stage="level 1: render"),
+        StageEnd(time_s=2.0, stage="level 1: render", render_seconds=1.2, describe_seconds=0.7),
         Candidates(
             time_s=2.1,
             level=1,
@@ -79,7 +79,15 @@ def a_run() -> list[Event]:
         ),
         VerificationStart(time_s=3.0, rank=1),
         VerificationResult(
-            time_s=4.0, rank=1, inliers=388, frames_tracked=12, frames_total=12, accepted=True
+            time_s=4.0,
+            rank=1,
+            inliers=388,
+            frames_tracked=12,
+            frames_total=12,
+            accepted=True,
+            refine_views=585,
+            refine_seconds=9.5,
+            track_seconds=7.9,
         ),
         PriorRelaxed(time_s=4.1, prior="heading", half_width_before=45.0, half_width_after=90.0),
         Fix(

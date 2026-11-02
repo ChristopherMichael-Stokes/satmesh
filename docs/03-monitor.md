@@ -30,6 +30,11 @@ Open `http://127.0.0.1:8765/`. The monitor only reads: it changes nothing in the
   level 2 places, how its places verified, and the widening that followed when nothing verified
   (heading first, then pitch, then area). The last block ends with the fix.
 - **Photo:** the first photo of the run, when `--photos` names the directory holding it.
+- **Process tab:** the run in order, each step with a plain description and what this run spent on
+  it: units (views, places, photos), time each, seconds and share of the run. Render and describe
+  stages show the split between the two; verification lists each place's refine views and seconds,
+  tracking seconds, frames tracked and inliers. Each search pass is its own block, with the
+  widening that followed it.
 - **Timeline:** a scrubber, play and pause at 1x, 10x and 60x. The map shows the run as it stood at
   the chosen time. A run that is still growing is followed live until the scrubber is moved back;
   End jumps to the latest event.

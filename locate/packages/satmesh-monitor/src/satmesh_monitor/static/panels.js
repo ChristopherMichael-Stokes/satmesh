@@ -205,3 +205,104 @@ export function renderLadder(container, state) {
   }
   container.replaceChildren(...blocks);
 }
+
+const STEP_TEXT = {
+  "yaw offsets": "XFeat features are matched between the fused frames; each pair's rotation becomes a heading change about the vertical. The first frame is the reference.",
+  "describe photos": "MegaLoc turns each fused frame into an 8,448-number descriptor. Two views look alike when the cosine of their descriptors is high.",
+  "render and describe": "The store is rendered from every position of the lattice at each allowed height, pitch and heading, in chunks, and each render is described with MegaLoc. Views = positions × heights × pitches × headings.",
+  "rank 1": "Each view scores the sum over the fused frames of the cosine between that frame's descriptor and the render at the view's heading plus the frame's offset. The best places, kept apart, go to level 2.",
+  "rank 2": "Each view scores the cosine between the first photo's descriptor and the render. The best places, kept apart, go to verification.",
+  verification: "Each place is refined (renders of nearby poses matched to the first photo with XFeat and LighterGlue, the best one solved to a pose), then a solved place tracks the first photos. Most photos tracked, then median inliers, wins.",
+};
+const LEVEL_TEXT = {
+  1: "Coarse search: a wide lattice, scored by the fused frames. The best places become the centres of level 2.",
+  2: "Fine search: a tight lattice within a radius of each level 1 place, scored by the first photo alone. The best places go to verification.",
+};
+const MS_PER_S = 1000;
+const MIN_PER_UNIT_SECONDS = 0.05;
+
+function unitName(stage) {
+  if (stage === "verification") return "places";
+  if (stage === "yaw offsets") return "frame pairs";
+  if (stage === "describe photos") return "photos";
+  return "views";
+}
+
+function perUnit(seconds, units) {
+  if (units === 0 || seconds < MIN_PER_UNIT_SECONDS) return "";
+  const each = seconds / units;
+  return each >= 1 ? ` · ${each.toFixed(1)} s each` : ` · ${(each * MS_PER_S).toFixed(1)} ms each`;
+}
+
+function stageSeconds(stage, nowS) {
+  return (stage.endS ?? nowS) - stage.startS;
+}
+
+function barRow(label, seconds, totalS) {
+  const row = element("div", "bar-row");
+  const bar = element("div", "bar");
+  bar.style.width = `${Math.max(0.5, (100 * seconds) / Math.max(totalS, 1e-9))}%`;
+  row.append(element("span", "bar-label", label), bar);
+  return row;
+}
+
+function stageCard(stage, title, text, totalS, nowS) {
+  const seconds = stageSeconds(stage, nowS);
+  const card = element("div", `step ${stage.endS === null ? "running" : "done"}`);
+  card.append(element("div", "step-title", title), element("div", "step-text muted", text));
+  card.append(element("div", "step-metrics", `${stage.units.toLocaleString()} ${unitName(stage.stage)}${perUnit(seconds, stage.units)} · ${seconds.toFixed(1)} s · ${((100 * seconds) / Math.max(totalS, 1e-9)).toFixed(0)} % of the run`));
+  if (stage.renderS != null && stage.describeS != null) {
+    card.append(barRow(`render ${stage.renderS.toFixed(1)} s`, stage.renderS, seconds), barRow(`describe ${stage.describeS.toFixed(1)} s`, stage.describeS, seconds));
+  } else {
+    card.append(barRow("", seconds, totalS));
+  }
+  return card;
+}
+
+function verificationCard(pass, stage, totalS, nowS) {
+  const card = stageCard(stage, "verification", STEP_TEXT.verification, totalS, nowS);
+  const table = element("table", "verify-table");
+  const head = element("tr");
+  head.append(...["place", "refine views", "refine s", "track s", "tracked", "inliers", "verdict"].map((h) => element("th", "", h)));
+  table.append(head);
+  for (const [rank, result] of [...pass.verification.entries()].sort((a, b) => a[0] - b[0])) {
+    const row = element("tr", `verdict ${result.status}`);
+    const cells = result.status === "running" || result.status === "queued"
+      ? [`#${rank}`, "", "", "", "", "", result.status]
+      : [`#${rank}`, result.refineViews ?? "–", result.refineS?.toFixed(1) ?? "–", result.trackS?.toFixed(1) ?? "–", `${result.framesTracked}/${result.framesTotal}`, result.inliers, result.status];
+    row.append(...cells.map((c) => element("td", "", String(c))));
+    table.append(row);
+  }
+  card.append(table);
+  return card;
+}
+
+// The whole process in order, each step with what it does and what this run spent on it.
+export function renderProcess(container, state) {
+  const nowS = state.ended ? state.ended.timeS : state.timeS;
+  const totalS = Math.max(nowS, 1e-9);
+  const nodes = [element("h2", "", `The run in order · ${formatClock(nowS)} in total`)];
+  for (const stage of state.prelude) nodes.push(stageCard(stage, stage.stage, STEP_TEXT[stage.stage], totalS, nowS));
+  for (const pass of state.passes) {
+    if (pass.stages.length === 0 && !pass.relaxation) continue;
+    const block = element("section", "process-pass");
+    block.append(element("h3", "", `Search pass ${pass.index}`), element("p", "muted", priorsLine(pass.priors)));
+    for (const stage of pass.stages) {
+      const level = /^level (\d)/.exec(stage.stage)?.[1];
+      if (stage.stage === "verification") {
+        block.append(verificationCard(pass, stage, totalS, nowS));
+        continue;
+      }
+      const kind = stage.stage.replace(/^level \d: /, "");
+      const text = kind === "rank" ? STEP_TEXT[`rank ${level}`] : level ? `${LEVEL_TEXT[level]} ${STEP_TEXT[kind]}` : STEP_TEXT[kind];
+      block.append(stageCard(stage, stage.stage, text, totalS, nowS));
+    }
+    if (pass.relaxation) {
+      const r = pass.relaxation;
+      block.append(element("div", "relaxed", `Nothing verified, so ${r.prior} is widened (${r.half_width_before} → ${r.half_width_after}) and the search runs again.`));
+    }
+    nodes.push(block);
+  }
+  if (state.fix) nodes.push(element("div", "verdict accepted", `Result: ${state.fix.east_m.toFixed(0)}, ${state.fix.north_m.toFixed(0)} m, heading ${state.fix.heading_deg.toFixed(0)}°, ${state.fix.inliers} inliers.`));
+  container.replaceChildren(...nodes);
+}

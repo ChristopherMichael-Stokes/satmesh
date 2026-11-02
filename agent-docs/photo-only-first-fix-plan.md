@@ -23,6 +23,15 @@ with F3).
 - F1, F2 and F3 done 2026-11-02 (`photo-only-first-fix-f1-f2-results.md`,
   `photo-only-first-fix-f3-results.md`). F7 done 2026-11-02
   (`photo-only-first-fix-f7-results.md`). F4, F5, F6 next.
+- F7 follow-ups (owner decisions, none measured; counts from the wrong-prior run of 2026-11-02,
+  465 s: pass 1 138 s of which 106 s verification, pass 2 327 s of which 212 s level 2):
+  1. MegaLoc in FP16 on TensorRT (plan to be written; inference is 53 % of a run).
+  2. Drop a hopeless place early in verification; verification is a fixed 105 s a pass for six
+     places, and the Process tab shows why: refine (585 renders matched, 16 to 18 s a place) is
+     nearly all of it, tracking is 1 s, so the early exit has to act inside the refine.
+  3. Widen the heading in steps (45, 90, 180 degrees) instead of straight to the full circle.
+  4. Restrict level 2 headings to a few lattice steps around each level 1 place's best heading
+     (level 2 searches all 12 at every fine position today).
 - Owner approved PyTorch and GeoCalib for F5 and store downloads for the held-out clips;
   Hergest Court is the sealed clip (`decisions.md`).
 

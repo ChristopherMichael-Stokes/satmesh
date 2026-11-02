@@ -132,11 +132,13 @@ class StageStart(EventModel):
 
 
 class StageEnd(EventModel):
-    """A stage ends."""
+    """A stage ends; a render-and-describe stage also reports the seconds spent on each part."""
 
     kind: Literal["stage_end"] = "stage_end"
     time_s: float = Field(ge=0.0)
     stage: str
+    render_seconds: float | None = Field(default=None, ge=0.0)
+    describe_seconds: float | None = Field(default=None, ge=0.0)
 
 
 class CellBatch(EventModel):
@@ -175,6 +177,9 @@ class VerificationResult(EventModel):
     frames_tracked: int = Field(ge=0)
     frames_total: int = Field(ge=0)
     accepted: bool
+    refine_views: int | None = Field(default=None, ge=0)
+    refine_seconds: float | None = Field(default=None, ge=0.0)
+    track_seconds: float | None = Field(default=None, ge=0.0)
 
 
 class PriorRelaxed(EventModel):

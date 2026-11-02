@@ -22,8 +22,11 @@ function relaxed(priors, event) {
   return priors[key] && { ...priors, [key]: { ...priors[key], half_width: event.half_width_after } };
 }
 
+// Stages that run once, before the first search pass.
+const PRELUDE_STAGES = new Set(["yaw offsets", "describe photos"]);
+
 function newPass(index, priors, startS) {
-  return { index, priors, startS, endS: null, candidates: new Map(), verification: new Map(), relaxation: null };
+  return { index, priors, startS, endS: null, stages: [], candidates: new Map(), verification: new Map(), relaxation: null };
 }
 
 function applyEvent(state, event) {
@@ -37,12 +40,15 @@ function applyEvent(state, event) {
     case "fusion_window":
       state.fusion = event;
       break;
-    case "stage_start":
-      state.stages.push({ stage: event.stage, units: event.units, startS: event.time_s, endS: null });
+    case "stage_start": {
+      const stage = { stage: event.stage, units: event.units, startS: event.time_s, endS: null, renderS: null, describeS: null };
+      state.stages.push(stage);
+      (PRELUDE_STAGES.has(event.stage) ? state.prelude : pass.stages).push(stage);
       break;
+    }
     case "stage_end": {
       const open = state.stages.findLast((s) => s.stage === event.stage && s.endS === null);
-      if (open) open.endS = event.time_s;
+      if (open) Object.assign(open, { endS: event.time_s, renderS: event.render_seconds, describeS: event.describe_seconds });
       break;
     }
     case "cell_batch":
@@ -55,7 +61,7 @@ function applyEvent(state, event) {
       break;
     case "verification_start":
       state.verification.set(event.rank, { status: "running" });
-      pass.verification.set(event.rank, { status: "running" });
+      pass.verification.set(event.rank, { status: "running", startS: event.time_s });
       break;
     case "verification_result": {
       const result = {
@@ -63,6 +69,10 @@ function applyEvent(state, event) {
         inliers: event.inliers,
         framesTracked: event.frames_tracked,
         framesTotal: event.frames_total,
+        startS: pass.verification.get(event.rank)?.startS ?? null,
+        refineViews: event.refine_views,
+        refineS: event.refine_seconds,
+        trackS: event.track_seconds,
       };
       state.verification.set(event.rank, result);
       pass.verification.set(event.rank, result);
@@ -95,6 +105,7 @@ export function stateAt(events, timeS) {
     candidates: new Map(),
     verification: new Map(),
     passes: [],
+    prelude: [],
     fusion: null,
     spread: [],
     fix: null,

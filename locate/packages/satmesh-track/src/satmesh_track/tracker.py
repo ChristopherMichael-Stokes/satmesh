@@ -65,7 +65,7 @@ FIRST_PHOTO_FOCAL_TRIES = (
     1.1,
     1.2,
 )  # times the nominal focal; a pose solved at a wrong focal is biased
-MAX_RANGE_M = 500.0
+MAX_RANGE_M = 1000.0  # render hits farther than this count as misses (black sky and far field)
 FIRST_SEARCH_HEIGHTS_M = (25.0, 50.0, 100.0)  # height ladder: a render up to 2 times higher matches
 MIN_FIXES_FOR_VELOCITY = 2
 HELD_FIXES_AS_PRIORS = 3  # earlier fixes tried as priors: a weak last fix misleads the next photo
